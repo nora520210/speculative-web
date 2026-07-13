@@ -11,7 +11,15 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
-from server.config import GENERATED_IMAGE_DIR, MAX_JSON_BODY_BYTES, MAX_UPLOAD_BYTES, storage_mode
+from server.config import (
+    GENERATED_IMAGE_DIR,
+    MAX_JSON_BODY_BYTES,
+    MAX_UPLOAD_BYTES,
+    MAX_USER_API_KEY_CHARS,
+    UPLOAD_DIR,
+    storage_mode,
+    user_api_key_required,
+)
 from server.documents import inspect_document
 from server.graph_store import (
     add_edge,
@@ -36,7 +44,6 @@ from server.rendering import render_document
 
 ROOT = Path(__file__).resolve().parent
 STATIC_DIR = ROOT / "static"
-UPLOAD_DIR = ROOT / "data" / "uploads"
 
 
 def ensure_data() -> None:
@@ -167,8 +174,15 @@ class AppHandler(SimpleHTTPRequestHandler):
 
             if len(action) == 3 and action[0] == "nodes" and action[2] == "run":
                 node_id = action[1]
+                api_key = self.user_api_key()
+                if user_api_key_required() and not api_key:
+                    self.send_json(
+                        {"error": "Enter an API key in this browser tab before running a Modify node."},
+                        status=HTTPStatus.UNAUTHORIZED,
+                    )
+                    return
                 try:
-                    result = run_modify(project_id, node_id)
+                    result = run_modify(project_id, node_id, api_key=api_key or None)
                 except (KeyError, ValueError) as exc:
                     self.send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
                     return
@@ -370,15 +384,31 @@ class AppHandler(SimpleHTTPRequestHandler):
             return parts[2:]
         return None
 
+    def user_api_key(self) -> str:
+        key = self.headers.get("X-Speculative-Web-Api-Key", "").strip()
+        if len(key) > MAX_USER_API_KEY_CHARS:
+            return ""
+        return key
+
     def send_json(self, payload: dict, status: HTTPStatus = HTTPStatus.OK) -> None:
         body = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(body)
 
     def end_headers(self) -> None:
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "same-origin")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header(
+            "Content-Security-Policy",
+            "default-src 'self'; connect-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
+        )
+        if self.headers.get("X-Forwarded-Proto") == "https":
+            self.send_header("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
         if self.path.startswith("/static/") or self.path.startswith("/generated/"):
             ctype = mimetypes.guess_type(self.path)[0]
             if ctype:

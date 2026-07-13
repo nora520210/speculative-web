@@ -263,7 +263,7 @@ def delete_edge(project_id: str, edge_id: str) -> dict:
     return {"edge": edge}
 
 
-def run_modify(project_id: str, node_id: str) -> dict:
+def run_modify(project_id: str, node_id: str, api_key: str | None = None) -> dict:
     canvas = read_canvas(project_id)
     modify = next((node for node in canvas["nodes"] if node["id"] == node_id), None)
     if not modify:
@@ -291,6 +291,7 @@ def run_modify(project_id: str, node_id: str) -> dict:
         snapshot,
         output_type,
         recommendation,
+        api_key,
     )
     run = {
         "id": run_id,
@@ -359,12 +360,14 @@ def generate_or_placeholder_output(
     snapshot: list[dict],
     output_type: str,
     recommendation: dict,
+    api_key: str | None = None,
 ) -> dict:
     if not openai_runs_enabled():
         return placeholder_model_payload(output_type, recommendation)
     try:
         model_result = generate_modify_response(
-            build_modify_prompt(canvas, upstream_ids, snapshot, output_type, recommendation)
+            build_modify_prompt(canvas, upstream_ids, snapshot, output_type, recommendation),
+            api_key=api_key,
         )
     except (ModelServiceError, ModelServiceNotConfigured) as exc:
         return {
@@ -384,9 +387,9 @@ def generate_or_placeholder_output(
 
     parsed = parse_model_json(model_result["text"])
     text = output_text_from_model(parsed, model_result["text"], output_type)
-    parsed = ensure_text_blocks(parsed, text, snapshot, output_type)
+    parsed = ensure_text_blocks(parsed, text, snapshot, output_type, api_key=api_key)
     image_prompt = image_prompt_for_output(parsed, text, output_type)
-    image_result = image_payload_for_output(project_id, run_id, image_prompt, output_type)
+    image_result = image_payload_for_output(project_id, run_id, image_prompt, output_type, api_key=api_key)
     return {
         "run_status": "failed" if image_result.get("image_error") and output_type == "image" else "succeeded",
         "text": text,
@@ -426,13 +429,19 @@ def image_prompt_for_output(parsed: dict | None, text: str, output_type: str) ->
 TEXT_BLOCK_TYPES = {"callout", "paragraph", "table", "bar_chart", "list", "questions"}
 
 
-def ensure_text_blocks(parsed: dict | None, text: str, snapshot: list[dict], output_type: str) -> dict | None:
+def ensure_text_blocks(
+    parsed: dict | None,
+    text: str,
+    snapshot: list[dict],
+    output_type: str,
+    api_key: str | None = None,
+) -> dict | None:
     if output_type != "text" or not text_forms_for_snapshot(snapshot):
         return parsed
     if isinstance(parsed, dict) and valid_text_blocks(parsed.get("text_blocks")):
         return parsed
     try:
-        repair = generate_modify_response(build_text_block_repair_prompt(snapshot, text))
+        repair = generate_modify_response(build_text_block_repair_prompt(snapshot, text), api_key=api_key)
     except (ModelServiceError, ModelServiceNotConfigured):
         return parsed
     repaired = parse_model_json(repair.get("text", ""))
@@ -516,13 +525,19 @@ def constrained_image_prompt(scene_prompt: str, semantic_basis: str) -> str:
     )
 
 
-def image_payload_for_output(project_id: str, run_id: str, image_prompt: str, output_type: str) -> dict:
+def image_payload_for_output(
+    project_id: str,
+    run_id: str,
+    image_prompt: str,
+    output_type: str,
+    api_key: str | None = None,
+) -> dict:
     if output_type not in {"image", "multimodal"}:
         return {}
     if not image_prompt:
         return {"image_error": "No image_prompt was returned by the text generation step."}
     try:
-        result = generate_image_response(image_prompt)
+        result = generate_image_response(image_prompt, api_key=api_key)
     except (ModelServiceError, ModelServiceNotConfigured) as exc:
         return {"image_error": str(exc)}
     if result.get("b64_json"):

@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="/static/styles.css?v=20260713" />
   </head>
   <body>
-    <main class="app-shell">
+    <main id="app-shell" class="app-shell">
       <section class="home" aria-labelledby="home-title">
         <header class="topline">
           <div>
@@ -141,7 +141,39 @@
           </figure>
         </div>
       </section>
+
     </main>
+
+    <section id="api-access-gate" class="api-access-gate" aria-modal="true" role="dialog" aria-labelledby="api-access-title">
+        <div class="api-access-panel">
+          <header>
+            <div>
+              <p class="eyebrow" data-i18n="access.eyebrow">Private API Access</p>
+              <h2 id="api-access-title" data-i18n="access.title">Enter your API key</h2>
+            </div>
+            <button class="language-toggle" type="button" data-language-toggle>中文</button>
+          </header>
+          <form id="api-access-form" class="api-access-form">
+            <label for="api-access-key" data-i18n="access.label">OpenAI API key</label>
+            <input
+              id="api-access-key"
+              type="password"
+              inputmode="text"
+              autocomplete="off"
+              autocapitalize="off"
+              autocorrect="off"
+              spellcheck="false"
+              aria-describedby="api-access-notice api-access-error"
+              data-i18n-placeholder="access.placeholder"
+              placeholder="Paste an API key for this tab"
+              required
+            />
+            <p id="api-access-notice" data-i18n="access.notice">The key stays only in this tab's memory and is sent only when you run a model operation. Refreshing the page clears it.</p>
+            <p id="api-access-error" class="api-access-error" aria-live="polite"></p>
+            <button type="submit" data-i18n="access.continue">Continue</button>
+          </form>
+        </div>
+    </section>
     <script src="/static/app.js?v=20260713"></script>
   </body>
 </html>

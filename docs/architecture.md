@@ -53,9 +53,11 @@ The architecture supports iterative tool/theory mapping.
 
 ## Security Boundaries
 
-- API keys stay in backend environment variables or the local `.env` file only.
-- The frontend reads `/api/model/status`, which exposes only whether the key is configured, whether runs are enabled, model status, and broad capabilities.
-- OpenAI calls happen only inside `server/model_service.py`; API keys are never written into canvas JSON, run snapshots, frontend JavaScript, or status responses.
+- Each browser tab requires a visitor-supplied API key before it can run a Modify node. The frontend holds that key in JavaScript memory only and clears the form field immediately after acceptance; it is not stored in browser storage, cookies, URLs, canvas JSON, run snapshots, or status responses.
+- The run request sends the key only as the same-origin `X-Speculative-Web-Api-Key` header. `app.py` rejects a model run without that header when `SPEC_WEB_REQUIRE_USER_API_KEY=1`.
+- OpenAI calls happen only inside `server/model_service.py`. The run-specific key is passed through the executor only for the active request and is never persisted or logged by this application.
+- The frontend reads `/api/model/status`, which exposes only run enablement, model status, and broad capabilities, never secrets.
+- API responses are marked `Cache-Control: no-store`; browser responses include CSP, frame denial, referrer, and content-type protections. HSTS is sent on HTTPS-forwarded requests.
 - Static file routing is scoped to `static/` and rejects path traversal outside that directory.
 - JSON and document upload request bodies have size limits in `server/config.py`.
 - Graph mutation validates node types, edge kinds, and edge endpoint existence before writing canvas data.
@@ -98,22 +100,12 @@ For future iteration, `data/tool_registry.json` can override the default list wi
 }
 ```
 
-## API Key Setup
+## API Key Access
 
-Use one backend-only location:
+The default deployment mode uses a visitor-owned API key rather than a shared server-side model budget. Every new page load displays the API access gate. The key is held only for that tab and sent only with a Modify Run header; reloads and tab closes clear it.
 
-```bash
-cp .env.example .env
-```
-
-Then put the key in `.env`:
-
-```bash
-OPENAI_API_KEY=sk-...
-```
-
-Restart the local server after editing `.env`. The key is read once by the backend process and is never sent to the browser.
+For trusted local development, an administrator may set `SPEC_WEB_REQUIRE_USER_API_KEY=0` and configure `OPENAI_API_KEY` in `.env`. Do not use that fallback for a public Vercel deployment.
 
 ## Vercel Runtime
 
-`vercel.json` rewrites requests to the Python entrypoint. In local development data is written beneath `data/`; on Vercel, absent an explicit `SPEC_WEB_DATA_DIR`, the app uses `/tmp/speculative-web` so it can run inside the serverless filesystem. That directory is ephemeral and must be replaced with a database and object storage integration before persistent production use. Protect public deployments until authentication and model-usage controls exist.
+`vercel.json` rewrites requests to the Python entrypoint. In local development data is written beneath `data/`; on Vercel, absent an explicit `SPEC_WEB_DATA_DIR`, the app uses `/tmp/speculative-web` so it can run inside the serverless filesystem. That directory is ephemeral and must be replaced with a database and object storage integration before persistent production use. The public deployment should keep `SPEC_WEB_REQUIRE_USER_API_KEY=1`, use Vercel HTTPS, and avoid configuring a shared production `OPENAI_API_KEY`.

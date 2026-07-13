@@ -19,6 +19,7 @@ TOOL_REGISTRY_FILE = DATA_DIR / "tool_registry.json"
 TOOL_PACKAGE_DIR = ROOT / "tool_packages"
 MAX_JSON_BODY_BYTES = int(os.environ.get("SPEC_WEB_MAX_JSON_BODY_BYTES", str(1_000_000)))
 MAX_UPLOAD_BYTES = int(os.environ.get("SPEC_WEB_MAX_UPLOAD_BYTES", str(25_000_000)))
+MAX_USER_API_KEY_CHARS = int(os.environ.get("SPEC_WEB_MAX_USER_API_KEY_CHARS", "512"))
 
 
 def storage_mode() -> str:
@@ -27,6 +28,10 @@ def storage_mode() -> str:
     if os.environ.get("VERCEL"):
         return "ephemeral"
     return "local"
+
+
+def user_api_key_required() -> bool:
+    return os.environ.get("SPEC_WEB_REQUIRE_USER_API_KEY", "1").lower() not in {"0", "false", "no"}
 
 RUNTIME_ROOT = Path(
     os.environ.get(

@@ -779,6 +779,68 @@ button:disabled:focus-visible {
   background: color-mix(in srgb, var(--bg) 84%, transparent);
 }
 
+.api-access-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  background: var(--bg);
+}
+
+.api-access-gate.hidden {
+  display: none;
+}
+
+.api-access-panel {
+  width: min(520px, 100%);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+.api-access-panel header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid var(--line);
+  padding: 16px;
+}
+
+.api-access-form {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.api-access-form label {
+  font-size: 13px;
+}
+
+.api-access-form input {
+  width: 100%;
+  min-height: 42px;
+  border-radius: 0;
+}
+
+.api-access-form p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.api-access-form .api-access-error {
+  min-height: 18px;
+  color: var(--ink);
+}
+
+.api-access-form button[type="submit"] {
+  justify-self: start;
+}
+
 .reader-panel {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
@@ -1018,7 +1080,8 @@ pre {
   }
 
   .text-reader,
-  .image-viewer {
+  .image-viewer,
+  .api-access-gate {
     padding: 12px;
   }
 

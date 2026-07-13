@@ -6,7 +6,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from dataclasses import dataclass
 
-from server.config import load_env_file
+from server.config import MAX_USER_API_KEY_CHARS, load_env_file, user_api_key_required
 
 
 load_env_file()
@@ -44,6 +44,7 @@ def model_environment_status() -> dict:
     return {
         "openai_api_key_configured": has_key,
         "openai_runs_enabled": runs_enabled,
+        "user_api_key_required": user_api_key_required(),
         "model": configured_model(),
         "capabilities": [capability.__dict__ for capability in capabilities],
     }
@@ -69,19 +70,21 @@ def configured_image_model() -> str:
     return os.environ.get("OPENAI_IMAGE_MODEL", "").strip() or "gpt-image-1"
 
 
-def require_openai_key() -> str:
-    key = os.environ.get("OPENAI_API_KEY")
+def require_openai_key(api_key: str | None = None) -> str:
+    key = (api_key or os.environ.get("OPENAI_API_KEY") or "").strip()
+    if len(key) > MAX_USER_API_KEY_CHARS:
+        raise ModelServiceNotConfigured("The API key is too long.")
     if not key:
         raise ModelServiceNotConfigured(
-            "OPENAI_API_KEY is not configured. Keep it in the backend environment only."
+            "No API key is available for this run."
         )
     return key
 
 
-def generate_modify_response(prompt: str) -> dict:
+def generate_modify_response(prompt: str, api_key: str | None = None) -> dict:
     if not openai_runs_enabled():
         raise ModelServiceNotConfigured("OpenAI runs are disabled for this process.")
-    key = require_openai_key()
+    key = require_openai_key(api_key)
     model = resolve_model(key)
     try:
         return call_responses_api(key, model, prompt)
@@ -94,10 +97,10 @@ def generate_modify_response(prompt: str) -> dict:
             raise responses_error
 
 
-def generate_image_response(prompt: str) -> dict:
+def generate_image_response(prompt: str, api_key: str | None = None) -> dict:
     if not openai_runs_enabled():
         raise ModelServiceNotConfigured("OpenAI runs are disabled for this process.")
-    key = require_openai_key()
+    key = require_openai_key(api_key)
     model = configured_image_model()
     response = openai_json_request(
         OPENAI_IMAGE_GENERATIONS_URL,

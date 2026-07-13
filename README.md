@@ -11,7 +11,13 @@ PORT=8002 python3 app.py
 
 Open `http://127.0.0.1:8002`.
 
-Copy `.env.example` to `.env` and add `OPENAI_API_KEY` only for live model runs. The key remains server-side.
+Copy `.env.example` to `.env`. By default, the browser asks each visitor for their own API key before any model operation. A local `OPENAI_API_KEY` is optional only for trusted development when `SPEC_WEB_REQUIRE_USER_API_KEY=0`.
+
+## API Key Access
+
+Each new page load begins with an API-key access gate. The submitted key is kept only in the current browser tab's memory, is cleared on refresh or tab close, and is sent only with a Modify Run request in a same-origin request header. It is never put in browser storage, canvas data, run history, URLs, or server logs.
+
+The key is checked when the user first runs a model operation. This is an access gate for a visitor-owned API key, not a user-account system.
 
 ## Interface Language
 
@@ -24,13 +30,13 @@ This repository is prepared for Vercel's Python runtime:
 1. Import the GitHub repository in Vercel.
 2. Vercel detects `vercel.json`; no build command is required.
 3. In **Project Settings -> Environment Variables**, set:
-   - `OPENAI_API_KEY` as a secret
    - `OPENAI_IMAGE_MODEL=gpt-image-2`
    - `SPEC_WEB_ENABLE_OPENAI_RUNS=1`
+   - `SPEC_WEB_REQUIRE_USER_API_KEY=1`
    - optionally `OPENAI_MODEL` for a fixed text model
 4. Deploy and test `/api/health`.
 
-The Vercel runtime uses `/tmp/speculative-web`, so canvases, uploaded documents, and generated image files are **ephemeral** there. The deployed site works within a warm runtime, but it must be connected to a durable database and object store before treating saved canvases as persistent production data. Do not add `OPENAI_API_KEY` to source files or browser-side code. Until authentication and usage controls are added, enable Vercel Deployment Protection or restrict site access to your team; otherwise an unauthenticated public Run endpoint could consume the model budget.
+The Vercel runtime uses `/tmp/speculative-web`, so canvases, uploaded documents, and generated image files are **ephemeral** there. The deployed site works within a warm runtime, but it must be connected to a durable database and object store before treating saved canvases as persistent production data. Do not configure a shared production `OPENAI_API_KEY` for the visitor-key flow or add a key to source files or browser-side code. Vercel supplies HTTPS; the app also sends browser security headers and no-store API responses.
 
 ## Checks
 

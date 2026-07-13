@@ -35,6 +35,11 @@ const imageViewerTitle = document.querySelector("#image-viewer-title");
 const imageViewerImg = document.querySelector("#image-viewer-img");
 const imageViewerCaption = document.querySelector("#image-viewer-caption");
 const closeImageViewerButton = document.querySelector("[data-close-image-viewer]");
+const apiAccessGate = document.querySelector("#api-access-gate");
+const apiAccessForm = document.querySelector("#api-access-form");
+const apiAccessKey = document.querySelector("#api-access-key");
+const apiAccessError = document.querySelector("#api-access-error");
+const appShell = document.querySelector("#app-shell");
 
 let activeProject = null;
 let activeCanvas = null;
@@ -45,6 +50,7 @@ let contextNodeId = null;
 let contextEdgeId = null;
 let zoom = 1;
 let spacePressed = false;
+let tabApiKey = "";
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 1;
 const ZOOM_STEP = 0.25;
@@ -151,6 +157,15 @@ const translations = {
     "composition.parallel": "parallel",
     "composition.sequential": "sequential",
     "composition.synthesis": "synthesis",
+    "access.eyebrow": "Private API Access",
+    "access.title": "Enter your API key",
+    "access.label": "OpenAI API key",
+    "access.placeholder": "Paste an API key for this tab",
+    "access.notice": "The key stays only in this tab's memory and is sent only when you run a model operation. Refreshing the page clears it.",
+    "access.continue": "Continue",
+    "access.invalid": "Enter a valid API key to continue.",
+    "access.required": "Enter your API key before running a model operation.",
+    "access.active": "A personal API key is active for this tab. It is never saved by this site.",
   },
   zh: {
     "document.title": "思辨设计画布",
@@ -252,6 +267,15 @@ const translations = {
     "composition.parallel": "并行",
     "composition.sequential": "顺序",
     "composition.synthesis": "综合",
+    "access.eyebrow": "私有 API 访问",
+    "access.title": "输入你的 API Key",
+    "access.label": "OpenAI API Key",
+    "access.placeholder": "为当前标签页粘贴 API Key",
+    "access.notice": "该 Key 仅保存在当前标签页的内存中，并且仅在运行模型操作时发送。刷新页面后会自动清除。",
+    "access.continue": "继续",
+    "access.invalid": "请输入有效的 API Key 后继续。",
+    "access.required": "运行模型操作前，请先输入你的 API Key。",
+    "access.active": "当前标签页已启用个人 API Key；网站不会保存该 Key。",
   },
 };
 let locale = localStorage.getItem(LOCALE_KEY) === "zh" ? "zh" : "en";
@@ -304,15 +328,52 @@ function applyLocale(nextLocale) {
 }
 
 async function requestJson(url, options = {}) {
+  const { requiresApiKey = false, headers: optionHeaders = {}, ...requestOptions } = options;
+  const headers = requestOptions.body instanceof FormData ? { ...optionHeaders } : {
+    "Content-Type": "application/json",
+    ...optionHeaders,
+  };
+  if (requiresApiKey && tabApiKey) {
+    headers["X-Speculative-Web-Api-Key"] = tabApiKey;
+  }
   const response = await fetch(url, {
-    headers: options.body instanceof FormData ? {} : { "Content-Type": "application/json" },
-    ...options,
+    ...requestOptions,
+    headers,
   });
   const payload = await response.json();
   if (!response.ok) {
     throw new Error(payload.error || `Request failed: ${response.status}`);
   }
   return payload;
+}
+
+function requireTabApiKey() {
+  if (tabApiKey) return true;
+  apiAccessError.textContent = t("access.required");
+  setApiAccessState(true);
+  apiAccessKey.focus();
+  return false;
+}
+
+function setApiAccessState(isOpen) {
+  apiAccessGate.classList.toggle("hidden", !isOpen);
+  appShell.inert = isOpen;
+  appShell.setAttribute("aria-hidden", String(isOpen));
+}
+
+function acceptTabApiKey(event) {
+  event.preventDefault();
+  const candidate = apiAccessKey.value.trim();
+  if (candidate.length < 20 || /\s/.test(candidate)) {
+    apiAccessError.textContent = t("access.invalid");
+    apiAccessKey.focus();
+    return;
+  }
+  tabApiKey = candidate;
+  apiAccessKey.value = "";
+  apiAccessError.textContent = "";
+  setApiAccessState(false);
+  if (activeProject) loadModelStatus().catch(() => {});
 }
 
 async function loadProjects() {
@@ -398,6 +459,11 @@ function restoreCanvasView(view) {
 async function loadModelStatus() {
   setStatus(modelStatus, "checking");
   const { model } = await requestJson("/api/model/status");
+  if (tabApiKey) {
+    setStatus(modelStatus, "ready");
+    modelOutput.textContent = t("access.active");
+    return;
+  }
   setStatus(modelStatus, model.openai_api_key_configured ? "configured" : "offline");
   modelOutput.textContent = JSON.stringify(model, null, 2);
 }
@@ -1361,6 +1427,7 @@ async function createEdge(sourceNodeId, targetNodeId) {
 
 async function runModify(event, node) {
   event.stopPropagation();
+  if (!requireTabApiKey()) return;
   setStatus(canvasStatus, "running");
   const trigger = event.currentTarget;
   const originalLabel = trigger.textContent;
@@ -1373,6 +1440,7 @@ async function runModify(event, node) {
     await requestJson(`/api/projects/${activeProject.id}/nodes/${node.id}/run`, {
       method: "POST",
       body: JSON.stringify({}),
+      requiresApiKey: true,
     });
     await loadCanvas();
   } catch (error) {
@@ -1691,6 +1759,8 @@ document.querySelectorAll("[data-add-node]").forEach((button) => {
   button.addEventListener("click", () => addNode(button.dataset.addNode));
 });
 
+apiAccessForm.addEventListener("submit", acceptTabApiKey);
+
 documentFile.addEventListener("change", () => {
   documentFileName.textContent = documentFile.files[0]?.name || t("common.noFile");
 });
@@ -1715,3 +1785,4 @@ documentForm.addEventListener("submit", async (event) => {
 });
 
 applyLocale(locale);
+setApiAccessState(true);

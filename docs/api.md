@@ -106,7 +106,9 @@ Deletes one directed edge without deleting either connected node.
 
 `POST /api/projects/{project_id}/nodes/{node_id}/run`
 
-Runs a Modify node through the backend executor. If `OPENAI_API_KEY` is configured and
+Runs a Modify node through the backend executor. In the default deployment mode, the
+request must include the visitor's key in the `X-Speculative-Web-Api-Key` header. The
+key is used only for this run and is never included in the JSON body or response. If
 `SPEC_WEB_ENABLE_OPENAI_RUNS` is not disabled, this endpoint calls OpenAI from the
 server process. If model runs are disabled, it creates a placeholder output for local
 tests and offline development. It creates:
