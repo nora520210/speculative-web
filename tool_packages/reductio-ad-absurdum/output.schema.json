@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Reductio ad Absurdum Output",
+  "type": "object",
+  "required": ["accepted_claim", "extreme_extension", "absurd_outcome", "revealed_problem"],
+  "properties": {
+    "accepted_claim": { "type": "string" },
+    "extreme_extension": { "type": "string" },
+    "absurd_outcome": { "type": "string" },
+    "revealed_problem": { "type": "string" },
+    "critical_artifact_or_task": { "type": "string" },
+    "hidden_dependencies": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "critical_discussion": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "absurd_artifact_brief": { "type": "string" },
+    "process_or_system_visual_prompt": { "type": "string" },
+    "semantic_summary": { "type": "string" }
+  },
+  "additionalProperties": false
+}

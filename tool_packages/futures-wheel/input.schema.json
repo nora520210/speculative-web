@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Futures Wheel Input",
+  "type": "object",
+  "required": ["seed_change_or_event"],
+  "properties": {
+    "seed_change_or_event": { "type": "string" },
+    "stakeholders": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "system_boundary": { "type": "string" },
+    "time_horizon": { "type": "string" },
+    "impact_categories": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": true
+}

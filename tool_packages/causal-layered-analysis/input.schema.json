@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Causal Layered Analysis Input",
+  "type": "object",
+  "required": ["issue_or_problem"],
+  "properties": {
+    "issue_or_problem": { "type": "string" },
+    "headline_or_surface_claim": { "type": "string" },
+    "system_factors": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "worldview_assumptions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "metaphors": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "stakeholders": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,29 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "doctor",
+      "type": "shell",
+      "command": "python3 scripts/doctor.py",
+      "problemMatcher": []
+    },
+    {
+      "label": "run app",
+      "type": "shell",
+      "command": "python3 app.py",
+      "problemMatcher": []
+    },
+    {
+      "label": "tests",
+      "type": "shell",
+      "command": "python3 tests/run_tests.py",
+      "problemMatcher": []
+    },
+    {
+      "label": "visual tokens",
+      "type": "shell",
+      "command": "python3 scripts/check_visual_tokens.py",
+      "problemMatcher": []
+    }
+  ]
+}

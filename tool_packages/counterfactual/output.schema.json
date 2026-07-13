@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Counterfactual Output",
+  "type": "object",
+  "required": ["original_condition", "altered_fact", "counterfactual_world", "causal_changes"],
+  "properties": {
+    "original_condition": { "type": "string" },
+    "altered_fact": { "type": "string" },
+    "counterfactual_world": { "type": "string" },
+    "causal_changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["change", "because"],
+        "properties": {
+          "change": { "type": "string" },
+          "because": { "type": "string" }
+        }
+      }
+    },
+    "speculative_artifacts": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "parallel_institutions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "discussion_questions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "text_blocks": {
+      "type": "array",
+      "description": "Structured reader blocks: divergence table, causal ledger, parallel-present fragment, and inevitability questions.",
+      "items": { "$ref": "#/$defs/text_block" }
+    },
+    "artifact_prompt": { "type": "string" },
+    "visual_anomaly_notes": { "type": "string" },
+    "semantic_summary": { "type": "string" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "text_block": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["callout", "paragraph", "table", "bar_chart", "list", "questions"] },
+        "title": { "type": "string" },
+        "text": { "type": "string" },
+        "columns": { "type": "array", "items": { "type": "string" } },
+        "rows": { "type": "array", "items": { "type": "array", "items": { "type": "string" } } },
+        "items": { "type": "array" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "what_if_question": "What if universities stopped granting degrees and only issued live competency profiles?",
+  "changed_condition": "A degree is replaced by a continuously updating public record of demonstrated skills.",
+  "short_scenario": "Students no longer graduate once. Their profiles rise and fall weekly as classes, jobs, and platforms feed assessment data into a shared credential system.",
+  "affected_stakeholders": [
+    {
+      "name": "students",
+      "impact": "They gain more granular recognition but lose the stability of a completed credential."
+    },
+    {
+      "name": "employers",
+      "impact": "They can filter candidates continuously, increasing pressure on students to remain measurable."
+    }
+  ],
+  "key_object_list": ["live competency card", "profile appeal form", "weekly skill decay notice"],
+  "risks": ["permanent assessment pressure", "platform bias", "credential instability"],
+  "discussion_questions": ["Who owns the profile data?", "Can a person ever finish being evaluated?"],
+  "image_prompt": "A black-and-white document-style live competency card with changing skill bars, official stamps, and appeal notes.",
+  "semantic_summary": "A speculative education credential system where students live inside continuous assessment."
+}

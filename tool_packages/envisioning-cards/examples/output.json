@@ -1,0 +1,13 @@
+{
+  "summary": "The proposal becomes a small review deck focused on stakeholders, time, values, and diffusion.",
+  "generated_text": "Stakeholder card: Which group must read the label under stress, and what knowledge does the label assume?\n\nTime card: What happens to the meaning of the label after five years of routine use or after the first failure?\n\nValue card: Does the label prioritize public understanding, institutional liability, operational speed, or scientific accuracy?\n\nDiffusion card: If this label format becomes mandatory, who gains control over what counts as safe evidence?\n\nReview question: What must be changed before this artifact can support public trust rather than only institutional defense?",
+  "image_prompt": "",
+  "semantic_summary": "",
+  "discussion_questions": [
+    "Which card should be answered before generating an image?",
+    "Which stakeholder is currently least represented?"
+  ],
+  "source_trace": [
+    "Cards derived from the catalyst retirement label concept."
+  ]
+}

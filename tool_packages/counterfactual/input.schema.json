@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Counterfactual Input",
+  "type": "object",
+  "required": ["current_or_historical_condition"],
+  "properties": {
+    "current_or_historical_condition": {
+      "type": "string",
+      "description": "The present condition or historical fact to challenge."
+    },
+    "changed_fact": {
+      "type": "string",
+      "description": "The single fact, decision, actor, ownership model, invention path, or policy to replace."
+    },
+    "domain_context": {
+      "type": "string",
+      "description": "Technology, institution, industry, governance system, or social domain."
+    },
+    "causal_constraints": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Constraints that keep the alternate reality traceable and plausible inside the premise."
+    },
+    "stakeholders": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "image_semantics": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

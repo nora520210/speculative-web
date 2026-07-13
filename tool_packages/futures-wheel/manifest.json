@@ -1,0 +1,171 @@
+{
+  "id": "futures-wheel",
+  "version": "0.3.0",
+  "label": "Futures Wheel",
+  "description": "Expands one change into first, second, and third order impacts, helping trace indirect consequences, risks, opportunities, and affected stakeholders for discussion.",
+  "layer": "tool",
+  "family": "futures studies / design research",
+  "compatible_nodes": [
+    "modify"
+  ],
+  "accepted_modalities": [
+    "text",
+    "image",
+    "multimodal"
+  ],
+  "supported_outputs": [
+    "text",
+    "image",
+    "multimodal"
+  ],
+  "input_contract": {
+    "required": [
+      "seed_change_or_event"
+    ],
+    "optional": [
+      "stakeholders",
+      "system_boundary",
+      "time_horizon",
+      "impact_categories"
+    ]
+  },
+  "output_contract": {
+    "text": [
+      "seed_change",
+      "first_order_effects",
+      "second_order_effects",
+      "third_order_effects",
+      "priority_implications",
+      "text_blocks"
+    ],
+    "image": [
+      "wheel_diagram_brief",
+      "image_prompt"
+    ],
+    "multimodal": [
+      "impact_chain_map",
+      "diagram_brief",
+      "image_prompt",
+      "semantic_summary"
+    ]
+  },
+  "text_output_forms": {
+    "primary_template": "seed-change callout, three-order consequence ledger, discussion-priority bar chart, and uncertainty questions",
+    "block_sequence": [
+      "callout",
+      "table",
+      "bar_chart",
+      "questions"
+    ],
+    "required_blocks": [
+      {
+        "type": "callout",
+        "title": "Seed change",
+        "purpose": "State one event or change point only."
+      },
+      {
+        "type": "table",
+        "title": "Consequence ledger",
+        "columns": [
+          "Order",
+          "Effect",
+          "What it could trigger",
+          "Who or what is affected"
+        ]
+      },
+      {
+        "type": "bar_chart",
+        "title": "Discussion priority, not likelihood",
+        "purpose": "Rank two to five chains by attention needed on a 1–5 scale; values are for discussion, never probability."
+      },
+      {
+        "type": "questions",
+        "title": "Where could the chain bend?",
+        "min_items": 3
+      }
+    ],
+    "presentation_rule": "Use branching causal language such as could or may. Do not turn the wheel into one linear story."
+  },
+  "theory_mapping": {
+    "method": "futures wheel",
+    "source_notes": "思辨设计tools-3.pdf pages 15-16. External futures/design research tool."
+  },
+  "model_constraints": [
+    "Begin from one clear seed change.",
+    "Separate first-, second-, and third-order consequences.",
+    "Include indirect and unintended consequences, not only obvious benefits.",
+    "Do not describe impact chains as inevitable facts.",
+    "For text outputs, return the package text_blocks sequence, including a consequence table and a priority chart that is explicitly not a forecast."
+  ],
+  "executor": {
+    "kind": "placeholder",
+    "entrypoint": ""
+  },
+  "parameters": {
+    "recommended_input_forms": [
+      "research text",
+      "policy change",
+      "technology event",
+      "scenario seed"
+    ],
+    "recommended_output_forms": [
+      "structured text",
+      "impact chain",
+      "wheel diagram specification"
+    ],
+    "default_output_type": "text"
+  },
+  "validation": {
+    "must_include": [
+      "seed_change",
+      "first_order_effects",
+      "second_order_effects",
+      "third_order_effects"
+    ],
+    "reject_if": [
+      "no seed change",
+      "flat list with no consequence levels",
+      "only positive impacts"
+    ]
+  },
+  "ui": {
+    "short_description": "Expand one change into layered consequences."
+  },
+  "selected": false,
+  "placeholder": true,
+  "recommendation": {
+    "type": "text",
+    "readiness": "high",
+    "reason": "Futures Wheel should first generate structured consequence chains, because the value is in distinguishing first-, second-, and third-order effects.",
+    "best_when": [
+      "The input is a policy, product, platform change, technology event, or scenario seed.",
+      "The user needs indirect consequences rather than only the obvious outcome.",
+      "The next step is risk, opportunity, or priority discussion."
+    ],
+    "output_data": {
+      "primary": [
+        "seed change",
+        "first-order effects",
+        "second-order effects",
+        "third-order effects",
+        "risk and opportunity priorities"
+      ],
+      "secondary": {
+        "image": [
+          "wheel diagram specification",
+          "impact-chain visual prompt"
+        ],
+        "multimodal": [
+          "impact chain plus diagram prompt"
+        ]
+      },
+      "avoid": [
+        "single linear story",
+        "visual wheel without readable consequence labels"
+      ]
+    },
+    "warnings": [
+      "Prefer text unless the output will render a labelled diagram or feed a later visualization step."
+    ]
+  }
+}

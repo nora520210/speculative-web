@@ -1,0 +1,99 @@
+{
+  "source": {
+    "file": "/Users/Admin/Documents/speculative_Web/思辨设计tools-3.pdf",
+    "scope": "Modify-node package batches: thought-experiment tools plus external futures/design research tools."
+  },
+  "packages": [
+    {
+      "id": "what-if",
+      "label": "What-If Scenarios",
+      "path": "tool_packages/what-if",
+      "source_pages": [7],
+      "layer": "tool"
+    },
+    {
+      "id": "counterfactual",
+      "label": "Counterfactuals",
+      "path": "tool_packages/counterfactual",
+      "source_pages": [7, 8],
+      "layer": "tool"
+    },
+    {
+      "id": "reductio-ad-absurdum",
+      "label": "Reductio ad Absurdum",
+      "path": "tool_packages/reductio-ad-absurdum",
+      "source_pages": [8, 9, 11],
+      "layer": "tool"
+    },
+    {
+      "id": "cautionary-tales",
+      "label": "Cautionary Tales",
+      "path": "tool_packages/cautionary-tales",
+      "source_pages": [11],
+      "layer": "tool"
+    },
+    {
+      "id": "physical-fiction",
+      "label": "Physical Fiction",
+      "path": "tool_packages/physical-fiction",
+      "source_pages": [3],
+      "layer": "tool"
+    },
+    {
+      "id": "future-triangle",
+      "label": "Futures Triangle",
+      "path": "tool_packages/future-triangle",
+      "source_pages": [14, 15],
+      "layer": "tool",
+      "source_class": "external futures/design research tool"
+    },
+    {
+      "id": "futures-wheel",
+      "label": "Futures Wheel",
+      "path": "tool_packages/futures-wheel",
+      "source_pages": [15, 16],
+      "layer": "tool",
+      "source_class": "external futures/design research tool"
+    },
+    {
+      "id": "dators-four-futures",
+      "label": "Dator's Four Futures",
+      "path": "tool_packages/dators-four-futures",
+      "source_pages": [16],
+      "layer": "tool",
+      "source_class": "external futures/design research tool"
+    },
+    {
+      "id": "causal-layered-analysis",
+      "label": "Causal Layered Analysis",
+      "path": "tool_packages/causal-layered-analysis",
+      "source_pages": [16, 17],
+      "layer": "tool",
+      "source_class": "external futures/design research tool"
+    },
+    {
+      "id": "experiential-futures-ladder",
+      "label": "Experiential Futures Ladder",
+      "path": "tool_packages/experiential-futures-ladder",
+      "source_pages": [17, 18],
+      "layer": "tool",
+      "source_class": "external experiential futures/design research tool"
+    },
+    {
+      "id": "envisioning-cards",
+      "label": "Envisioning Cards",
+      "path": "tool_packages/envisioning-cards",
+      "source_pages": [18, 19],
+      "layer": "tool",
+      "source_class": "external design ethics/design research tool"
+    },
+    {
+      "id": "three-horizons",
+      "label": "Three Horizons",
+      "path": "tool_packages/three-horizons",
+      "source_pages": [19, 20],
+      "layer": "tool",
+      "source_class": "external futures/transition design tool"
+    }
+  ]
+}

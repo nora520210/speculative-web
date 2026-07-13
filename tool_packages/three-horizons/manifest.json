@@ -1,0 +1,172 @@
+{
+  "id": "three-horizons",
+  "version": "0.2.0",
+  "label": "Three Horizons",
+  "description": "Separates current systems, transition practices, and emerging futures, linking long term visions back to near term actions, tensions, and priorities.",
+  "layer": "tool",
+  "family": "futures studies / transition design",
+  "compatible_nodes": [
+    "modify"
+  ],
+  "accepted_modalities": [
+    "text",
+    "image",
+    "multimodal"
+  ],
+  "supported_outputs": [
+    "text",
+    "image",
+    "multimodal"
+  ],
+  "input_contract": {
+    "required": [
+      "system_or_transition_goal"
+    ],
+    "optional": [
+      "current_system",
+      "emerging_practices",
+      "long_term_vision",
+      "near_term_actions",
+      "stakeholders"
+    ]
+  },
+  "output_contract": {
+    "text": [
+      "horizon_1",
+      "horizon_2",
+      "horizon_3",
+      "transition_tensions",
+      "action_priorities",
+      "text_blocks"
+    ],
+    "image": [
+      "three_horizons_diagram_brief",
+      "image_prompt"
+    ],
+    "multimodal": [
+      "transition_map",
+      "diagram_brief",
+      "artifact_prompt",
+      "semantic_summary"
+    ]
+  },
+  "text_output_forms": {
+    "primary_template": "three-horizons transition table, stop/protect/try portfolio, and transition questions",
+    "block_sequence": [
+      "table",
+      "table",
+      "questions"
+    ],
+    "required_blocks": [
+      {
+        "type": "table",
+        "title": "Transition across three horizons",
+        "columns": [
+          "Horizon",
+          "What dominates or emerges",
+          "Signal or practice",
+          "Value at risk"
+        ]
+      },
+      {
+        "type": "table",
+        "title": "Action portfolio",
+        "columns": [
+          "Stop, protect, or try",
+          "Action",
+          "Why now",
+          "First low-risk test"
+        ]
+      },
+      {
+        "type": "questions",
+        "title": "Transition tensions to keep open",
+        "min_items": 3
+      }
+    ],
+    "presentation_rule": "Use H1, H2, and H3 as coexisting forces, not a simple timeline. Action choices must return the future to the present."
+  },
+  "theory_mapping": {
+    "method": "three horizons",
+    "source_notes": "思辨设计tools-3.pdf pages 19-20. External futures/transition design tool."
+  },
+  "model_constraints": [
+    "Separate the dominant current system, transitional innovations, and long-term emerging future.",
+    "Connect long-term vision back to near-term action.",
+    "Identify what should be stopped, protected, and tested.",
+    "Avoid treating H1, H2, and H3 as a simple linear timeline.",
+    "For text outputs, return the package text_blocks sequence with a transition table and a stop/protect/try portfolio."
+  ],
+  "executor": {
+    "kind": "placeholder",
+    "entrypoint": ""
+  },
+  "parameters": {
+    "recommended_input_forms": [
+      "system description",
+      "transition goal",
+      "scenario output",
+      "policy or research notes"
+    ],
+    "recommended_output_forms": [
+      "transition roadmap text",
+      "three-horizons diagram specification",
+      "action priority table"
+    ],
+    "default_output_type": "text"
+  },
+  "validation": {
+    "must_include": [
+      "horizon_1",
+      "horizon_2",
+      "horizon_3",
+      "action_priorities"
+    ],
+    "reject_if": [
+      "simple timeline only",
+      "no present action",
+      "no transition tension"
+    ]
+  },
+  "ui": {
+    "short_description": "Map current system, transition practices, and emerging future."
+  },
+  "selected": false,
+  "placeholder": true,
+  "recommendation": {
+    "type": "text",
+    "readiness": "high",
+    "reason": "Three Horizons is a transition-mapping tool; text best distinguishes the current system, transition practices, emerging future, and near-term action priorities.",
+    "best_when": [
+      "The user has a desired future but needs to connect it to present action.",
+      "The input concerns systems change, transition design, policy, or organizational transformation.",
+      "The output should identify what to stop, protect, and try now."
+    ],
+    "output_data": {
+      "primary": [
+        "H1 current system",
+        "H2 transition practices",
+        "H3 emerging future",
+        "tensions",
+        "action priorities",
+        "stop/protect/try recommendations"
+      ],
+      "secondary": {
+        "image": [
+          "three-horizons diagram specification",
+          "transition roadmap visual prompt"
+        ],
+        "multimodal": [
+          "roadmap text plus diagram prompt"
+        ]
+      },
+      "avoid": [
+        "far-future vision with no present pathway",
+        "timeline image without action priorities"
+      ]
+    },
+    "warnings": [
+      "This tool should pull visions back into present transition choices, not only describe an endpoint."
+    ]
+  }
+}

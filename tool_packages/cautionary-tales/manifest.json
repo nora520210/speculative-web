@@ -1,0 +1,126 @@
+{
+  "id": "cautionary-tales",
+  "version": "0.1.0",
+  "label": "Cautionary Tales",
+  "description": "Extends a current trend toward an unwanted everyday consequence, using warning, satire, or dark design to expose hidden costs and values.",
+  "layer": "tool",
+  "family": "critical/speculative design",
+  "compatible_nodes": [
+    "modify"
+  ],
+  "accepted_modalities": [
+    "text",
+    "image",
+    "multimodal"
+  ],
+  "supported_outputs": [
+    "text",
+    "image",
+    "multimodal"
+  ],
+  "input_contract": {
+    "required": [
+      "trend_or_value_choice"
+    ],
+    "optional": [
+      "optimistic_claim",
+      "affected_groups",
+      "hidden_costs",
+      "daily_context"
+    ]
+  },
+  "output_contract": {
+    "text": [
+      "trend",
+      "negative_extension",
+      "daily_consequence",
+      "who_pays",
+      "hidden_values",
+      "public_questions"
+    ],
+    "image": [
+      "warning_artifact_brief",
+      "satirical_object_prompt",
+      "negative_future_scene_prompt"
+    ],
+    "multimodal": [
+      "cautionary_scenario",
+      "warning_artifact_brief",
+      "public_questions",
+      "semantic_summary"
+    ]
+  },
+  "theory_mapping": {
+    "method": "cautionary tale / dark design",
+    "source_notes": "思辨设计tools-3.pdf page 11, Cautionary Tales / 警示性故事."
+  },
+  "model_constraints": [
+    "Extend a real trend or value choice toward an unwanted consequence.",
+    "Keep the consequence grounded in daily life rather than apocalypse.",
+    "Show who bears the cost and which values are hidden or sacrificed.",
+    "Use negativity, satire, or dark design to create critical distance."
+  ],
+  "executor": {
+    "kind": "placeholder",
+    "entrypoint": ""
+  },
+  "parameters": {
+    "default_tone": "sobering_and_discussable",
+    "avoid_genre": "disaster_movie",
+    "default_output_type": "multimodal"
+  },
+  "validation": {
+    "must_include": [
+      "trend",
+      "negative_extension",
+      "daily_consequence",
+      "who_pays"
+    ],
+    "reject_if": [
+      "generic dystopia",
+      "no link to current trend",
+      "no public discussion question"
+    ]
+  },
+  "selected": false,
+  "placeholder": true,
+  "recommendation": {
+    "type": "multimodal",
+    "readiness": "high",
+    "reason": "Cautionary Tales are strongest when a written unwanted consequence is paired with a concrete everyday warning artifact, satirical object, or scene.",
+    "best_when": [
+      "The input trend is wrapped in excessive optimism or solutionism.",
+      "The user needs to show who pays the cost of a value choice.",
+      "A public-facing warning object or dark-design scene would make the issue discussable."
+    ],
+    "output_data": {
+      "primary": [
+        "trend",
+        "negative extension",
+        "daily consequence",
+        "affected groups",
+        "hidden values",
+        "public discussion questions"
+      ],
+      "secondary": {
+        "image": [
+          "warning artifact brief",
+          "satirical object prompt",
+          "negative everyday scene prompt"
+        ],
+        "text": [
+          "cautionary scenario",
+          "negative consequence map",
+          "public discussion prompt"
+        ]
+      },
+      "avoid": [
+        "generic disaster story",
+        "fear image with no connection to a current trend"
+      ]
+    },
+    "warnings": [
+      "Keep the future grounded in everyday life; do not turn the output into apocalypse imagery."
+    ]
+  }
+}

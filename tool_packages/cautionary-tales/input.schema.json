@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Cautionary Tale Input",
+  "type": "object",
+  "required": ["trend_or_value_choice"],
+  "properties": {
+    "trend_or_value_choice": {
+      "type": "string",
+      "description": "The current trend, technology narrative, policy direction, or value choice to extend negatively."
+    },
+    "optimistic_claim": {
+      "type": "string",
+      "description": "The positive claim that currently makes the trend appear desirable."
+    },
+    "affected_groups": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "People, publics, workers, institutions, or environments that may bear the cost."
+    },
+    "hidden_costs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Values, rights, resources, or relations that may be sacrificed."
+    },
+    "daily_context": {
+      "type": "string",
+      "description": "A concrete everyday site such as school, clinic, home, workplace, platform, or street."
+    },
+    "image_semantics": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Experiential Futures Ladder Input",
+  "type": "object",
+  "required": ["future_context_or_trend"],
+  "properties": {
+    "future_context_or_trend": { "type": "string" },
+    "scenario": { "type": "string" },
+    "situation": { "type": "string" },
+    "stakeholder_role": { "type": "string" },
+    "setting": { "type": "string" },
+    "desired_artifact_type": { "type": "string" }
+  },
+  "additionalProperties": true
+}

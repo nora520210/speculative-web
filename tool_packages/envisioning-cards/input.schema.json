@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Envisioning Cards Input",
+  "type": "object",
+  "required": ["concept_or_proposal"],
+  "properties": {
+    "concept_or_proposal": { "type": "string" },
+    "stakeholders": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "time_scales": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "values": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "adoption_context": { "type": "string" },
+    "prototype_description": { "type": "string" }
+  },
+  "additionalProperties": true
+}

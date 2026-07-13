@@ -1,0 +1,175 @@
+{
+  "id": "future-triangle",
+  "version": "0.2.0",
+  "label": "Futures Triangle",
+  "description": "Maps a topic through future pull, present push, and historical weight, revealing tensions, drivers, constraints, and possible intervention points for discussion.",
+  "layer": "tool",
+  "family": "futures studies / design research",
+  "compatible_nodes": [
+    "modify"
+  ],
+  "accepted_modalities": [
+    "text",
+    "image",
+    "multimodal"
+  ],
+  "supported_outputs": [
+    "text",
+    "image",
+    "multimodal"
+  ],
+  "input_contract": {
+    "required": [
+      "issue_or_system"
+    ],
+    "optional": [
+      "current_signals",
+      "historical_constraints",
+      "aspirational_vision",
+      "stakeholders",
+      "time_horizon"
+    ]
+  },
+  "output_contract": {
+    "text": [
+      "pull_of_future",
+      "push_of_present",
+      "weight_of_history",
+      "key_tensions",
+      "intervention_opportunities",
+      "text_blocks"
+    ],
+    "image": [
+      "triangle_diagram_brief",
+      "image_prompt"
+    ],
+    "multimodal": [
+      "structured_triangle_map",
+      "diagram_brief",
+      "image_prompt",
+      "semantic_summary"
+    ]
+  },
+  "text_output_forms": {
+    "primary_template": "force inventory table, discussion-weight chart, tension pairs, and intervention questions",
+    "block_sequence": [
+      "table",
+      "bar_chart",
+      "table",
+      "questions"
+    ],
+    "required_blocks": [
+      {
+        "type": "table",
+        "title": "Forces shaping the issue",
+        "columns": [
+          "Force",
+          "Signal or evidence",
+          "How it changes the system"
+        ]
+      },
+      {
+        "type": "bar_chart",
+        "title": "Discussion weight of forces",
+        "purpose": "Use a 1–5 discussion weight for selected pulls, pushes, and weights; it is not a forecast or evidence score."
+      },
+      {
+        "type": "table",
+        "title": "Tension pairs and intervention wagers",
+        "columns": [
+          "Tension",
+          "What becomes difficult",
+          "Small intervention to test"
+        ]
+      },
+      {
+        "type": "questions",
+        "title": "Questions that alter the triangle",
+        "min_items": 3
+      }
+    ],
+    "presentation_rule": "Name each pull, push, and weight before proposing action. Charts express discussion weight only."
+  },
+  "theory_mapping": {
+    "method": "futures triangle",
+    "source_notes": "思辨设计tools-3.pdf pages 14-15. External futures/design research tool, not an original Speculative Everything term."
+  },
+  "model_constraints": [
+    "Separate the pull of the future, push of the present, and weight of history.",
+    "Do not collapse the three forces into a generic trend list.",
+    "Make tensions between forces explicit before proposing interventions.",
+    "Use the input as research material; do not require the user to provide futures-method terminology.",
+    "For text outputs, return the package text_blocks sequence with force tables and explicitly non-predictive discussion-weight charts."
+  ],
+  "executor": {
+    "kind": "placeholder",
+    "entrypoint": ""
+  },
+  "parameters": {
+    "recommended_input_forms": [
+      "research text",
+      "trend notes",
+      "stakeholder notes",
+      "image with semantic summary"
+    ],
+    "recommended_output_forms": [
+      "structured text",
+      "three-part force map",
+      "diagram specification"
+    ],
+    "default_output_type": "text"
+  },
+  "validation": {
+    "must_include": [
+      "pull_of_future",
+      "push_of_present",
+      "weight_of_history",
+      "key_tensions"
+    ],
+    "reject_if": [
+      "only lists trends",
+      "omits historical constraints",
+      "treats the future as a single prediction"
+    ]
+  },
+  "ui": {
+    "short_description": "Map forces pulling, pushing, and slowing a future."
+  },
+  "selected": false,
+  "placeholder": true,
+  "recommendation": {
+    "type": "text",
+    "readiness": "high",
+    "reason": "Futures Triangle is primarily an analytic mapping tool; structured text best separates pulls of the future, pushes of the present, and weights of the past.",
+    "best_when": [
+      "The input concerns system change, slow adoption, institutional resistance, or competing visions.",
+      "The user needs to understand forces before producing speculative artifacts.",
+      "A later diagram or scenario should be grounded in explicit drivers and tensions."
+    ],
+    "output_data": {
+      "primary": [
+        "pulls of the future",
+        "pushes of the present",
+        "weights of the past",
+        "key tensions",
+        "intervention opportunities"
+      ],
+      "secondary": {
+        "image": [
+          "triangle diagram specification",
+          "force-map visual prompt"
+        ],
+        "multimodal": [
+          "structured force map plus diagram prompt"
+        ]
+      },
+      "avoid": [
+        "image-first output without named forces",
+        "single predicted future"
+      ]
+    },
+    "warnings": [
+      "Use it as analysis before artifact generation; it does not by itself create a finished design fiction."
+    ]
+  }
+}

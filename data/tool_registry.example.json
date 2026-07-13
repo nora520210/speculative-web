@@ -1,0 +1,37 @@
+{
+  "modifier_tools": [
+    {
+      "id": "what-if",
+      "version": "0.1.0",
+      "label": "What-if",
+      "accepted_modalities": ["text", "image", "multimodal"],
+      "supported_outputs": ["text", "image", "multimodal"],
+      "input_contract": {
+        "required": ["source_claim_or_scenario"],
+        "optional": ["domain_context", "assumption_list"]
+      },
+      "output_contract": {
+        "text": ["what_if_question", "transformed_scenario", "implications"],
+        "image": ["visual_brief", "image_prompt"],
+        "multimodal": ["written_brief", "visual_brief", "image_prompt"]
+      },
+      "theory_mapping": {
+        "family": "speculative design",
+        "method": "what-if reframing",
+        "source_notes": "Use this field for citations, design theory references, or internal method notes."
+      },
+      "model_constraints": [
+        "Make the transformation explicit.",
+        "Preserve traceability to the source input."
+      ],
+      "executor": {
+        "kind": "placeholder",
+        "entrypoint": ""
+      },
+      "parameters": {},
+      "validation": {},
+      "selected": true,
+      "placeholder": true
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "What-If Scenario Output",
+  "type": "object",
+  "required": ["what_if_question", "changed_condition", "short_scenario", "discussion_questions"],
+  "properties": {
+    "what_if_question": { "type": "string" },
+    "changed_condition": { "type": "string" },
+    "short_scenario": { "type": "string" },
+    "affected_stakeholders": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "impact"],
+        "properties": {
+          "name": { "type": "string" },
+          "impact": { "type": "string" }
+        }
+      }
+    },
+    "key_object_list": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "risks": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "discussion_questions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "text_blocks": {
+      "type": "array",
+      "description": "Structured reader blocks: changed-condition card, ordinary-day vignette, stakeholder table, and open questions.",
+      "items": { "$ref": "#/$defs/text_block" }
+    },
+    "image_prompt": { "type": "string" },
+    "semantic_summary": { "type": "string" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "text_block": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["callout", "paragraph", "table", "bar_chart", "list", "questions"] },
+        "title": { "type": "string" },
+        "text": { "type": "string" },
+        "columns": { "type": "array", "items": { "type": "string" } },
+        "rows": { "type": "array", "items": { "type": "array", "items": { "type": "string" } } },
+        "items": { "type": "array" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

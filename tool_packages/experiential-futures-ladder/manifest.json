@@ -1,0 +1,140 @@
+{
+  "id": "experiential-futures-ladder",
+  "version": "0.1.0",
+  "label": "Experiential Futures Ladder",
+  "description": "Steps from broad future context to scenario, situation, and tangible stuff, clearly turning abstract foresight into embodied artifacts or scenes.",
+  "layer": "tool",
+  "family": "experiential futures / design research",
+  "compatible_nodes": [
+    "modify"
+  ],
+  "accepted_modalities": [
+    "text",
+    "image",
+    "multimodal"
+  ],
+  "supported_outputs": [
+    "text",
+    "image",
+    "multimodal"
+  ],
+  "input_contract": {
+    "required": [
+      "future_context_or_trend"
+    ],
+    "optional": [
+      "scenario",
+      "situation",
+      "stakeholder_role",
+      "setting",
+      "desired_artifact_type"
+    ]
+  },
+  "output_contract": {
+    "text": [
+      "future_context",
+      "scenario",
+      "situation",
+      "stuff",
+      "experience_script",
+      "reflection_prompts"
+    ],
+    "image": [
+      "artifact_or_scene_prompt",
+      "material_cues",
+      "image_prompt"
+    ],
+    "multimodal": [
+      "experience_ladder",
+      "artifact_brief",
+      "image_prompt",
+      "semantic_summary"
+    ]
+  },
+  "theory_mapping": {
+    "method": "experiential futures ladder",
+    "source_notes": "思辨设计tools-3.pdf pages 17-18. External experiential futures/design research tool."
+  },
+  "model_constraints": [
+    "Move from abstract future context down to scenario, situation, and tangible stuff.",
+    "Do not stop at a broad trend description.",
+    "Produce inspectable artifacts, service moments, roles, or embodied situations.",
+    "Keep the artifact grounded in the earlier ladder levels."
+  ],
+  "executor": {
+    "kind": "placeholder",
+    "entrypoint": ""
+  },
+  "parameters": {
+    "recommended_input_forms": [
+      "future scenario text",
+      "trend analysis",
+      "research output node",
+      "image with semantic summary"
+    ],
+    "recommended_output_forms": [
+      "experience ladder text",
+      "artifact brief",
+      "scene prompt",
+      "text+image"
+    ],
+    "default_output_type": "multimodal"
+  },
+  "validation": {
+    "must_include": [
+      "future_context",
+      "scenario",
+      "situation",
+      "stuff"
+    ],
+    "reject_if": [
+      "no tangible artifact or scene",
+      "generic future mood",
+      "artifact not connected to scenario"
+    ]
+  },
+  "ui": {
+    "short_description": "Turn an abstract future into a situation and tangible stuff."
+  },
+  "selected": false,
+  "placeholder": true,
+  "recommendation": {
+    "type": "multimodal",
+    "readiness": "high",
+    "reason": "Experiential Futures Ladder explicitly moves from abstract future context to scenario, situation, and tangible stuff, so text plus image/object prompt is usually the best output.",
+    "best_when": [
+      "The input is a broad future, trend, or scenario that needs to become experienceable.",
+      "The user wants an exhibit, prop, service moment, interface, or embodied situation.",
+      "The output should bridge foresight analysis and concrete design material."
+    ],
+    "output_data": {
+      "primary": [
+        "future context",
+        "scenario",
+        "situation",
+        "stuff",
+        "experience script",
+        "artifact or scene prompt"
+      ],
+      "secondary": {
+        "text": [
+          "experience ladder",
+          "reflection prompts",
+          "prototype brief"
+        ],
+        "image": [
+          "artifact prompt",
+          "scene prompt",
+          "material cues"
+        ]
+      },
+      "avoid": [
+        "broad trend description with no situation",
+        "object prompt disconnected from the ladder"
+      ]
+    },
+    "warnings": [
+      "Do not skip the middle levels; the tangible output must be grounded in context, scenario, and situation."
+    ]
+  }
+}

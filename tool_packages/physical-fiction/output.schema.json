@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Physical Fiction Output",
+  "type": "object",
+  "required": ["summary", "generated_text", "source_trace"],
+  "properties": {
+    "summary": { "type": "string" },
+    "generated_text": {
+      "type": "string",
+      "description": "Plain text artifact brief, use scene, implied world rules, and critique prompt."
+    },
+    "image_prompt": {
+      "type": "string",
+      "description": "Concrete prompt for an inspectable artifact or scene."
+    },
+    "semantic_summary": { "type": "string" },
+    "discussion_questions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "source_trace": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": false
+}

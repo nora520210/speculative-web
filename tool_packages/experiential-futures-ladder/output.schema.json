@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Experiential Futures Ladder Output",
+  "type": "object",
+  "required": ["summary", "generated_text", "source_trace"],
+  "properties": {
+    "summary": { "type": "string" },
+    "generated_text": {
+      "type": "string",
+      "description": "Plain text ladder from future context to scenario, situation, and tangible artifact."
+    },
+    "image_prompt": {
+      "type": "string",
+      "description": "Concrete prompt for the artifact, service moment, or scene."
+    },
+    "semantic_summary": { "type": "string" },
+    "discussion_questions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "source_trace": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": false
+}

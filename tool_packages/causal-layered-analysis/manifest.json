@@ -1,0 +1,179 @@
+{
+  "id": "causal-layered-analysis",
+  "version": "0.2.0",
+  "label": "Causal Layered Analysis",
+  "description": "Moves from surface events into systems, worldviews, and deep metaphors, critically revealing hidden assumptions and reframing the design question underneath.",
+  "layer": "tool",
+  "family": "futures studies / design research",
+  "compatible_nodes": [
+    "modify"
+  ],
+  "accepted_modalities": [
+    "text",
+    "image",
+    "multimodal"
+  ],
+  "supported_outputs": [
+    "text",
+    "image",
+    "multimodal"
+  ],
+  "input_contract": {
+    "required": [
+      "issue_or_problem"
+    ],
+    "optional": [
+      "headline_or_surface_claim",
+      "system_factors",
+      "worldview_assumptions",
+      "metaphors",
+      "stakeholders"
+    ]
+  },
+  "output_contract": {
+    "text": [
+      "litany",
+      "system_causes",
+      "worldview",
+      "myth_or_metaphor",
+      "reframed_question",
+      "design_implications",
+      "text_blocks"
+    ],
+    "image": [
+      "layer_diagram_brief",
+      "image_prompt"
+    ],
+    "multimodal": [
+      "four_layer_map",
+      "reframed_artifact_brief",
+      "image_prompt",
+      "semantic_summary"
+    ]
+  },
+  "text_output_forms": {
+    "primary_template": "four-layer excavation table, reframed question, metaphor swap, and interpretive questions",
+    "block_sequence": [
+      "table",
+      "callout",
+      "table",
+      "questions"
+    ],
+    "required_blocks": [
+      {
+        "type": "table",
+        "title": "Layered excavation",
+        "columns": [
+          "Layer",
+          "What is visible or said",
+          "Underlying assumption",
+          "Evidence or interpretation"
+        ]
+      },
+      {
+        "type": "callout",
+        "title": "Reframed question",
+        "purpose": "Reframe the design issue from the deepest useful layer."
+      },
+      {
+        "type": "table",
+        "title": "Metaphor swap",
+        "columns": [
+          "Dominant metaphor",
+          "Alternative metaphor",
+          "What the alternative makes discussable"
+        ]
+      },
+      {
+        "type": "questions",
+        "title": "Questions for the deeper layer",
+        "min_items": 3
+      }
+    ],
+    "presentation_rule": "Clearly separate observed evidence from interpretation. Do not make the four layers into a solution checklist."
+  },
+  "theory_mapping": {
+    "method": "causal layered analysis",
+    "source_notes": "思辨设计tools-3.pdf pages 16-17. External futures/design research tool."
+  },
+  "model_constraints": [
+    "Move from surface events to systems, worldview, and deep metaphor.",
+    "Do not stop at policy or technical fixes.",
+    "Use the deeper layers to reframe the design question.",
+    "Make value assumptions visible before generating artifacts.",
+    "For text outputs, return the package text_blocks sequence and use the evidence-or-interpretation column to prevent false certainty."
+  ],
+  "executor": {
+    "kind": "placeholder",
+    "entrypoint": ""
+  },
+  "parameters": {
+    "recommended_input_forms": [
+      "research text",
+      "problem statement",
+      "news headline",
+      "policy or public discourse excerpt"
+    ],
+    "recommended_output_forms": [
+      "four-layer text map",
+      "reframed question",
+      "layer diagram specification"
+    ],
+    "default_output_type": "text"
+  },
+  "validation": {
+    "must_include": [
+      "litany",
+      "system_causes",
+      "worldview",
+      "myth_or_metaphor",
+      "reframed_question"
+    ],
+    "reject_if": [
+      "only surface problem solving",
+      "no worldview layer",
+      "no metaphor layer"
+    ]
+  },
+  "ui": {
+    "short_description": "Analyze surface, system, worldview, and metaphor layers."
+  },
+  "selected": false,
+  "placeholder": true,
+  "recommendation": {
+    "type": "text",
+    "readiness": "high",
+    "reason": "Causal Layered Analysis is a deep diagnostic tool; text is best for separating litany, system, worldview, and metaphor before any visual synthesis.",
+    "best_when": [
+      "The input looks like an operational issue but may hide deeper values or narratives.",
+      "The user needs reframing rather than immediate artifact generation.",
+      "The output should reveal assumptions behind a discourse, policy, or public problem."
+    ],
+    "output_data": {
+      "primary": [
+        "litany",
+        "system causes",
+        "worldview",
+        "myth or metaphor",
+        "reframed question",
+        "rewrite direction"
+      ],
+      "secondary": {
+        "image": [
+          "layer diagram specification",
+          "metaphor visual prompt"
+        ],
+        "multimodal": [
+          "four-layer map plus diagram prompt"
+        ]
+      },
+      "avoid": [
+        "surface summary only",
+        "image output before the layers are explicit"
+      ]
+    },
+    "warnings": [
+      "This tool should not stop at visible symptoms; require all four layers."
+    ]
+  }
+}

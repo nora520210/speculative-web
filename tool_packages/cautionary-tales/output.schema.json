@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Cautionary Tale Output",
+  "type": "object",
+  "required": ["trend", "negative_extension", "daily_consequence", "who_pays", "public_questions"],
+  "properties": {
+    "trend": { "type": "string" },
+    "negative_extension": { "type": "string" },
+    "daily_consequence": { "type": "string" },
+    "who_pays": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["group", "cost"],
+        "properties": {
+          "group": { "type": "string" },
+          "cost": { "type": "string" }
+        }
+      }
+    },
+    "hidden_values": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "warning_artifact": { "type": "string" },
+    "public_questions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "warning_artifact_brief": { "type": "string" },
+    "satirical_object_prompt": { "type": "string" },
+    "negative_future_scene_prompt": { "type": "string" },
+    "semantic_summary": { "type": "string" }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,163 @@
+{
+  "id": "what-if",
+  "version": "0.3.0",
+  "label": "What-If Scenarios",
+  "description": "Turns broad research into a sharp what if condition, revealing everyday consequences, affected groups, risks, values, and discussable speculative scenarios.",
+  "layer": "tool",
+  "family": "speculative design",
+  "compatible_nodes": [
+    "modify"
+  ],
+  "accepted_modalities": [
+    "text",
+    "image",
+    "multimodal"
+  ],
+  "supported_outputs": [
+    "text",
+    "image",
+    "multimodal"
+  ],
+  "input_contract": {
+    "required": [
+      "research_topic_or_condition"
+    ],
+    "optional": [
+      "domain_context",
+      "stakeholders",
+      "assumptions",
+      "time_horizon"
+    ]
+  },
+  "output_contract": {
+    "text": [
+      "what_if_question",
+      "changed_condition",
+      "short_scenario",
+      "affected_stakeholders",
+      "risks",
+      "discussion_questions",
+      "text_blocks"
+    ],
+    "image": [
+      "scenario_visual_brief",
+      "key_object_list",
+      "image_prompt"
+    ],
+    "multimodal": [
+      "written_scenario",
+      "scenario_visual_brief",
+      "key_object_list",
+      "image_prompt",
+      "semantic_summary"
+    ]
+  },
+  "text_output_forms": {
+    "primary_template": "condition card, everyday vignette, stakeholder impact table, and open questions",
+    "block_sequence": [
+      "callout",
+      "paragraph",
+      "table",
+      "questions"
+    ],
+    "required_blocks": [
+      {
+        "type": "callout",
+        "title": "What changes?",
+        "purpose": "State one precise what-if condition and its new rule."
+      },
+      {
+        "type": "paragraph",
+        "title": "An ordinary day under this rule",
+        "purpose": "Use a short, situated vignette rather than a general answer."
+      },
+      {
+        "type": "table",
+        "title": "Who is reorganized?",
+        "columns": [
+          "Actor",
+          "Gain or burden",
+          "New everyday behaviour"
+        ]
+      },
+      {
+        "type": "questions",
+        "title": "Questions that resist closure",
+        "min_items": 3,
+        "purpose": "Keep the premise discussable instead of resolving it."
+      }
+    ],
+    "presentation_rule": "Use actual text blocks and a table, never Markdown table syntax. Localize labels to the response language."
+  },
+  "theory_mapping": {
+    "method": "what-if reframing",
+    "source_notes": "思辨设计tools-3.pdf pages 7-8, What-Ifs / 假设情境."
+  },
+  "model_constraints": [
+    "Convert the source topic into one sharp 'What if...' condition.",
+    "Make the changed condition concrete enough to generate everyday consequences.",
+    "Identify who benefits, who is harmed, and what new rule, service, object, or unfairness may appear.",
+    "Avoid broad future hype; ground the scenario in bodily, social, labor, consumption, or governance changes.",
+    "For text outputs, return the package text_blocks sequence; do not collapse the result into a single explanatory essay or Markdown table."
+  ],
+  "executor": {
+    "kind": "placeholder",
+    "entrypoint": ""
+  },
+  "parameters": {
+    "default_intensity": "provocative_but_discussable",
+    "default_time_horizon": "near_to_mid_future",
+    "default_output_type": "text"
+  },
+  "validation": {
+    "must_include": [
+      "what_if_question",
+      "changed_condition",
+      "everyday_consequence"
+    ],
+    "reject_if": [
+      "only summarizes the input",
+      "presents one deterministic prediction",
+      "lacks stakeholder impact"
+    ]
+  },
+  "selected": true,
+  "placeholder": true,
+  "recommendation": {
+    "type": "text",
+    "readiness": "high",
+    "reason": "What-If works best as a first written scenario seed: it compresses a broad issue into one sharp changed condition before any artifact or image is made.",
+    "best_when": [
+      "The input topic is broad, abstract, or ethically difficult.",
+      "The user needs a discussable premise before choosing objects, scenes, or visual evidence.",
+      "The next step is stakeholder discussion, risk mapping, or value debate."
+    ],
+    "output_data": {
+      "primary": [
+        "what-if question",
+        "changed condition",
+        "short scenario",
+        "affected stakeholders",
+        "risks and value questions"
+      ],
+      "secondary": {
+        "image": [
+          "scene visual brief",
+          "key object list",
+          "image prompt for the most concrete consequence"
+        ],
+        "multimodal": [
+          "written scenario plus visual prompt",
+          "semantic summary of the world rule"
+        ]
+      },
+      "avoid": [
+        "standalone image without the what-if premise",
+        "generic future moodboard"
+      ]
+    },
+    "warnings": [
+      "Start with text unless the input already contains a concrete scene or object to visualize."
+    ]
+  }
+}

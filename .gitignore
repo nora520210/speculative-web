@@ -1,0 +1,10 @@
+.env
+!.env.example
+.DS_Store
+data/canvases/
+data/generated/
+data/projects.json
+data/uploads/
+data/renders/
+__pycache__/
+*.pyc

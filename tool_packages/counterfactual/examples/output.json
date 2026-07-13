@@ -1,0 +1,21 @@
+{
+  "original_condition": "Smartphones became personal consumer devices sold through private technology markets.",
+  "altered_fact": "The first mass smartphone program was managed by a public health system.",
+  "counterfactual_world": "Mobile devices are treated as civic health instruments. Their default apps measure exposure, care access, and medication continuity rather than entertainment, advertising, or shopping.",
+  "causal_changes": [
+    {
+      "change": "App stores are licensed like pharmacies.",
+      "because": "The device ecosystem originated as a public health infrastructure."
+    },
+    {
+      "change": "Battery priority favors emergency care and public alerts.",
+      "because": "Continuous health access is considered the core function of the device."
+    }
+  ],
+  "speculative_artifacts": ["clinic-issued phone charter", "public health app license", "care continuity dashboard"],
+  "parallel_institutions": ["mobile device ethics board", "public app formulary"],
+  "discussion_questions": ["Would public ownership reduce surveillance or make it more legitimate?", "Who decides what counts as a healthy use of a phone?"],
+  "artifact_prompt": "A monochrome clinic-issued smartphone charter with public health seals, app permissions, and patient rights sections.",
+  "visual_anomaly_notes": "The artifact should look official and civic rather than commercial.",
+  "semantic_summary": "A counterfactual mobile history where smartphones develop as public health infrastructure."
+}

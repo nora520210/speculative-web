@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Futures Triangle Input",
+  "type": "object",
+  "required": ["issue_or_system"],
+  "properties": {
+    "issue_or_system": {
+      "type": "string",
+      "description": "Research topic, system, technology, or institutional change to analyze."
+    },
+    "current_signals": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Present drivers, signals, investments, policies, or behaviors."
+    },
+    "historical_constraints": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Legacy systems, norms, infrastructures, regulations, or cultural habits that slow change."
+    },
+    "aspirational_vision": {
+      "type": "string",
+      "description": "Desired or feared future image pulling actors forward."
+    },
+    "stakeholders": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "time_horizon": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

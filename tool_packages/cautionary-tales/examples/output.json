@@ -1,0 +1,22 @@
+{
+  "trend": "Learning platforms track children's social behavior to support early intervention.",
+  "negative_extension": "Social-emotional analytics become a weekly credit score for children.",
+  "daily_consequence": "Parents receive a kindergarten social credit report ranking empathy, sharing, emotional compliance, and peer influence risk.",
+  "who_pays": [
+    {
+      "group": "children",
+      "cost": "Their mistakes become persistent records before they can understand the system."
+    },
+    {
+      "group": "teachers",
+      "cost": "Care work is pressured into numerical reporting."
+    }
+  ],
+  "hidden_values": ["privacy", "forgiveness", "unmeasured friendship", "childhood experimentation"],
+  "warning_artifact": "A weekly child social credit report with compliance categories and intervention flags.",
+  "public_questions": ["Should childhood behavior become a predictive record?", "What forms of care disappear when they must be scored?"],
+  "warning_artifact_brief": "A monochrome kindergarten weekly social credit report with official categories, alerts, and parent signature lines.",
+  "satirical_object_prompt": "A bureaucratic child social score notice designed like a school report card.",
+  "negative_future_scene_prompt": "Parents reading a child's social credit report at a kitchen table, with institutional forms and correction requests nearby.",
+  "semantic_summary": "A cautionary tale about educational behavior tracking becoming a normal administrative burden in childhood."
+}

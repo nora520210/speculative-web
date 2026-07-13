@@ -1,0 +1,172 @@
+{
+  "id": "dators-four-futures",
+  "version": "0.2.0",
+  "label": "Dator's Four Futures",
+  "description": "Generates four structurally different futures - growth, collapse, discipline, and transformation - to clearly challenge single path thinking and compare branch points.",
+  "layer": "tool",
+  "family": "futures studies / design research",
+  "compatible_nodes": [
+    "modify"
+  ],
+  "accepted_modalities": [
+    "text",
+    "image",
+    "multimodal"
+  ],
+  "supported_outputs": [
+    "text",
+    "image",
+    "multimodal"
+  ],
+  "input_contract": {
+    "required": [
+      "issue_or_domain"
+    ],
+    "optional": [
+      "dominant_assumption",
+      "stakeholders",
+      "constraints",
+      "time_horizon"
+    ]
+  },
+  "output_contract": {
+    "text": [
+      "growth_scenario",
+      "collapse_scenario",
+      "discipline_scenario",
+      "transformation_scenario",
+      "comparison_axes",
+      "branch_points",
+      "text_blocks"
+    ],
+    "image": [
+      "scenario_matrix_brief",
+      "image_prompt"
+    ],
+    "multimodal": [
+      "four_scenario_matrix",
+      "artifact_candidates",
+      "image_prompt",
+      "semantic_summary"
+    ]
+  },
+  "text_output_forms": {
+    "primary_template": "four-futures comparison matrix, branch-point ledger, and selection questions",
+    "block_sequence": [
+      "table",
+      "table",
+      "questions"
+    ],
+    "required_blocks": [
+      {
+        "type": "table",
+        "title": "Four structurally different futures",
+        "columns": [
+          "Future",
+          "Dominant rule",
+          "Everyday scene",
+          "Who benefits or bears cost",
+          "Material signal"
+        ]
+      },
+      {
+        "type": "table",
+        "title": "Branch points",
+        "columns": [
+          "Decision or disruption",
+          "Paths it opens",
+          "Assumption it challenges"
+        ]
+      },
+      {
+        "type": "questions",
+        "title": "Questions before choosing a future",
+        "min_items": 3
+      }
+    ],
+    "presentation_rule": "Keep growth, collapse, discipline, and transformation comparable in one matrix; do not present one as the answer."
+  },
+  "theory_mapping": {
+    "method": "Dator's Four Futures",
+    "source_notes": "思辨设计tools-3.pdf page 16. External futures/design research tool."
+  },
+  "model_constraints": [
+    "Generate four structurally different futures: growth, collapse, discipline, and transformation.",
+    "Do not make all four scenarios simple optimism/pessimism variants.",
+    "Name the assumption that each future challenges.",
+    "Use the four futures to widen possibility space before choosing artifacts.",
+    "For text outputs, return the package text_blocks sequence with a comparative matrix and branch-point table, not four unconnected paragraphs."
+  ],
+  "executor": {
+    "kind": "placeholder",
+    "entrypoint": ""
+  },
+  "parameters": {
+    "recommended_input_forms": [
+      "research text",
+      "domain summary",
+      "dominant future assumption",
+      "stakeholder notes"
+    ],
+    "recommended_output_forms": [
+      "four-scenario text matrix",
+      "comparison table",
+      "scenario image prompts"
+    ],
+    "default_output_type": "text"
+  },
+  "validation": {
+    "must_include": [
+      "growth_scenario",
+      "collapse_scenario",
+      "discipline_scenario",
+      "transformation_scenario"
+    ],
+    "reject_if": [
+      "only one future path",
+      "four scenarios differ only by mood",
+      "no branch points"
+    ]
+  },
+  "ui": {
+    "short_description": "Generate growth, collapse, discipline, and transformation futures."
+  },
+  "selected": false,
+  "placeholder": true,
+  "recommendation": {
+    "type": "text",
+    "readiness": "high",
+    "reason": "Dator's Four Futures is a scenario-generation frame; text best keeps growth, collapse, discipline, and transformation comparable.",
+    "best_when": [
+      "The team is overfocused on one growth-oriented future.",
+      "The user needs structurally different scenario drafts.",
+      "The output should compare assumptions before choosing one path to materialize."
+    ],
+    "output_data": {
+      "primary": [
+        "growth scenario",
+        "collapse scenario",
+        "discipline scenario",
+        "transformation scenario",
+        "comparison dimensions",
+        "branch points"
+      ],
+      "secondary": {
+        "image": [
+          "four-scenario visual prompt",
+          "scenario comparison diagram specification"
+        ],
+        "multimodal": [
+          "scenario matrix plus selected visual prompts"
+        ]
+      },
+      "avoid": [
+        "one preferred scenario only",
+        "four moods without structural differences"
+      ]
+    },
+    "warnings": [
+      "Keep all four futures present; do not collapse the tool into one prediction."
+    ]
+  }
+}

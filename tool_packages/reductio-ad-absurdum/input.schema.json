@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Reductio ad Absurdum Input",
+  "type": "object",
+  "required": ["accepted_claim_or_logic"],
+  "properties": {
+    "accepted_claim_or_logic": {
+      "type": "string",
+      "description": "The common claim, belief, rule, optimization logic, or system assumption to push to an extreme."
+    },
+    "domain_context": {
+      "type": "string",
+      "description": "The context where the claim currently appears reasonable."
+    },
+    "system_dependencies": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Hidden infrastructures, labor, resources, standards, or institutional dependencies."
+    },
+    "target_of_critique": {
+      "type": "string",
+      "description": "The value, system, behavior, or ideology being critiqued."
+    },
+    "limits_to_push": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Which aspects may be intensified: scale, measurement, automation, efficiency, purity, ownership, compliance."
+    },
+    "image_semantics": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

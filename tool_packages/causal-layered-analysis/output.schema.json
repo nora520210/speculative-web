@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Causal Layered Analysis Output",
+  "type": "object",
+  "required": ["summary", "generated_text", "source_trace"],
+  "properties": {
+    "summary": { "type": "string" },
+    "generated_text": {
+      "type": "string",
+      "description": "Plain text four-layer analysis and reframed design question."
+    },
+    "text_blocks": {
+      "type": "array",
+      "description": "Structured reader blocks: layered excavation table, reframed question callout, metaphor-swap table, and open questions.",
+      "items": { "$ref": "#/$defs/text_block" }
+    },
+    "image_prompt": { "type": "string" },
+    "semantic_summary": { "type": "string" },
+    "discussion_questions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "source_trace": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "text_block": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["callout", "paragraph", "table", "bar_chart", "list", "questions"] },
+        "title": { "type": "string" },
+        "text": { "type": "string" },
+        "columns": { "type": "array", "items": { "type": "string" } },
+        "rows": { "type": "array", "items": { "type": "array", "items": { "type": "string" } } },
+        "items": { "type": "array" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

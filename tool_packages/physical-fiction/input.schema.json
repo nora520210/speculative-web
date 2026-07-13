@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Physical Fiction Input",
+  "type": "object",
+  "required": ["scenario_or_concept"],
+  "properties": {
+    "scenario_or_concept": { "type": "string" },
+    "material_cues": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "use_context": { "type": "string" },
+    "scale": { "type": "string" },
+    "institutional_rules": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "viewer_questions": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": true
+}

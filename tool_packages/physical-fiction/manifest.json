@@ -1,0 +1,137 @@
+{
+  "id": "physical-fiction",
+  "version": "0.1.0",
+  "label": "Physical Fiction",
+  "description": "Materializes a speculative world as an inspectable object, prototype, prop, or exhibit that lets viewers infer systems, users, and rules.",
+  "layer": "tool",
+  "family": "design fiction",
+  "compatible_nodes": [
+    "modify"
+  ],
+  "accepted_modalities": [
+    "text",
+    "image",
+    "multimodal"
+  ],
+  "supported_outputs": [
+    "multimodal",
+    "image",
+    "text"
+  ],
+  "input_contract": {
+    "required": [
+      "scenario_or_concept"
+    ],
+    "optional": [
+      "material_cues",
+      "use_context",
+      "scale",
+      "institutional_rules",
+      "viewer_questions"
+    ]
+  },
+  "output_contract": {
+    "text": [
+      "artifact_description",
+      "use_scene",
+      "implied_world_rules",
+      "critical_question"
+    ],
+    "image": [
+      "object_visual_prompt",
+      "material_palette",
+      "context_prompt"
+    ],
+    "multimodal": [
+      "artifact_brief",
+      "object_visual_prompt",
+      "semantic_summary",
+      "viewer_inference_questions"
+    ]
+  },
+  "theory_mapping": {
+    "method": "physical fictional artifact",
+    "source_notes": "思辨设计tools-3.pdf page 3, Physical Fictions / 实体虚构."
+  },
+  "model_constraints": [
+    "Materialize the fictional world through an inspectable artifact, prop, prototype, label, document, or exhibit.",
+    "Do not present the artifact as a ready commercial product.",
+    "Let viewers infer users, rules, institutions, and tensions from concrete material details.",
+    "Preserve the artifact's speculative status instead of pretending it is real."
+  ],
+  "executor": {
+    "kind": "placeholder",
+    "entrypoint": ""
+  },
+  "parameters": {
+    "recommended_input_forms": [
+      "scenario text",
+      "research concept",
+      "world rule",
+      "image with semantic summary"
+    ],
+    "recommended_output_forms": [
+      "artifact brief",
+      "object prompt",
+      "museum label",
+      "text+image"
+    ],
+    "default_output_type": "multimodal"
+  },
+  "validation": {
+    "must_include": [
+      "artifact_description",
+      "implied_world_rules",
+      "viewer_question"
+    ],
+    "reject_if": [
+      "generic product pitch",
+      "abstract mood only",
+      "no inspectable object"
+    ]
+  },
+  "ui": {
+    "short_description": "Materializes a speculative world as an inspectable object, prototype, prop, or exhibit that lets viewers infer systems, users, and rules."
+  },
+  "selected": true,
+  "placeholder": true,
+  "recommendation": {
+    "type": "multimodal",
+    "readiness": "high",
+    "reason": "Physical Fiction aims to materialize a fictional world as an inspectable object, so it should normally produce both an artifact brief and a visual/object prompt.",
+    "best_when": [
+      "The input already contains a scenario, world rule, institution, or value conflict.",
+      "The user needs a prop, prototype, label, exhibit, or object that lets viewers infer a wider world.",
+      "The output should support discussion through material detail rather than explanation alone."
+    ],
+    "output_data": {
+      "primary": [
+        "artifact description",
+        "use scene",
+        "implied world rules",
+        "viewer inference questions",
+        "object visual prompt"
+      ],
+      "secondary": {
+        "text": [
+          "museum label",
+          "artifact brief",
+          "critical question"
+        ],
+        "image": [
+          "object prompt",
+          "material palette",
+          "context prompt"
+        ]
+      },
+      "avoid": [
+        "commercial product pitch",
+        "abstract mood image",
+        "object with no implied world"
+      ]
+    },
+    "warnings": [
+      "The artifact should celebrate its fictional status rather than pretending to be a market-ready product."
+    ]
+  }
+}

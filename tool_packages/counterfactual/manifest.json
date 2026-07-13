@@ -1,0 +1,165 @@
+{
+  "id": "counterfactual",
+  "version": "0.3.0",
+  "label": "Counterfactuals",
+  "description": "Changes one historical or current condition to build a parallel reality, exposing contingency in technologies, institutions, values, artifacts, and behavior.",
+  "layer": "tool",
+  "family": "critical/speculative design",
+  "compatible_nodes": [
+    "modify"
+  ],
+  "accepted_modalities": [
+    "text",
+    "image",
+    "multimodal"
+  ],
+  "supported_outputs": [
+    "text",
+    "image",
+    "multimodal"
+  ],
+  "input_contract": {
+    "required": [
+      "current_or_historical_condition"
+    ],
+    "optional": [
+      "changed_fact",
+      "domain_context",
+      "causal_constraints",
+      "stakeholders"
+    ]
+  },
+  "output_contract": {
+    "text": [
+      "original_condition",
+      "altered_fact",
+      "counterfactual_world",
+      "causal_changes",
+      "speculative_artifacts",
+      "discussion_questions",
+      "text_blocks"
+    ],
+    "image": [
+      "parallel_world_visual_brief",
+      "artifact_prompt",
+      "visual_anomaly_notes"
+    ],
+    "multimodal": [
+      "scenario_brief",
+      "artifact_prompt",
+      "causal_changes",
+      "semantic_summary"
+    ]
+  },
+  "text_output_forms": {
+    "primary_template": "before/after divergence table, causal ledger, parallel-present fragment, and inevitability questions",
+    "block_sequence": [
+      "table",
+      "table",
+      "paragraph",
+      "questions"
+    ],
+    "required_blocks": [
+      {
+        "type": "table",
+        "title": "Point of divergence",
+        "columns": [
+          "Present condition",
+          "Altered fact",
+          "Immediate divergence"
+        ]
+      },
+      {
+        "type": "table",
+        "title": "Causal ledger",
+        "columns": [
+          "Because",
+          "Institution or practice changed",
+          "Everyday consequence"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "title": "Fragment from the parallel present",
+        "purpose": "Write a short institution, notice, diary, or routine fragment that makes the alternate world tangible."
+      },
+      {
+        "type": "questions",
+        "title": "What does the present call inevitable?",
+        "min_items": 3
+      }
+    ],
+    "presentation_rule": "Keep the altered fact singular and causal links inspectable. Use actual table blocks, never Markdown pipe tables."
+  },
+  "theory_mapping": {
+    "method": "counterfactual thought experiment",
+    "source_notes": "思辨设计tools-3.pdf pages 7-8, Counterfactuals / 反事实推演."
+  },
+  "model_constraints": [
+    "Change one identifiable historical fact or current condition.",
+    "Name the altered fact before describing consequences.",
+    "Keep causal changes traceable to the altered fact.",
+    "Use the parallel reality to question the inevitability of the present.",
+    "For text outputs, return the package text_blocks sequence; show causal links and counter-questions instead of a single alternate-world summary."
+  ],
+  "executor": {
+    "kind": "placeholder",
+    "entrypoint": ""
+  },
+  "parameters": {
+    "default_scope": "institutional_or_technological_history",
+    "causality_mode": "traceable_branch",
+    "default_output_type": "text"
+  },
+  "validation": {
+    "must_include": [
+      "original_condition",
+      "altered_fact",
+      "counterfactual_world"
+    ],
+    "reject_if": [
+      "no changed fact is named",
+      "causal chain is unrelated",
+      "alternate world is pure fantasy without relation to present"
+    ]
+  },
+  "selected": false,
+  "placeholder": true,
+  "recommendation": {
+    "type": "text",
+    "readiness": "high",
+    "reason": "Counterfactuals need a named altered fact and traceable causal branch; text is the clearest first output before generating parallel-world artifacts.",
+    "best_when": [
+      "The input depends on a historical, institutional, or technological assumption.",
+      "The user wants to question whether the present arrangement was inevitable.",
+      "The output needs causal explanation rather than only atmosphere."
+    ],
+    "output_data": {
+      "primary": [
+        "original condition",
+        "altered fact",
+        "counterfactual world state",
+        "causal changes",
+        "speculative artifacts or institutions"
+      ],
+      "secondary": {
+        "image": [
+          "parallel-world artifact prompt",
+          "visual anomaly notes"
+        ],
+        "multimodal": [
+          "scenario brief",
+          "artifact prompt",
+          "causal trace summary"
+        ]
+      },
+      "avoid": [
+        "alternate world with no explicit changed fact",
+        "fantasy setting disconnected from the present"
+      ]
+    },
+    "warnings": [
+      "Do not recommend image-only output until the altered fact and causal chain are legible."
+    ]
+  }
+}

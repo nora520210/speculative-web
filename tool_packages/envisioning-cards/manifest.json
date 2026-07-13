@@ -1,0 +1,178 @@
+{
+  "id": "envisioning-cards",
+  "version": "0.2.0",
+  "label": "Envisioning Cards",
+  "description": "Creates prompt cards that test stakeholders, time scales, values, and diffusion, helping teams critically review long term ethical effects early.",
+  "layer": "tool",
+  "family": "design ethics / design research",
+  "compatible_nodes": [
+    "modify"
+  ],
+  "accepted_modalities": [
+    "text",
+    "image",
+    "multimodal"
+  ],
+  "supported_outputs": [
+    "text",
+    "image",
+    "multimodal"
+  ],
+  "input_contract": {
+    "required": [
+      "concept_or_proposal"
+    ],
+    "optional": [
+      "stakeholders",
+      "time_scales",
+      "values",
+      "adoption_context",
+      "prototype_description"
+    ]
+  },
+  "output_contract": {
+    "text": [
+      "stakeholder_cards",
+      "time_cards",
+      "value_cards",
+      "pervasiveness_cards",
+      "review_questions",
+      "text_blocks"
+    ],
+    "image": [
+      "card_deck_brief",
+      "image_prompt"
+    ],
+    "multimodal": [
+      "review_card_set",
+      "workshop_prompt",
+      "image_prompt",
+      "semantic_summary"
+    ]
+  },
+  "text_output_forms": {
+    "primary_template": "four question-card clusters, evidence prompts, and a workshop check-out question",
+    "block_sequence": [
+      "questions",
+      "questions",
+      "questions",
+      "questions",
+      "callout"
+    ],
+    "required_blocks": [
+      {
+        "type": "questions",
+        "title": "Stakeholder cards",
+        "min_items": 3,
+        "purpose": "Ask who is absent, burdened, or made responsible."
+      },
+      {
+        "type": "questions",
+        "title": "Time cards",
+        "min_items": 3,
+        "purpose": "Move between immediate, delayed, long-term, and post-adoption effects."
+      },
+      {
+        "type": "questions",
+        "title": "Value cards",
+        "min_items": 3,
+        "purpose": "Expose a value conflict rather than choose a value for the group."
+      },
+      {
+        "type": "questions",
+        "title": "Diffusion cards",
+        "min_items": 3,
+        "purpose": "Ask what changes if the proposal becomes ordinary, mandated, or widely copied."
+      },
+      {
+        "type": "callout",
+        "title": "Workshop check-out",
+        "purpose": "End with one question about what evidence or change is needed before proceeding."
+      }
+    ],
+    "presentation_rule": "Questions must remain open and actionable. Do not replace the cards with recommendations or a solved ethics verdict."
+  },
+  "theory_mapping": {
+    "method": "envisioning cards",
+    "source_notes": "思辨设计tools-3.pdf pages 18-19. External design ethics/design research tool."
+  },
+  "model_constraints": [
+    "Use cards as prompts for reflection, not as final answers.",
+    "Cover stakeholders, time, values, and technology pervasiveness or diffusion.",
+    "Force attention to people, effects, and time scales the input may ignore.",
+    "Phrase outputs as review prompts suitable for a workshop or concept critique.",
+    "For text outputs, return the package text_blocks sequence as separate question-card clusters; do not answer the questions for the group."
+  ],
+  "executor": {
+    "kind": "placeholder",
+    "entrypoint": ""
+  },
+  "parameters": {
+    "recommended_input_forms": [
+      "concept text",
+      "prototype description",
+      "generated scenario",
+      "image with semantic summary"
+    ],
+    "recommended_output_forms": [
+      "question cards",
+      "ethical review checklist",
+      "workshop prompts"
+    ],
+    "default_output_type": "text"
+  },
+  "validation": {
+    "must_include": [
+      "stakeholder_cards",
+      "time_cards",
+      "value_cards",
+      "review_questions"
+    ],
+    "reject_if": [
+      "only gives advice",
+      "no neglected stakeholders",
+      "no long-term questions"
+    ]
+  },
+  "ui": {
+    "short_description": "Create ethical and long-term review prompts."
+  },
+  "selected": false,
+  "placeholder": true,
+  "recommendation": {
+    "type": "text",
+    "readiness": "high",
+    "reason": "Envisioning Cards are best represented as question prompts, ethical review cards, or checklists that force reflection across stakeholders, time, values, and diffusion.",
+    "best_when": [
+      "The input is a concept, prototype, generated scenario, or design proposal that needs ethical review.",
+      "The user needs workshop prompts or critique questions.",
+      "The next step is discussion rather than artifact production."
+    ],
+    "output_data": {
+      "primary": [
+        "question cards",
+        "stakeholder prompts",
+        "long-term impact prompts",
+        "value conflict prompts",
+        "diffusion consequences",
+        "review checklist"
+      ],
+      "secondary": {
+        "image": [
+          "card layout prompt",
+          "workshop scene prompt"
+        ],
+        "multimodal": [
+          "card text plus visual card layout specification"
+        ]
+      },
+      "avoid": [
+        "finished scenario with no reflective questions",
+        "image-only cards without usable prompt text"
+      ]
+    },
+    "warnings": [
+      "Use after or around another generated concept; it is an evaluation and reflection layer."
+    ]
+  }
+}

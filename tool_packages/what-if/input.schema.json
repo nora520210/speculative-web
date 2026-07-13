@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "What-If Scenario Input",
+  "type": "object",
+  "required": ["research_topic_or_condition"],
+  "properties": {
+    "research_topic_or_condition": {
+      "type": "string",
+      "description": "The topic, trend, claim, or condition to transform into a what-if premise."
+    },
+    "domain_context": {
+      "type": "string",
+      "description": "Optional field, institution, technology, social context, or design domain."
+    },
+    "stakeholders": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "People, publics, organizations, or nonhuman actors affected by the premise."
+    },
+    "assumptions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Assumptions that may be intensified, reversed, or questioned."
+    },
+    "time_horizon": {
+      "type": "string",
+      "description": "Near, mid, far, or custom future horizon."
+    },
+    "image_semantics": {
+      "type": "string",
+      "description": "Optional description when the input includes an image node."
+    }
+  },
+  "additionalProperties": true
+}

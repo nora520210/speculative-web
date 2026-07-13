@@ -1,0 +1,121 @@
+{
+  "id": "reductio-ad-absurdum",
+  "version": "0.1.0",
+  "label": "Reductio ad Absurdum",
+  "description": "Pushes an accepted claim or system logic to an absurd extreme, clearly exposing contradictions, unsustainable costs, dependencies, and critical questions.",
+  "layer": "tool",
+  "family": "critical/speculative design",
+  "compatible_nodes": [
+    "modify"
+  ],
+  "accepted_modalities": [
+    "text",
+    "image",
+    "multimodal"
+  ],
+  "supported_outputs": [
+    "text",
+    "image",
+    "multimodal"
+  ],
+  "input_contract": {
+    "required": [
+      "accepted_claim_or_logic"
+    ],
+    "optional": [
+      "domain_context",
+      "system_dependencies",
+      "target_of_critique",
+      "limits_to_push"
+    ]
+  },
+  "output_contract": {
+    "text": [
+      "accepted_claim",
+      "extreme_extension",
+      "absurd_outcome",
+      "revealed_problem",
+      "critical_discussion"
+    ],
+    "image": [
+      "absurd_artifact_brief",
+      "process_or_system_visual_prompt"
+    ],
+    "multimodal": [
+      "critical_scenario",
+      "absurd_artifact_brief",
+      "process_record_prompt",
+      "revealed_problem"
+    ]
+  },
+  "theory_mapping": {
+    "method": "reductio ad absurdum thought experiment",
+    "source_notes": "思辨设计tools-3.pdf pages 8-11, Reductio ad Absurdum / 荒谬归谬实验."
+  },
+  "model_constraints": [
+    "Temporarily accept one common claim, rule, or logic.",
+    "Push that logic to an extreme consequence.",
+    "Use absurdity, humor, or incompatibility to reveal the original problem.",
+    "Make the critique legible through an object, process, task, or system dependency."
+  ],
+  "executor": {
+    "kind": "placeholder",
+    "entrypoint": ""
+  },
+  "parameters": {
+    "default_tone": "critical_with_controlled_absurdity",
+    "absurdity_level": "high_but_explainable",
+    "default_output_type": "multimodal"
+  },
+  "validation": {
+    "must_include": [
+      "accepted_claim",
+      "extreme_extension",
+      "revealed_problem"
+    ],
+    "reject_if": [
+      "absurdity is random",
+      "critique target is unclear",
+      "output only mocks without exposing logic"
+    ]
+  },
+  "selected": false,
+  "placeholder": true,
+  "recommendation": {
+    "type": "multimodal",
+    "readiness": "high",
+    "reason": "Reductio ad Absurdum benefits from pairing a written logical escalation with an absurd artifact, task, process, or system record that makes the critique inspectable.",
+    "best_when": [
+      "A common claim, metric, optimization logic, or system rule is being treated as natural.",
+      "The user needs to expose hidden dependencies, costs, or contradictions.",
+      "Humor, incompatibility, or over-literal execution can clarify the critique."
+    ],
+    "output_data": {
+      "primary": [
+        "accepted claim",
+        "extreme extension",
+        "absurd outcome",
+        "revealed problem",
+        "critical discussion"
+      ],
+      "secondary": {
+        "image": [
+          "absurd artifact prompt",
+          "process or system visual prompt"
+        ],
+        "text": [
+          "logical escalation script",
+          "process record",
+          "discussion questions"
+        ]
+      },
+      "avoid": [
+        "random absurdity without a critique target",
+        "mockery that does not reveal the original logic"
+      ]
+    },
+    "warnings": [
+      "Use multimodal only when the generated object or process remains tied to the accepted claim."
+    ]
+  }
+}

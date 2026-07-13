@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Futures Triangle Output",
+  "type": "object",
+  "required": ["summary", "generated_text", "source_trace"],
+  "properties": {
+    "summary": { "type": "string" },
+    "generated_text": {
+      "type": "string",
+      "description": "Plain text map covering pull, push, weight, tensions, and intervention opportunities."
+    },
+    "text_blocks": {
+      "type": "array",
+      "description": "Structured reader blocks: force inventory table, non-predictive discussion-weight chart, tension table, and questions.",
+      "items": { "$ref": "#/$defs/text_block" }
+    },
+    "image_prompt": {
+      "type": "string",
+      "description": "Optional diagram or artifact prompt when image or text+image output is requested."
+    },
+    "semantic_summary": { "type": "string" },
+    "discussion_questions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "source_trace": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "text_block": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["callout", "paragraph", "table", "bar_chart", "list", "questions"] },
+        "title": { "type": "string" },
+        "text": { "type": "string" },
+        "columns": { "type": "array", "items": { "type": "string" } },
+        "rows": { "type": "array", "items": { "type": "array", "items": { "type": "string" } } },
+        "items": { "type": "array" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

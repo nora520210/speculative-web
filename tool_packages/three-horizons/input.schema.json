@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Three Horizons Input",
+  "type": "object",
+  "required": ["system_or_transition_goal"],
+  "properties": {
+    "system_or_transition_goal": { "type": "string" },
+    "current_system": { "type": "string" },
+    "emerging_practices": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "long_term_vision": { "type": "string" },
+    "near_term_actions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "stakeholders": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": true
+}
