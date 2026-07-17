@@ -20,6 +20,8 @@ TOOL_PACKAGE_DIR = ROOT / "tool_packages"
 MAX_JSON_BODY_BYTES = int(os.environ.get("SPEC_WEB_MAX_JSON_BODY_BYTES", str(1_000_000)))
 MAX_UPLOAD_BYTES = int(os.environ.get("SPEC_WEB_MAX_UPLOAD_BYTES", str(25_000_000)))
 MAX_USER_API_KEY_CHARS = int(os.environ.get("SPEC_WEB_MAX_USER_API_KEY_CHARS", "512"))
+MAX_VISION_IMAGES = int(os.environ.get("SPEC_WEB_MAX_VISION_IMAGES", "4"))
+MAX_VISION_IMAGE_BYTES = int(os.environ.get("SPEC_WEB_MAX_VISION_IMAGE_BYTES", str(6_000_000)))
 
 
 def storage_mode() -> str:

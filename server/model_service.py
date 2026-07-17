@@ -38,7 +38,7 @@ def model_environment_status() -> dict:
     runs_enabled = openai_runs_enabled()
     capabilities = [
         ModelCapability("structured_text", has_key and runs_enabled, "OpenAI text generation for Modify runs."),
-        ModelCapability("multimodal_analysis", has_key and runs_enabled, "Text-side multimodal briefs are enabled; image analysis is reserved for the next executor layer."),
+        ModelCapability("multimodal_analysis", has_key and runs_enabled, "Direct Image and Text+Image inputs are sent as bounded visual context during the active Modify request."),
         ModelCapability("image_generation", has_key and runs_enabled, "Text-to-image generation is enabled for image and text+image Modify outputs."),
     ]
     return {
@@ -81,16 +81,16 @@ def require_openai_key(api_key: str | None = None) -> str:
     return key
 
 
-def generate_modify_response(prompt: str, api_key: str | None = None) -> dict:
+def generate_modify_response(prompt: str, api_key: str | None = None, image_inputs: list[dict] | None = None) -> dict:
     if not openai_runs_enabled():
         raise ModelServiceNotConfigured("OpenAI runs are disabled for this process.")
     key = require_openai_key(api_key)
     model = resolve_model(key)
     try:
-        return call_responses_api(key, model, prompt)
+        return call_responses_api(key, model, prompt, image_inputs=image_inputs)
     except ModelServiceError as responses_error:
         try:
-            result = call_chat_completions_api(key, model, prompt)
+            result = call_chat_completions_api(key, model, prompt, image_inputs=image_inputs)
             result["fallback_reason"] = str(responses_error)
             return result
         except ModelServiceError:
@@ -149,14 +149,24 @@ def resolve_model(key: str) -> str:
     return "gpt-4.1-mini"
 
 
-def call_responses_api(key: str, model: str, prompt: str) -> dict:
+def call_responses_api(key: str, model: str, prompt: str, image_inputs: list[dict] | None = None) -> dict:
+    content = [{"type": "input_text", "text": prompt}]
+    content.extend(
+        {
+            "type": "input_image",
+            "image_url": image["data_url"],
+            "detail": image.get("detail", "high"),
+        }
+        for image in image_inputs or []
+        if image.get("data_url")
+    )
     response = openai_json_request(
         OPENAI_RESPONSES_URL,
         key,
         {
             "model": model,
-            "input": prompt,
-            "max_output_tokens": 3000,
+            "input": [{"role": "user", "content": content}],
+            "max_output_tokens": 1200,
         },
         timeout=60,
     )
@@ -171,7 +181,18 @@ def call_responses_api(key: str, model: str, prompt: str) -> dict:
     }
 
 
-def call_chat_completions_api(key: str, model: str, prompt: str) -> dict:
+def call_chat_completions_api(key: str, model: str, prompt: str, image_inputs: list[dict] | None = None) -> dict:
+    content: str | list[dict] = prompt
+    if image_inputs:
+        content = [{"type": "text", "text": prompt}]
+        content.extend(
+            {
+                "type": "image_url",
+                "image_url": {"url": image["data_url"], "detail": image.get("detail", "high")},
+            }
+            for image in image_inputs
+            if image.get("data_url")
+        )
     response = openai_json_request(
         OPENAI_CHAT_COMPLETIONS_URL,
         key,
@@ -182,9 +203,9 @@ def call_chat_completions_api(key: str, model: str, prompt: str) -> dict:
                     "role": "system",
                     "content": "You generate constrained speculative design outputs. Return JSON only.",
                 },
-                {"role": "user", "content": prompt},
+                {"role": "user", "content": content},
             ],
-            "max_tokens": 3000,
+            "max_tokens": 1200,
         },
         timeout=60,
     )

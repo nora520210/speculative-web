@@ -1,6 +1,6 @@
 {
   "id": "what-if",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "label": "What-If Scenarios",
   "description": "Turns broad research into a sharp what if condition, revealing everyday consequences, affected groups, risks, values, and discussable speculative scenarios.",
   "layer": "tool",
@@ -87,7 +87,8 @@
         "purpose": "Keep the premise discussable instead of resolving it."
       }
     ],
-    "presentation_rule": "Use actual text blocks and a table, never Markdown table syntax. Localize labels to the response language."
+    "presentation_rule": "Use actual text blocks and a table, never Markdown table syntax. Localize labels to the response language.",
+    "conciseness_rule": "Follow output_budget: at most 3 rows or items per structured block, and no repeated prose outside the blocks."
   },
   "theory_mapping": {
     "method": "what-if reframing",
@@ -98,7 +99,8 @@
     "Make the changed condition concrete enough to generate everyday consequences.",
     "Identify who benefits, who is harmed, and what new rule, service, object, or unfairness may appear.",
     "Avoid broad future hype; ground the scenario in bodily, social, labor, consumption, or governance changes.",
-    "For text outputs, return the package text_blocks sequence; do not collapse the result into a single explanatory essay or Markdown table."
+    "For text outputs, return the package text_blocks sequence; do not collapse the result into a single explanatory essay or Markdown table.",
+    "Preserve the required tool information structure while using the package output_budget; remove repeated framing and keep evidence, tables, and questions concise."
   ],
   "executor": {
     "kind": "placeholder",
@@ -159,5 +161,14 @@
     "warnings": [
       "Start with text unless the input already contains a concrete scene or object to visualize."
     ]
+  },
+  "output_budget": {
+    "summary_max_words": 25,
+    "generated_text_max_words": 60,
+    "paragraph_max_words": 40,
+    "max_table_rows": 3,
+    "max_chart_items": 3,
+    "max_list_items": 3,
+    "max_question_items": 3
   }
 }

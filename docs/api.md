@@ -172,6 +172,14 @@ Returns placeholder Modify tools and output types for the UI.
 Reports backend model capability configuration, run enablement, and selected model
 status without exposing secrets.
 
+## Images
+
+`POST /api/images/upload`
+
+Accepts `multipart/form-data` with `file`. Supports JPEG, PNG, WEBP, and GIF. The response contains a local `image_url`, `image_file`, MIME type, and filename. Store those fields on an Image node, then connect that node directly to Modify to include the visual reference in the active model run. The current runtime sends at most four eligible app-owned images per model request.
+
+Generated image and text+image output nodes include `visual_basis`, with the conclusion and evidence-node references used to derive their image prompt. Raw image bytes are never persisted in canvas JSON.
+
 ## Documents
 
 `POST /api/documents/inspect`

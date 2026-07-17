@@ -187,6 +187,7 @@ def normalize_registry_tool(tool: dict) -> dict:
         "output_contract",
         "theory_mapping",
         "model_constraints",
+        "output_budget",
         "executor",
         "parameters",
         "recommendation",
@@ -313,6 +314,7 @@ def tool_snapshot(tool_ids: list[str]) -> list[dict]:
             "parameters": deepcopy(by_id.get(tool_id, {}).get("parameters", {})),
             "recommendation": deepcopy(by_id.get(tool_id, {}).get("recommendation", {})),
             "text_output_forms": deepcopy(by_id.get(tool_id, {}).get("text_output_forms", {})),
+            "output_budget": deepcopy(by_id.get(tool_id, {}).get("output_budget", {})),
             "validation": deepcopy(by_id.get(tool_id, {}).get("validation", {})),
             "package_path": by_id.get(tool_id, {}).get("package_path", ""),
         }

@@ -24,6 +24,7 @@ from server.modifier_registry import (
     title_for_output,
     tool_snapshot,
 )
+from server.visual_context import visual_context_for_nodes
 
 
 PROJECTS_FILE = DATA_DIR / "projects.json"
@@ -328,6 +329,8 @@ def run_modify(project_id: str, node_id: str, api_key: str | None = None) -> dic
                 "image_file": model_payload.get("image_file"),
                 "image_error": model_payload.get("image_error"),
                 "semantic_summary": model_payload.get("semantic_summary"),
+                "visual_basis": model_payload.get("visual_basis", {}),
+                "input_image_node_ids": model_payload.get("input_image_node_ids", []),
                 "provenance": [{"produced_by_run_id": run["id"]}],
             },
             "status": "success" if model_payload["run_status"] == "succeeded" else "failed",
@@ -364,10 +367,19 @@ def generate_or_placeholder_output(
 ) -> dict:
     if not openai_runs_enabled():
         return placeholder_model_payload(output_type, recommendation)
+    visual_context = visual_context_for_nodes(canvas, upstream_ids)
     try:
         model_result = generate_modify_response(
-            build_modify_prompt(canvas, upstream_ids, snapshot, output_type, recommendation),
+            build_modify_prompt(
+                canvas,
+                upstream_ids,
+                snapshot,
+                output_type,
+                recommendation,
+                visual_references=visual_context["references"],
+            ),
             api_key=api_key,
+            image_inputs=visual_context["inputs"],
         )
     except (ModelServiceError, ModelServiceNotConfigured) as exc:
         return {
@@ -376,6 +388,8 @@ def generate_or_placeholder_output(
             "model_output": {"error": str(exc)},
             "image_prompt": "",
             "semantic_summary": "",
+            "visual_basis": {},
+            "input_image_node_ids": [item["node_id"] for item in visual_context["inputs"]],
             "model_snapshot": {
                 "provider": "openai",
                 "capability": "structured_text",
@@ -388,7 +402,13 @@ def generate_or_placeholder_output(
     parsed = parse_model_json(model_result["text"])
     text = output_text_from_model(parsed, model_result["text"], output_type)
     parsed = ensure_text_blocks(parsed, text, snapshot, output_type, api_key=api_key)
-    image_prompt = image_prompt_for_output(parsed, text, output_type)
+    image_prompt, visual_basis = image_prompt_for_output(
+        parsed,
+        text,
+        output_type,
+        upstream_ids,
+        visual_context["references"],
+    )
     image_result = image_payload_for_output(project_id, run_id, image_prompt, output_type, api_key=api_key)
     return {
         "run_status": "failed" if image_result.get("image_error") and output_type == "image" else "succeeded",
@@ -396,6 +416,8 @@ def generate_or_placeholder_output(
         "model_output": parsed or {"raw_text": model_result["text"]},
         "image_prompt": image_prompt,
         "semantic_summary": (parsed or {}).get("semantic_summary", ""),
+        "visual_basis": visual_basis,
+        "input_image_node_ids": [item["node_id"] for item in visual_context["inputs"]],
         "image_url": image_result.get("image_url", ""),
         "image_file": image_result.get("image_file", ""),
         "image_error": image_result.get("image_error", ""),
@@ -409,21 +431,45 @@ def generate_or_placeholder_output(
             "api_ready": True,
             "generated": True,
             "fallback_reason": model_result.get("fallback_reason", ""),
+            "input_image_count": len(visual_context["inputs"]),
+            "input_image_node_ids": [item["node_id"] for item in visual_context["inputs"]],
         },
     }
 
 
-def image_prompt_for_output(parsed: dict | None, text: str, output_type: str) -> str:
+def image_prompt_for_output(
+    parsed: dict | None,
+    text: str,
+    output_type: str,
+    upstream_ids: list[str],
+    visual_references: list[dict],
+) -> tuple[str, dict]:
     if output_type not in {"image", "multimodal"}:
-        return ""
+        return "", {}
+    visual_basis = (parsed or {}).get("visual_basis")
+    visual_basis = visual_basis if isinstance(visual_basis, dict) else {}
+    conclusion = render_model_value(visual_basis.get("conclusion_text", ""))
+    referenced_ids = [
+        node_id
+        for node_id in visual_basis.get("evidence_node_ids", [])
+        if isinstance(node_id, str) and node_id in upstream_ids
+    ]
+    reference_image_ids = [
+        node_id
+        for node_id in visual_basis.get("reference_image_node_ids", [])
+        if isinstance(node_id, str) and any(item.get("node_id") == node_id for item in visual_references)
+    ]
+    evidence = {
+        "conclusion_text": conclusion,
+        "evidence_node_ids": referenced_ids,
+        "reference_image_node_ids": reference_image_ids,
+    }
+    if not conclusion or not referenced_ids:
+        return "", evidence
     image_prompt = render_model_value((parsed or {}).get("image_prompt", ""))
-    compact_text = " ".join(text.split())[:1200]
-    if image_prompt:
-        return constrained_image_prompt(image_prompt, compact_text)
-    return constrained_image_prompt(
-        "Show one inspectable artifact, service moment, interface, document, exhibit, or everyday scene that could plausibly belong to the described world.",
-        compact_text,
-    )
+    if not image_prompt:
+        return "", evidence
+    return constrained_image_prompt(image_prompt, conclusion), evidence
 
 
 TEXT_BLOCK_TYPES = {"callout", "paragraph", "table", "bar_chart", "list", "questions"}
@@ -535,7 +581,11 @@ def image_payload_for_output(
     if output_type not in {"image", "multimodal"}:
         return {}
     if not image_prompt:
-        return {"image_error": "No image_prompt was returned by the text generation step."}
+        return {
+            "image_error": (
+                "Image generation requires a concrete prompt tied to a visual_basis conclusion and direct evidence-node IDs."
+            )
+        }
     try:
         result = generate_image_response(image_prompt, api_key=api_key)
     except (ModelServiceError, ModelServiceNotConfigured) as exc:
@@ -592,6 +642,7 @@ def build_modify_prompt(
     snapshot: list[dict],
     output_type: str,
     recommendation: dict,
+    visual_references: list[dict] | None = None,
 ) -> str:
     context = upstream_context(canvas, upstream_ids)
     response_language = infer_response_language(context)
@@ -611,7 +662,12 @@ def build_modify_prompt(
             "Only keep proper nouns, visible labels, or technical acronyms in another language when necessary. Do not require a language instruction in the input."
         ),
         "response_language": response_language,
-        "length_rule": "The canvas node can open a full reader, so generated_text may be detailed. Keep summary under 45 words and image_prompt under 140 words.",
+        "length_rule": (
+            "Keep the response concise. Summary: at most 25 words. generated_text: at most 60 words. "
+            "image_prompt: at most 80 words. A callout or paragraph: at most 40 words. "
+            "Use at most 3 rows per table, 3 bars per chart, and 3 items per list or question block. "
+            "Keep the tool's information architecture but remove repetition, preambles, and duplicated evidence."
+        ),
         "text_output_rule": (
             "For text outputs, inspect each selected tool's text_output_forms. When a definition is present, "
             "return text_blocks that follow its required block sequence and table columns. When several selected tools define forms, keep each "
@@ -619,7 +675,11 @@ def build_modify_prompt(
             "callout {title, text}, paragraph {title, text}, table {title, columns, rows}, bar_chart {title, items}, "
             "list {title, items}, and questions {title, items}. Tables must be structured arrays, never Markdown pipe tables. "
             "Bar-chart values are discussion weights only, never probabilities or evidence scores. Keep generated_text as a compact plain-text "
-            "fallback under 180 words; do not duplicate table rows, charts, lists, or questions that belong in text_blocks."
+            "fallback under 60 words; do not duplicate table rows, charts, lists, or questions that belong in text_blocks."
+        ),
+        "visual_input_rule": (
+            "The direct inputs may include real reference images. Treat them as evidence, not decoration: inspect their material, scale, "
+            "embodiment, use context, and omissions alongside the text. Do not claim you saw an image when no reference image is supplied."
         ),
         "image_style_rule": (
             "For image or text+image outputs, write image_prompt as a wide cinematic documentary photograph on a pure white or near-white background "
@@ -628,13 +688,20 @@ def build_modify_prompt(
             "Avoid generic sci-fi, neon, fantasy, dark mood lighting, glossy advertising, abstract illustration, pure flowcharts, text-heavy infographics, "
             "freestanding presentation boards, posters, whiteboards, scenario matrices, and tight close-up framing. If a document is needed, it must be a subordinate prop beside a concrete device or material system."
         ),
+        "image_evidence_rule": (
+            "For image or text+image outputs, generate an image only from a concrete conclusion grounded in direct input nodes. "
+            "Return visual_basis with a concise conclusion_text, evidence_node_ids chosen only from direct input IDs, and reference_image_node_ids "
+            "chosen only from real supplied image nodes. The image_prompt must be a visual synthesis of that conclusion and, when supplied, the "
+            "reference images. Do not create an image prompt from generic atmosphere, an unsupported claim, or a freestanding scenario matrix."
+        ),
         "requested_output_type": output_type,
         "output_recommendation": recommendation,
         "direct_inputs": context,
+        "real_reference_images": visual_references or [],
         "selected_tools": snapshot,
         "required_response_shape": {
             "summary": "One sentence describing the generated transformation.",
-            "generated_text": "A compact plain-text fallback under 180 words. Required for text and text+image outputs. For text outputs, do not duplicate text_blocks or nest an object in this field.",
+            "generated_text": "A compact plain-text fallback under 60 words. Required for text and text+image outputs. For text outputs, do not duplicate text_blocks or nest an object in this field.",
             "text_blocks": [
                 {
                     "type": "table | callout | paragraph | bar_chart | list | questions",
@@ -646,6 +713,11 @@ def build_modify_prompt(
                 }
             ],
             "image_prompt": "A concrete visual generation prompt. Required for image and text+image outputs; otherwise empty string.",
+            "visual_basis": {
+                "conclusion_text": "A concise conclusion from direct evidence that the image will materialize.",
+                "evidence_node_ids": ["Direct input node IDs only"],
+                "reference_image_node_ids": ["Direct real image node IDs only, if any"],
+            },
             "semantic_summary": "A compact semantic description of any proposed image or artifact.",
             "discussion_questions": ["Two or three questions for critique or continuation."],
             "source_trace": ["Short notes mapping output decisions back to input nodes and selected tools."],

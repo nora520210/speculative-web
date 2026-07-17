@@ -23,6 +23,14 @@ The key is checked when the user first runs a model operation. This is an access
 
 The compact `中文` / `EN` control in the top menu switches interface language and is saved locally in the browser. It intentionally does not translate research inputs, existing canvas titles, tool package theory, or generated content.
 
+## Multimodal Evidence
+
+An `Image` node can upload a JPEG, PNG, WEBP, or GIF reference. Connect several direct image and text nodes to a Modify node to give the model real visual and written context. The runtime sends at most four bounded local image inputs only for that active request; canvas JSON stores only node IDs and file references.
+
+For image and text+image outputs, the model must return a `visual_basis` tied to direct upstream evidence and a specific image prompt derived from that conclusion. The system does not generate a new image from generic atmosphere or an empty prompt.
+
+The current file-backed storage is suitable for local work. On Vercel, uploaded reference files and generated images use ephemeral runtime storage; use an object store through `SPEC_WEB_DATA_DIR` or a storage adapter before relying on image persistence across serverless instances.
+
 ## Vercel Deployment
 
 This repository is prepared for Vercel's Python runtime:

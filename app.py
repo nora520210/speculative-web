@@ -69,6 +69,12 @@ class AppHandler(SimpleHTTPRequestHandler):
             if candidate == generated_root or generated_root in candidate.parents:
                 return str(candidate)
             return str(GENERATED_IMAGE_DIR / "__not_found__")
+        if clean.startswith("uploads/"):
+            candidate = (UPLOAD_DIR / clean.removeprefix("uploads/")).resolve()
+            upload_root = UPLOAD_DIR.resolve()
+            if candidate == upload_root or upload_root in candidate.parents:
+                return str(candidate)
+            return str(UPLOAD_DIR / "__not_found__")
         return str(STATIC_DIR / "index.html")
 
     def do_GET(self) -> None:
@@ -191,6 +197,10 @@ class AppHandler(SimpleHTTPRequestHandler):
 
         if parsed.path == "/api/documents/inspect":
             self.handle_document_inspect()
+            return
+
+        if parsed.path == "/api/images/upload":
+            self.handle_image_upload()
             return
 
         if parsed.path == "/api/documents/render":
@@ -357,6 +367,60 @@ class AppHandler(SimpleHTTPRequestHandler):
             return
 
         self.send_json({"render": result})
+
+    def handle_image_upload(self) -> None:
+        content_type = self.headers.get("Content-Type", "")
+        if not content_type.startswith("multipart/form-data"):
+            self.send_json(
+                {"error": "Expected multipart/form-data with a file field."},
+                status=HTTPStatus.BAD_REQUEST,
+            )
+            return
+        if self.request_too_large(MAX_UPLOAD_BYTES):
+            return
+
+        import cgi
+
+        form = cgi.FieldStorage(
+            fp=self.rfile,
+            headers=self.headers,
+            environ={"REQUEST_METHOD": "POST", "CONTENT_TYPE": content_type},
+        )
+        field = form["file"] if "file" in form else None
+        if field is None or not getattr(field, "filename", ""):
+            self.send_json({"error": "Missing uploaded image."}, status=HTTPStatus.BAD_REQUEST)
+            return
+
+        safe_name = Path(field.filename).name
+        suffix = Path(safe_name).suffix.lower()
+        mime_type = mimetypes.types_map.get(suffix, "")
+        if mime_type not in {"image/jpeg", "image/png", "image/webp", "image/gif"}:
+            self.send_json(
+                {"error": "Supported image types are JPEG, PNG, WEBP, and GIF."},
+                status=HTTPStatus.UNSUPPORTED_MEDIA_TYPE,
+            )
+            return
+        UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+        stored_name = f"{uuid.uuid4().hex[:10]}-{safe_name}"
+        upload_path = UPLOAD_DIR / stored_name
+        with upload_path.open("wb") as out:
+            shutil.copyfileobj(field.file, out)
+        if upload_path.stat().st_size == 0:
+            upload_path.unlink(missing_ok=True)
+            self.send_json({"error": "Uploaded image is empty."}, status=HTTPStatus.UNPROCESSABLE_ENTITY)
+            return
+        self.send_json(
+            {
+                "image": {
+                    "filename": safe_name,
+                    "mime_type": mime_type,
+                    "image_file": f"uploads/{stored_name}",
+                    "image_url": f"/uploads/{stored_name}",
+                    "bytes": upload_path.stat().st_size,
+                }
+            },
+            status=HTTPStatus.CREATED,
+        )
 
     def read_json_body(self) -> dict:
         length = int(self.headers.get("Content-Length", "0") or 0)

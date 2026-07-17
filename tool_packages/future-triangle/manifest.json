@@ -1,6 +1,6 @@
 {
   "id": "future-triangle",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "label": "Futures Triangle",
   "description": "Maps a topic through future pull, present push, and historical weight, revealing tensions, drivers, constraints, and possible intervention points for discussion.",
   "layer": "tool",
@@ -88,7 +88,8 @@
         "min_items": 3
       }
     ],
-    "presentation_rule": "Name each pull, push, and weight before proposing action. Charts express discussion weight only."
+    "presentation_rule": "Name each pull, push, and weight before proposing action. Charts express discussion weight only.",
+    "conciseness_rule": "Follow output_budget: at most 3 rows or items per structured block, and no repeated prose outside the blocks."
   },
   "theory_mapping": {
     "method": "futures triangle",
@@ -99,7 +100,8 @@
     "Do not collapse the three forces into a generic trend list.",
     "Make tensions between forces explicit before proposing interventions.",
     "Use the input as research material; do not require the user to provide futures-method terminology.",
-    "For text outputs, return the package text_blocks sequence with force tables and explicitly non-predictive discussion-weight charts."
+    "For text outputs, return the package text_blocks sequence with force tables and explicitly non-predictive discussion-weight charts.",
+    "Preserve the required tool information structure while using the package output_budget; remove repeated framing and keep evidence, tables, and questions concise."
   ],
   "executor": {
     "kind": "placeholder",
@@ -171,5 +173,14 @@
     "warnings": [
       "Use it as analysis before artifact generation; it does not by itself create a finished design fiction."
     ]
+  },
+  "output_budget": {
+    "summary_max_words": 25,
+    "generated_text_max_words": 60,
+    "paragraph_max_words": 40,
+    "max_table_rows": 3,
+    "max_chart_items": 3,
+    "max_list_items": 3,
+    "max_question_items": 3
   }
 }

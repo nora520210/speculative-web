@@ -11,6 +11,7 @@ from server.graph_store import (
     delete_node,
     input_modalities_for_nodes,
     infer_response_language,
+    image_prompt_for_output,
     ordered_data_input_edges,
     recommend_output_for_modify,
     run_modify,
@@ -49,6 +50,39 @@ def test_modify_prompt_carries_tool_owned_text_block_forms():
     assert "three-order consequence ledger" in prompt
     assert "Tables must be structured arrays" in prompt
     assert "Do not expect the user to write a design-fiction brief" in prompt
+    assert "Keep the response concise" in prompt
+    assert "output_budget" in prompt
+    assert "visual_basis" in prompt
+
+
+def test_image_prompt_requires_direct_conclusion_and_evidence():
+    prompt, basis = image_prompt_for_output(
+        {
+            "image_prompt": "A tendon-driven wrist beside an inspectable consent dial.",
+            "visual_basis": {
+                "conclusion_text": "Contact accountability becomes a first-class hardware constraint.",
+                "evidence_node_ids": ["source", "not-direct"],
+                "reference_image_node_ids": ["image-source"],
+            },
+        },
+        "",
+        "image",
+        ["source", "image-source"],
+        [{"node_id": "image-source", "image_url": "/uploads/reference.png"}],
+    )
+    assert "tendon-driven wrist" in prompt
+    assert basis["evidence_node_ids"] == ["source"]
+    assert basis["reference_image_node_ids"] == ["image-source"]
+
+    missing_prompt, missing_basis = image_prompt_for_output(
+        {"image_prompt": "An unsupported object."},
+        "",
+        "image",
+        ["source"],
+        [],
+    )
+    assert missing_prompt == ""
+    assert missing_basis["evidence_node_ids"] == []
 
 
 def test_response_language_is_inferred_from_research_input():

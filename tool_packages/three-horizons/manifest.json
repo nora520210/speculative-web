@@ -1,6 +1,6 @@
 {
   "id": "three-horizons",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "label": "Three Horizons",
   "description": "Separates current systems, transition practices, and emerging futures, linking long term visions back to near term actions, tensions, and priorities.",
   "layer": "tool",
@@ -84,7 +84,8 @@
         "min_items": 3
       }
     ],
-    "presentation_rule": "Use H1, H2, and H3 as coexisting forces, not a simple timeline. Action choices must return the future to the present."
+    "presentation_rule": "Use H1, H2, and H3 as coexisting forces, not a simple timeline. Action choices must return the future to the present.",
+    "conciseness_rule": "Follow output_budget: at most 3 rows or items per structured block, and no repeated prose outside the blocks."
   },
   "theory_mapping": {
     "method": "three horizons",
@@ -95,7 +96,8 @@
     "Connect long-term vision back to near-term action.",
     "Identify what should be stopped, protected, and tested.",
     "Avoid treating H1, H2, and H3 as a simple linear timeline.",
-    "For text outputs, return the package text_blocks sequence with a transition table and a stop/protect/try portfolio."
+    "For text outputs, return the package text_blocks sequence with a transition table and a stop/protect/try portfolio.",
+    "Preserve the required tool information structure while using the package output_budget; remove repeated framing and keep evidence, tables, and questions concise."
   ],
   "executor": {
     "kind": "placeholder",
@@ -168,5 +170,14 @@
     "warnings": [
       "This tool should pull visions back into present transition choices, not only describe an endpoint."
     ]
+  },
+  "output_budget": {
+    "summary_max_words": 25,
+    "generated_text_max_words": 60,
+    "paragraph_max_words": 40,
+    "max_table_rows": 3,
+    "max_chart_items": 3,
+    "max_list_items": 3,
+    "max_question_items": 3
   }
 }

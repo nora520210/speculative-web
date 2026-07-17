@@ -1,6 +1,6 @@
 {
   "id": "futures-wheel",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "label": "Futures Wheel",
   "description": "Expands one change into first, second, and third order impacts, helping trace indirect consequences, risks, opportunities, and affected stakeholders for discussion.",
   "layer": "tool",
@@ -84,7 +84,8 @@
         "min_items": 3
       }
     ],
-    "presentation_rule": "Use branching causal language such as could or may. Do not turn the wheel into one linear story."
+    "presentation_rule": "Use branching causal language such as could or may. Do not turn the wheel into one linear story.",
+    "conciseness_rule": "Follow output_budget: at most 3 rows or items per structured block, and no repeated prose outside the blocks."
   },
   "theory_mapping": {
     "method": "futures wheel",
@@ -95,7 +96,8 @@
     "Separate first-, second-, and third-order consequences.",
     "Include indirect and unintended consequences, not only obvious benefits.",
     "Do not describe impact chains as inevitable facts.",
-    "For text outputs, return the package text_blocks sequence, including a consequence table and a priority chart that is explicitly not a forecast."
+    "For text outputs, return the package text_blocks sequence, including a consequence table and a priority chart that is explicitly not a forecast.",
+    "Preserve the required tool information structure while using the package output_budget; remove repeated framing and keep evidence, tables, and questions concise."
   ],
   "executor": {
     "kind": "placeholder",
@@ -167,5 +169,14 @@
     "warnings": [
       "Prefer text unless the output will render a labelled diagram or feed a later visualization step."
     ]
+  },
+  "output_budget": {
+    "summary_max_words": 25,
+    "generated_text_max_words": 60,
+    "paragraph_max_words": 40,
+    "max_table_rows": 3,
+    "max_chart_items": 3,
+    "max_list_items": 3,
+    "max_question_items": 3
   }
 }

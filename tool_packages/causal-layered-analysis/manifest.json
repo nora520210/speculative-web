@@ -1,6 +1,6 @@
 {
   "id": "causal-layered-analysis",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "label": "Causal Layered Analysis",
   "description": "Moves from surface events into systems, worldviews, and deep metaphors, critically revealing hidden assumptions and reframing the design question underneath.",
   "layer": "tool",
@@ -90,7 +90,8 @@
         "min_items": 3
       }
     ],
-    "presentation_rule": "Clearly separate observed evidence from interpretation. Do not make the four layers into a solution checklist."
+    "presentation_rule": "Clearly separate observed evidence from interpretation. Do not make the four layers into a solution checklist.",
+    "conciseness_rule": "Follow output_budget: at most 3 rows or items per structured block, and no repeated prose outside the blocks."
   },
   "theory_mapping": {
     "method": "causal layered analysis",
@@ -101,7 +102,8 @@
     "Do not stop at policy or technical fixes.",
     "Use the deeper layers to reframe the design question.",
     "Make value assumptions visible before generating artifacts.",
-    "For text outputs, return the package text_blocks sequence and use the evidence-or-interpretation column to prevent false certainty."
+    "For text outputs, return the package text_blocks sequence and use the evidence-or-interpretation column to prevent false certainty.",
+    "Preserve the required tool information structure while using the package output_budget; remove repeated framing and keep evidence, tables, and questions concise."
   ],
   "executor": {
     "kind": "placeholder",
@@ -175,5 +177,14 @@
     "warnings": [
       "This tool should not stop at visible symptoms; require all four layers."
     ]
+  },
+  "output_budget": {
+    "summary_max_words": 25,
+    "generated_text_max_words": 60,
+    "paragraph_max_words": 40,
+    "max_table_rows": 3,
+    "max_chart_items": 3,
+    "max_list_items": 3,
+    "max_question_items": 3
   }
 }

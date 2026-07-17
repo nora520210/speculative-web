@@ -1,6 +1,6 @@
 {
   "id": "reductio-ad-absurdum",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "label": "Reductio ad Absurdum",
   "description": "Pushes an accepted claim or system logic to an absurd extreme, clearly exposing contradictions, unsustainable costs, dependencies, and critical questions.",
   "layer": "tool",
@@ -56,7 +56,8 @@
     "Temporarily accept one common claim, rule, or logic.",
     "Push that logic to an extreme consequence.",
     "Use absurdity, humor, or incompatibility to reveal the original problem.",
-    "Make the critique legible through an object, process, task, or system dependency."
+    "Make the critique legible through an object, process, task, or system dependency.",
+    "Preserve the required tool information structure while using the package output_budget; remove repeated framing and keep evidence, tables, and questions concise."
   ],
   "executor": {
     "kind": "placeholder",
@@ -117,5 +118,14 @@
     "warnings": [
       "Use multimodal only when the generated object or process remains tied to the accepted claim."
     ]
+  },
+  "output_budget": {
+    "summary_max_words": 25,
+    "generated_text_max_words": 60,
+    "paragraph_max_words": 40,
+    "max_table_rows": 3,
+    "max_chart_items": 3,
+    "max_list_items": 3,
+    "max_question_items": 3
   }
 }

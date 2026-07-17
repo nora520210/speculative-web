@@ -73,6 +73,7 @@ const translations = {
     "common.create": "Create",
     "common.index": "Index",
     "common.chooseFile": "Choose File",
+    "common.chooseImage": "Choose Image",
     "common.noFile": "No file selected",
     "common.read": "Read",
     "common.open": "Open",
@@ -145,6 +146,8 @@ const translations = {
     "project.deleteConfirm": "Delete canvas \"{title}\" and all of its nodes, edges, and runs?",
     "node.deleteConfirm": "Delete node \"{title}\" and its connections?",
     "node.imageFallback": "Image semantic summary placeholder.",
+    "node.imageReference": "Image reference",
+    "node.noImageUploaded": "No image uploaded",
     "node.multimodalFallback": "Text+image output placeholder.",
     "node.uploadPrompt": "Upload PDF, DOCX, TXT, or MD.",
     "node.noFileUploaded": "No file uploaded",
@@ -183,6 +186,7 @@ const translations = {
     "common.create": "创建",
     "common.index": "目录",
     "common.chooseFile": "选择文件",
+    "common.chooseImage": "选择图像",
     "common.noFile": "未选择文件",
     "common.read": "读取",
     "common.open": "打开",
@@ -255,6 +259,8 @@ const translations = {
     "project.deleteConfirm": "删除画布“{title}”及其全部节点、连线和运行记录？",
     "node.deleteConfirm": "删除节点“{title}”及其连接？",
     "node.imageFallback": "图像语义摘要占位。",
+    "node.imageReference": "图像参考",
+    "node.noImageUploaded": "尚未上传图像",
     "node.multimodalFallback": "图文输出占位。",
     "node.uploadPrompt": "上传 PDF、DOCX、TXT 或 MD。",
     "node.noFileUploaded": "尚未上传文件",
@@ -636,6 +642,10 @@ function renderNode(node) {
     input.addEventListener("change", (event) => uploadNodeFile(event, node));
     input.addEventListener("pointerdown", (event) => event.stopPropagation());
   });
+  article.querySelectorAll("[data-upload-image-file]").forEach((input) => {
+    input.addEventListener("change", (event) => uploadImageNodeFile(event, node));
+    input.addEventListener("pointerdown", (event) => event.stopPropagation());
+  });
   article.querySelectorAll("[data-open-full-text]").forEach((button) => {
     button.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -690,6 +700,7 @@ function renderNodeBody(node) {
 
   if (node.type === "image") {
     return `
+      ${node.produced_by_run_id ? "" : renderImageUploadControl(node)}
       ${renderImageFrame(node)}
       ${renderResultPreview(node, "image")}
       ${node.payload?.image_error ? `<p class="image-error">${escapeHtml(node.payload.image_error)}</p>` : ""}
@@ -716,6 +727,17 @@ function renderNodeBody(node) {
   }
 
   return `<p>${escapeHtml(node.payload?.text || "")}</p>`;
+}
+
+function renderImageUploadControl(node) {
+  const filename = node.payload?.filename || t("node.noImageUploaded");
+  return `
+    <label class="node-file-control">
+      <span>${t("common.chooseImage")}</span>
+      <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" data-upload-image-file />
+    </label>
+    <p class="upload-filename">${escapeHtml(filename)}</p>
+  `;
 }
 
 function renderEditableTextBody(node) {
@@ -1218,6 +1240,37 @@ async function uploadNodeFile(event, node) {
       document_type: documentPayload.type || t("common.document"),
       text: textFromDocumentInspection(documentPayload),
       document: documentPayload,
+    });
+    setStatus(canvasStatus, "ready");
+  } catch (error) {
+    setStatus(canvasStatus, "error");
+    canvasOutput.textContent = error.message;
+  } finally {
+    event.target.disabled = false;
+  }
+}
+
+async function uploadImageNodeFile(event, node) {
+  const file = event.target.files[0];
+  if (!file || !activeProject) return;
+  event.target.disabled = true;
+  setStatus(canvasStatus, "reading");
+  const formData = new FormData();
+  formData.append("file", file);
+  try {
+    const result = await requestJson("/api/images/upload", {
+      method: "POST",
+      body: formData,
+    });
+    const image = result.image || {};
+    await updateNodePayload(node, {
+      filename: image.filename || file.name,
+      mime_type: image.mime_type || file.type,
+      image_file: image.image_file || "",
+      image_url: image.image_url || "",
+      image_source: "upload",
+      semantic_status: "available for visual reasoning",
+      text: `${t("node.imageReference")}: ${image.filename || file.name}`,
     });
     setStatus(canvasStatus, "ready");
   } catch (error) {

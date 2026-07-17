@@ -1,6 +1,6 @@
 {
   "id": "counterfactual",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "label": "Counterfactuals",
   "description": "Changes one historical or current condition to build a parallel reality, exposing contingency in technologies, institutions, values, artifacts, and behavior.",
   "layer": "tool",
@@ -89,7 +89,8 @@
         "min_items": 3
       }
     ],
-    "presentation_rule": "Keep the altered fact singular and causal links inspectable. Use actual table blocks, never Markdown pipe tables."
+    "presentation_rule": "Keep the altered fact singular and causal links inspectable. Use actual table blocks, never Markdown pipe tables.",
+    "conciseness_rule": "Follow output_budget: at most 3 rows or items per structured block, and no repeated prose outside the blocks."
   },
   "theory_mapping": {
     "method": "counterfactual thought experiment",
@@ -100,7 +101,8 @@
     "Name the altered fact before describing consequences.",
     "Keep causal changes traceable to the altered fact.",
     "Use the parallel reality to question the inevitability of the present.",
-    "For text outputs, return the package text_blocks sequence; show causal links and counter-questions instead of a single alternate-world summary."
+    "For text outputs, return the package text_blocks sequence; show causal links and counter-questions instead of a single alternate-world summary.",
+    "Preserve the required tool information structure while using the package output_budget; remove repeated framing and keep evidence, tables, and questions concise."
   ],
   "executor": {
     "kind": "placeholder",
@@ -161,5 +163,14 @@
     "warnings": [
       "Do not recommend image-only output until the altered fact and causal chain are legible."
     ]
+  },
+  "output_budget": {
+    "summary_max_words": 25,
+    "generated_text_max_words": 60,
+    "paragraph_max_words": 40,
+    "max_table_rows": 3,
+    "max_chart_items": 3,
+    "max_list_items": 3,
+    "max_question_items": 3
   }
 }

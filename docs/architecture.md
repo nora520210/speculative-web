@@ -34,6 +34,8 @@ Only `POST /api/projects/{project_id}/nodes/{node_id}/run` is allowed to create 
 4. `run_modify` builds the model prompt from direct inputs, selected tool contracts, requested output type, output recommendation, and inferred response language.
 5. `run_modify` records a context snapshot, model snapshot, produced output node, and provenance edge.
 
+When direct input edges include Image or Text+Image nodes, the runtime creates a bounded visual context from up to four app-owned local image files. It sends the pixels only to the active vision-capable model request and stores only node IDs, image references, and MIME metadata in the graph. New generated images require a model-returned `visual_basis` containing a concise conclusion, direct evidence node IDs, and any real reference-image node IDs. The image prompt must be derived from that conclusion. Images without a local file, remote URLs, oversized files, and images beyond the request limit are not represented as visual evidence.
+
 This keeps future tool integration localized: add tool definitions and execution constraints to the registry/executor, then keep the canvas UI focused on graph editing.
 
 User content nodes are research material, user intent, source context, or local instructions. They should not be treated as the place where a scientist user must write a "design fiction brief" or know speculative-design method language. Modify owns the method translation: selected tool packages provide theory mappings, input/output contracts, model constraints, and validation rules that convert research inputs into speculative outputs.
@@ -61,6 +63,8 @@ The architecture supports iterative tool/theory mapping.
 - Static file routing is scoped to `static/` and rejects path traversal outside that directory.
 - JSON and document upload request bodies have size limits in `server/config.py`.
 - Graph mutation validates node types, edge kinds, and edge endpoint existence before writing canvas data.
+- Image uploads accept only JPEG, PNG, WEBP, or GIF under the upload size limit. The backend resolves only app-owned `uploads/` and `generated/` files for vision input; it does not fetch arbitrary remote URLs.
+- Local storage persists reference images during development. The Vercel runtime uses ephemeral `/tmp` storage by default, so production workflows that need durable image inputs must configure persistent object storage behind the same upload/reference interface.
 
 ## Tool Registry
 

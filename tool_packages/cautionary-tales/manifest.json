@@ -1,6 +1,6 @@
 {
   "id": "cautionary-tales",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "label": "Cautionary Tales",
   "description": "Extends a current trend toward an unwanted everyday consequence, using warning, satire, or dark design to expose hidden costs and values.",
   "layer": "tool",
@@ -58,7 +58,8 @@
     "Extend a real trend or value choice toward an unwanted consequence.",
     "Keep the consequence grounded in daily life rather than apocalypse.",
     "Show who bears the cost and which values are hidden or sacrificed.",
-    "Use negativity, satire, or dark design to create critical distance."
+    "Use negativity, satire, or dark design to create critical distance.",
+    "Preserve the required tool information structure while using the package output_budget; remove repeated framing and keep evidence, tables, and questions concise."
   ],
   "executor": {
     "kind": "placeholder",
@@ -122,5 +123,14 @@
     "warnings": [
       "Keep the future grounded in everyday life; do not turn the output into apocalypse imagery."
     ]
+  },
+  "output_budget": {
+    "summary_max_words": 25,
+    "generated_text_max_words": 60,
+    "paragraph_max_words": 40,
+    "max_table_rows": 3,
+    "max_chart_items": 3,
+    "max_list_items": 3,
+    "max_question_items": 3
   }
 }

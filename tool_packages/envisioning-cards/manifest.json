@@ -1,6 +1,6 @@
 {
   "id": "envisioning-cards",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "label": "Envisioning Cards",
   "description": "Creates prompt cards that test stakeholders, time scales, values, and diffusion, helping teams critically review long term ethical effects early.",
   "layer": "tool",
@@ -90,7 +90,8 @@
         "purpose": "End with one question about what evidence or change is needed before proceeding."
       }
     ],
-    "presentation_rule": "Questions must remain open and actionable. Do not replace the cards with recommendations or a solved ethics verdict."
+    "presentation_rule": "Questions must remain open and actionable. Do not replace the cards with recommendations or a solved ethics verdict.",
+    "conciseness_rule": "Follow output_budget: at most 3 rows or items per structured block, and no repeated prose outside the blocks."
   },
   "theory_mapping": {
     "method": "envisioning cards",
@@ -101,7 +102,8 @@
     "Cover stakeholders, time, values, and technology pervasiveness or diffusion.",
     "Force attention to people, effects, and time scales the input may ignore.",
     "Phrase outputs as review prompts suitable for a workshop or concept critique.",
-    "For text outputs, return the package text_blocks sequence as separate question-card clusters; do not answer the questions for the group."
+    "For text outputs, return the package text_blocks sequence as separate question-card clusters; do not answer the questions for the group.",
+    "Preserve the required tool information structure while using the package output_budget; remove repeated framing and keep evidence, tables, and questions concise."
   ],
   "executor": {
     "kind": "placeholder",
@@ -174,5 +176,14 @@
     "warnings": [
       "Use after or around another generated concept; it is an evaluation and reflection layer."
     ]
+  },
+  "output_budget": {
+    "summary_max_words": 25,
+    "generated_text_max_words": 60,
+    "paragraph_max_words": 40,
+    "max_table_rows": 3,
+    "max_chart_items": 3,
+    "max_list_items": 3,
+    "max_question_items": 3
   }
 }

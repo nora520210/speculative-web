@@ -1,6 +1,6 @@
 {
   "id": "dators-four-futures",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "label": "Dator's Four Futures",
   "description": "Generates four structurally different futures - growth, collapse, discipline, and transformation - to clearly challenge single path thinking and compare branch points.",
   "layer": "tool",
@@ -84,7 +84,8 @@
         "min_items": 3
       }
     ],
-    "presentation_rule": "Keep growth, collapse, discipline, and transformation comparable in one matrix; do not present one as the answer."
+    "presentation_rule": "Keep growth, collapse, discipline, and transformation comparable in one matrix; do not present one as the answer.",
+    "conciseness_rule": "Follow output_budget: at most 3 rows or items per structured block, and no repeated prose outside the blocks."
   },
   "theory_mapping": {
     "method": "Dator's Four Futures",
@@ -95,7 +96,8 @@
     "Do not make all four scenarios simple optimism/pessimism variants.",
     "Name the assumption that each future challenges.",
     "Use the four futures to widen possibility space before choosing artifacts.",
-    "For text outputs, return the package text_blocks sequence with a comparative matrix and branch-point table, not four unconnected paragraphs."
+    "For text outputs, return the package text_blocks sequence with a comparative matrix and branch-point table, not four unconnected paragraphs.",
+    "Preserve the required tool information structure while using the package output_budget; remove repeated framing and keep evidence, tables, and questions concise."
   ],
   "executor": {
     "kind": "placeholder",
@@ -168,5 +170,14 @@
     "warnings": [
       "Keep all four futures present; do not collapse the tool into one prediction."
     ]
+  },
+  "output_budget": {
+    "summary_max_words": 25,
+    "generated_text_max_words": 60,
+    "paragraph_max_words": 40,
+    "max_table_rows": 3,
+    "max_chart_items": 3,
+    "max_list_items": 3,
+    "max_question_items": 3
   }
 }
