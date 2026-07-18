@@ -1,6 +1,6 @@
 {
   "id": "cautionary-tales",
-  "version": "0.2.0",
+  "version": "0.4.0",
   "label": "Cautionary Tales",
   "description": "Extends a current trend toward an unwanted everyday consequence, using warning, satire, or dark design to expose hidden costs and values.",
   "layer": "tool",
@@ -59,6 +59,8 @@
     "Keep the consequence grounded in daily life rather than apocalypse.",
     "Show who bears the cost and which values are hidden or sacrificed.",
     "Use negativity, satire, or dark design to create critical distance.",
+    "When a technology promises human-like autonomy, trace ordinary scaling costs such as hidden teleoperation, data labor, maintenance, liability transfer, dependence, or market narrative; do not default to apocalypse.",
+    "Test whether investment and public trust follow demonstrated task value or the story of human resemblance; make a plausible bubble or correction legible through who is left holding the maintenance, data, or care burden.",
     "Preserve the required tool information structure while using the package output_budget; remove repeated framing and keep evidence, tables, and questions concise."
   ],
   "executor": {

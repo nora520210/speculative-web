@@ -56,6 +56,20 @@ def test_tool_package_manifest_is_discoverable():
     assert "package_path" in snapshot[0]
 
 
+def test_critical_embodiment_constraints_remain_owned_by_individual_packages():
+    import server.modifier_registry as registry
+
+    tools = {tool["id"]: tool for tool in registry.list_modifier_tools()}
+    assert any("world-level premise" in item for item in tools["counterfactual"]["model_constraints"])
+    assert any("human body never became" in item for item in tools["counterfactual"]["model_constraints"])
+    assert any("human likeness" in item for item in tools["causal-layered-analysis"]["model_constraints"])
+    assert any("demonstrated public value" in item for item in tools["causal-layered-analysis"]["model_constraints"])
+    assert any("data labor" in item for item in tools["cautionary-tales"]["model_constraints"])
+    assert any("plausible bubble" in item for item in tools["cautionary-tales"]["model_constraints"])
+    assert any("trust-by-appearance" in item for item in tools["reductio-ad-absurdum"]["model_constraints"])
+    assert any("claimed human equivalence" in item for item in tools["reductio-ad-absurdum"]["model_constraints"])
+
+
 def test_future_tool_packages_are_discoverable_with_recommendations():
     import server.modifier_registry as registry
 

@@ -57,6 +57,19 @@ def test_modify_prompt_carries_tool_owned_text_block_forms():
     assert "visual_basis" in prompt
 
 
+def test_multimodal_prompt_omits_text_blocks_to_preserve_visual_basis():
+    canvas = default_canvas("test-project")
+    prompt = build_modify_prompt(
+        canvas,
+        [],
+        tool_snapshot(["physical-fiction", "reductio-ad-absurdum"]),
+        "multimodal",
+        recommend_output(["physical-fiction", "reductio-ad-absurdum"]),
+    )
+    assert "omit text_blocks entirely" in prompt
+    assert '"text_blocks": "Omit this field."' in prompt
+
+
 def test_image_prompt_requires_direct_conclusion_and_evidence():
     prompt, basis = image_prompt_for_output(
         {

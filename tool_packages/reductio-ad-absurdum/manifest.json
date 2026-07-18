@@ -1,6 +1,6 @@
 {
   "id": "reductio-ad-absurdum",
-  "version": "0.2.0",
+  "version": "0.4.0",
   "label": "Reductio ad Absurdum",
   "description": "Pushes an accepted claim or system logic to an absurd extreme, clearly exposing contradictions, unsustainable costs, dependencies, and critical questions.",
   "layer": "tool",
@@ -57,6 +57,8 @@
     "Push that logic to an extreme consequence.",
     "Use absurdity, humor, or incompatibility to reveal the original problem.",
     "Make the critique legible through an object, process, task, or system dependency.",
+    "For humanoid systems, push a normalized premise such as human resemblance, universal substitution, frictionless autonomy, or trust-by-appearance until its governance, labor, or value contradiction becomes concrete.",
+    "Do not make a safety log or component failure the central critique unless the direct inputs make it central; prefer an artifact that exposes the gap between claimed human equivalence and demonstrated public value.",
     "Preserve the required tool information structure while using the package output_budget; remove repeated framing and keep evidence, tables, and questions concise."
   ],
   "executor": {

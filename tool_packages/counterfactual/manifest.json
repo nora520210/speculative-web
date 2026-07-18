@@ -1,6 +1,6 @@
 {
   "id": "counterfactual",
-  "version": "0.4.0",
+  "version": "0.6.0",
   "label": "Counterfactuals",
   "description": "Changes one historical or current condition to build a parallel reality, exposing contingency in technologies, institutions, values, artifacts, and behavior.",
   "layer": "tool",
@@ -101,6 +101,8 @@
     "Name the altered fact before describing consequences.",
     "Keep causal changes traceable to the altered fact.",
     "Use the parallel reality to question the inevitability of the present.",
+    "For embodied technologies, preferentially alter a world-level premise such as the necessity of the human form, the arrangement of care and work, the meaning of autonomy, or the legitimacy of deployment; do not reduce the counterfactual to swapping a component unless the source itself makes that component the central claim.",
+    "When a humanoid form is central, include a branch where the human body never became the default delivery form and compare it with environmental redesign or distributed non-humanoid systems; identify which claimed value remains after the form premise is removed.",
     "For text outputs, return the package text_blocks sequence; show causal links and counter-questions instead of a single alternate-world summary.",
     "Preserve the required tool information structure while using the package output_budget; remove repeated framing and keep evidence, tables, and questions concise."
   ],

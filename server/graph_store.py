@@ -685,6 +685,31 @@ def build_modify_prompt(
 ) -> str:
     context = upstream_context(canvas, upstream_ids)
     response_language = infer_response_language(context)
+    text_blocks_rule = (
+        "For text outputs, inspect each selected tool's text_output_forms. When a definition is present, "
+        "return text_blocks that follow its required block sequence and table columns. When several selected tools define forms, keep each "
+        "tool's block group separate and preserve selected-tool order rather than merging them into one generic summary. Use only these block types: "
+        "callout {title, text}, paragraph {title, text}, table {title, columns, rows}, bar_chart {title, items}, "
+        "list {title, items}, and questions {title, items}. Tables must be structured arrays, never Markdown pipe tables. "
+        "Bar-chart values are discussion weights only, never probabilities or evidence scores. Keep generated_text as a compact plain-text "
+        "fallback under 60 words; do not duplicate table rows, charts, lists, or questions that belong in text_blocks."
+        if output_type == "text"
+        else "For image and text+image outputs, omit text_blocks entirely. Keep generated_text concise so visual_basis and image_prompt remain complete."
+    )
+    text_blocks_shape = (
+        [
+            {
+                "type": "table | callout | paragraph | bar_chart | list | questions",
+                "title": "Localized short block title",
+                "text": "Required by callout and paragraph blocks",
+                "columns": ["Required by table blocks"],
+                "rows": [["Required by table blocks"]],
+                "items": ["Required by bar_chart, list, and questions blocks"],
+            }
+        ]
+        if output_type == "text"
+        else "Omit this field."
+    )
     payload = {
         "task": "Run a Modify node in a speculative design node canvas.",
         "runtime_rule": "Use only direct data-edge inputs as source material. Do not claim certainty for speculative outcomes.",
@@ -707,15 +732,7 @@ def build_modify_prompt(
             "Use at most 3 rows per table, 3 bars per chart, and 3 items per list or question block. "
             "Keep the tool's information architecture but remove repetition, preambles, and duplicated evidence."
         ),
-        "text_output_rule": (
-            "For text outputs, inspect each selected tool's text_output_forms. When a definition is present, "
-            "return text_blocks that follow its required block sequence and table columns. When several selected tools define forms, keep each "
-            "tool's block group separate and preserve selected-tool order rather than merging them into one generic summary. Use only these block types: "
-            "callout {title, text}, paragraph {title, text}, table {title, columns, rows}, bar_chart {title, items}, "
-            "list {title, items}, and questions {title, items}. Tables must be structured arrays, never Markdown pipe tables. "
-            "Bar-chart values are discussion weights only, never probabilities or evidence scores. Keep generated_text as a compact plain-text "
-            "fallback under 60 words; do not duplicate table rows, charts, lists, or questions that belong in text_blocks."
-        ),
+        "text_output_rule": text_blocks_rule,
         "visual_input_rule": (
             "The direct inputs may include real reference images. Treat them as evidence, not decoration: inspect their material, scale, "
             "embodiment, use context, and omissions alongside the text. Do not claim you saw an image when no reference image is supplied."
@@ -741,16 +758,7 @@ def build_modify_prompt(
         "required_response_shape": {
             "summary": "One sentence describing the generated transformation.",
             "generated_text": "A compact plain-text fallback under 60 words. Required for text and text+image outputs. For text outputs, do not duplicate text_blocks or nest an object in this field.",
-            "text_blocks": [
-                {
-                    "type": "table | callout | paragraph | bar_chart | list | questions",
-                    "title": "Localized short block title",
-                    "text": "Required by callout and paragraph blocks",
-                    "columns": ["Required by table blocks"],
-                    "rows": [["Required by table blocks"]],
-                    "items": ["Required by bar_chart, list, and questions blocks"],
-                }
-            ],
+            "text_blocks": text_blocks_shape,
             "image_prompt": "A concrete visual generation prompt. Required for image and text+image outputs; otherwise empty string.",
             "visual_basis": {
                 "conclusion_text": "A concise conclusion from direct evidence that the image will materialize.",
