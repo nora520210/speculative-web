@@ -1,6 +1,7 @@
 import os
+from http.client import RemoteDisconnected
 
-from server.model_service import require_openai_key
+from server.model_service import ModelServiceError, openai_json_request, require_openai_key
 
 
 def test_request_key_is_accepted_without_environment_fallback():
@@ -10,6 +11,37 @@ def test_request_key_is_accepted_without_environment_fallback():
     finally:
         if original is not None:
             os.environ["OPENAI_API_KEY"] = original
+
+
+def test_request_key_rejects_non_ascii_characters():
+    from server.model_service import ModelServiceNotConfigured
+
+    try:
+        require_openai_key("sk-测试")
+    except ModelServiceNotConfigured as exc:
+        assert "ASCII" in str(exc)
+    else:
+        raise AssertionError("Expected non-ASCII API key to be rejected.")
+
+
+def test_openai_connection_drop_becomes_model_service_error():
+    import server.model_service as model_service
+
+    original_urlopen = model_service.urlopen
+
+    def dropped_connection(*args, **kwargs):
+        raise RemoteDisconnected("connection closed")
+
+    model_service.urlopen = dropped_connection
+    try:
+        try:
+            openai_json_request("https://example.test", "test-key", {"model": "test"})
+        except ModelServiceError as exc:
+            assert "connection closed" in str(exc)
+        else:
+            raise AssertionError("Expected a disconnected request to become ModelServiceError.")
+    finally:
+        model_service.urlopen = original_urlopen
 
 
 def test_responses_request_includes_real_image_inputs():

@@ -12,9 +12,11 @@ from server.graph_store import (
     input_modalities_for_nodes,
     infer_response_language,
     image_prompt_for_output,
+    visual_basis_from_parsed_output,
     ordered_data_input_edges,
     recommend_output_for_modify,
     run_modify,
+    normalize_text_blocks,
     normalize_node,
     update_project,
     valid_text_blocks,
@@ -85,6 +87,25 @@ def test_image_prompt_requires_direct_conclusion_and_evidence():
     assert missing_basis["evidence_node_ids"] == []
 
 
+def test_image_prompt_recovers_flattened_visual_basis_fields():
+    prompt, basis = image_prompt_for_output(
+        {
+            "image_prompt": "An inspectable tendon-driven contact audit wrist cuff.",
+            "visual_basis": "{",
+            "conclusion_text": "Contact logging changes who can interrupt a household robot.",
+            "evidence_node_ids": '["source"]',
+            "reference_image_node_ids": '["image-source"]',
+        },
+        "",
+        "multimodal",
+        ["source", "image-source"],
+        [{"node_id": "image-source", "image_url": "/uploads/reference.png"}],
+    )
+    assert "contact audit wrist cuff" in prompt
+    assert basis["evidence_node_ids"] == ["source"]
+    assert basis["reference_image_node_ids"] == ["image-source"]
+
+
 def test_response_language_is_inferred_from_research_input():
     assert infer_response_language([{"text": "团队研究闭环生命支持和深空航行中的微生物生态。"}]) == "Chinese"
     assert infer_response_language([{"text": "The team studies bioregenerative life support."}]) == "the dominant language of the direct input"
@@ -103,6 +124,11 @@ def test_text_block_repair_prompt_uses_tool_forms_and_validates_blocks():
         ]
     )
     assert not valid_text_blocks("not a block list")
+
+
+def test_normalize_text_blocks_decodes_model_stringified_block_array():
+    blocks = normalize_text_blocks('[{"type": "questions", "title": "Questions", "items": ["Who decides?"]}]')
+    assert valid_text_blocks(blocks)
 
 
 def test_update_project_renames_canvas_record():

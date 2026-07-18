@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from http.client import RemoteDisconnected
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from dataclasses import dataclass
@@ -78,6 +79,10 @@ def require_openai_key(api_key: str | None = None) -> str:
         raise ModelServiceNotConfigured(
             "No API key is available for this run."
         )
+    try:
+        key.encode("ascii")
+    except UnicodeEncodeError as exc:
+        raise ModelServiceNotConfigured("The API key must contain ASCII characters only.") from exc
     return key
 
 
@@ -248,8 +253,9 @@ def openai_json_request(
     except HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")[:500]
         raise ModelServiceError(f"OpenAI request failed with HTTP {exc.code}: {detail}") from exc
-    except URLError as exc:
-        raise ModelServiceError(f"OpenAI request failed: {exc.reason}") from exc
+    except (URLError, RemoteDisconnected, ConnectionError, OSError) as exc:
+        reason = getattr(exc, "reason", None) or str(exc) or exc.__class__.__name__
+        raise ModelServiceError(f"OpenAI request failed: {reason}") from exc
     except TimeoutError as exc:
         raise ModelServiceError("OpenAI request timed out.") from exc
     except json.JSONDecodeError as exc:

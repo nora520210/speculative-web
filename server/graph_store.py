@@ -411,7 +411,7 @@ def generate_or_placeholder_output(
     )
     image_result = image_payload_for_output(project_id, run_id, image_prompt, output_type, api_key=api_key)
     return {
-        "run_status": "failed" if image_result.get("image_error") and output_type == "image" else "succeeded",
+        "run_status": "failed" if image_result.get("image_error") and output_type in {"image", "multimodal"} else "succeeded",
         "text": text,
         "model_output": parsed or {"raw_text": model_result["text"]},
         "image_prompt": image_prompt,
@@ -446,17 +446,16 @@ def image_prompt_for_output(
 ) -> tuple[str, dict]:
     if output_type not in {"image", "multimodal"}:
         return "", {}
-    visual_basis = (parsed or {}).get("visual_basis")
-    visual_basis = visual_basis if isinstance(visual_basis, dict) else {}
+    visual_basis = visual_basis_from_parsed_output(parsed)
     conclusion = render_model_value(visual_basis.get("conclusion_text", ""))
     referenced_ids = [
         node_id
-        for node_id in visual_basis.get("evidence_node_ids", [])
+        for node_id in normalize_node_id_list(visual_basis.get("evidence_node_ids", []))
         if isinstance(node_id, str) and node_id in upstream_ids
     ]
     reference_image_ids = [
         node_id
-        for node_id in visual_basis.get("reference_image_node_ids", [])
+        for node_id in normalize_node_id_list(visual_basis.get("reference_image_node_ids", []))
         if isinstance(node_id, str) and any(item.get("node_id") == node_id for item in visual_references)
     ]
     evidence = {
@@ -472,7 +471,42 @@ def image_prompt_for_output(
     return constrained_image_prompt(image_prompt, conclusion), evidence
 
 
+def visual_basis_from_parsed_output(parsed: dict | None) -> dict:
+    if not isinstance(parsed, dict):
+        return {}
+    visual_basis = parsed.get("visual_basis")
+    if isinstance(visual_basis, dict):
+        return visual_basis
+    # A malformed nested text_blocks value can flatten these fields during JSON repair.
+    return {
+        "conclusion_text": parsed.get("conclusion_text", ""),
+        "evidence_node_ids": parsed.get("evidence_node_ids", []),
+        "reference_image_node_ids": parsed.get("reference_image_node_ids", []),
+    }
+
+
+def normalize_node_id_list(value) -> list[str]:
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError:
+            return []
+    return [item for item in value if isinstance(item, str)] if isinstance(value, list) else []
+
+
 TEXT_BLOCK_TYPES = {"callout", "paragraph", "table", "bar_chart", "list", "questions"}
+
+
+def normalize_text_blocks(value):
+    if isinstance(value, list):
+        return value
+    if not isinstance(value, str):
+        return value
+    try:
+        decoded = json.loads(value)
+    except json.JSONDecodeError:
+        return value
+    return decoded if isinstance(decoded, list) else value
 
 
 def ensure_text_blocks(
@@ -484,17 +518,22 @@ def ensure_text_blocks(
 ) -> dict | None:
     if output_type != "text" or not text_forms_for_snapshot(snapshot):
         return parsed
-    if isinstance(parsed, dict) and valid_text_blocks(parsed.get("text_blocks")):
-        return parsed
+    if isinstance(parsed, dict):
+        normalized_blocks = normalize_text_blocks(parsed.get("text_blocks"))
+        if valid_text_blocks(normalized_blocks):
+            normalized = dict(parsed)
+            normalized["text_blocks"] = normalized_blocks
+            return normalized
     try:
         repair = generate_modify_response(build_text_block_repair_prompt(snapshot, text), api_key=api_key)
     except (ModelServiceError, ModelServiceNotConfigured):
         return parsed
     repaired = parse_model_json(repair.get("text", ""))
-    if not valid_text_blocks((repaired or {}).get("text_blocks")):
+    repaired_blocks = normalize_text_blocks((repaired or {}).get("text_blocks"))
+    if not valid_text_blocks(repaired_blocks):
         return parsed
     enriched = dict(parsed or {})
-    enriched["text_blocks"] = repaired["text_blocks"]
+    enriched["text_blocks"] = repaired_blocks
     return enriched
 
 
