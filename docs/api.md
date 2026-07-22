@@ -45,11 +45,55 @@ Returns the canvas graph:
 }
 ```
 
+## Interaction V2
+
+`GET /api/projects/{project_id}/interaction`
+
+Returns graph revision and the conversation-facing metadata: Scope records, conversation
+sessions/messages, command proposals, and execution summaries. The canonical graph
+itself remains available from the Canvas endpoint.
+
+`GET /api/projects/{project_id}/scopes/{scope_id}/projection`
+
+Returns the active graph projection for one Scope. The response contains only member
+nodes and edges whose endpoints are both inside that scope; it never clones them into a
+new canvas.
+
+`POST /api/projects/{project_id}/scopes`
+
+Creates a named `live` or `snapshot` Scope. A selector supports `all`, `explicit`, or
+`neighborhood` membership rules.
+
+`POST /api/projects/{project_id}/conversations`
+
+Creates a conversation session with a title, `control_policy` (`manual`, `propose`,
+`confirm`, or future `auto`), and active Scope.
+
+`POST /api/projects/{project_id}/conversations/{session_id}/messages`
+
+Appends a user, assistant, or system message. Messages store their Scope and optional
+node references; they do not mutate graph nodes.
+
+`POST /api/projects/{project_id}/command-proposals`
+
+Creates an auditable proposal for a future graph change. Supported action values are
+`create_node`, `patch_node`, `connect_nodes`, and `create_scope`.
+
+`POST /api/projects/{project_id}/command-proposals/{command_id}/resolve`
+
+Accepts `{ "resolution": "approved" }` or `{ "resolution": "rejected" }`.
+Approval currently records reviewer intent only; no proposal applies a node mutation
+until an explicit command executor is added.
+
+All graph, interaction, and run mutation bodies may include `expected_revision`. It is
+compared with the current canvas revision to prevent silent last-write-wins updates.
+
 ## Nodes
 
 `POST /api/projects/{project_id}/nodes`
 
-Creates a text, conversation, upload, image, multimodal, or Modify node.
+Creates a text, conversation, upload, image, multimodal, Modify, or manifest-driven
+Operation node.
 
 ```json
 {
@@ -166,6 +210,12 @@ Modify `config.output_type` supports:
 `GET /api/modifier-tools`
 
 Returns placeholder Modify tools and output types for the UI.
+
+`GET /api/operation-definitions`
+
+Returns installed operation-node definitions from `operation_definitions/*/manifest.json`.
+Definitions are independent from speculative tool packages and describe node ports,
+output profiles, tool-selection policies, and execution capabilities.
 
 `GET /api/model/status`
 

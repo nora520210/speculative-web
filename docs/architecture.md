@@ -26,6 +26,76 @@ Canvas editing does not generate content.
 
 Only `POST /api/projects/{project_id}/nodes/{node_id}/run` is allowed to create generated output. With `OPENAI_API_KEY` configured, this endpoint calls OpenAI from the backend. Tests and offline development can set `SPEC_WEB_ENABLE_OPENAI_RUNS=0` to keep placeholder output.
 
+## Interaction Architecture V2
+
+The canvas remains the one canonical graph. Conversation is a coordinated surface over
+that graph, never a second canvas that copies nodes.
+
+- `Scope` is a named graph projection. It can select every node, explicit node IDs, or
+  a bounded neighbourhood; a scope can be `live` or retain a node-ID snapshot. A
+  projection returns only the selected nodes and their internal edges.
+- `ConversationSession` stores messages, a current scope, an adjustable control
+  policy, and progress steps. Messages reference node IDs and scopes; they do not
+  duplicate node content into a parallel graph.
+- `CommandProposal` represents an intended graph action such as `create_node`,
+  `patch_node`, `connect_nodes`, or `create_scope`. Its lifecycle is
+  `proposed -> approved | rejected -> applied`.
+- The V2 UI exposes the first two resolution states only. Approving a proposal does
+  **not** mutate graph nodes yet. This preserves the deliberately undecided boundary
+  around direct conversational control while giving the future executor a stable,
+  auditable input contract.
+- `Execution` is the durable shell around a Run. It records context, model, and
+  materialisation steps. Current Modify generation remains synchronous; an async job
+  worker/SSE event stream can replace that executor without changing the Canvas,
+  Scope, Conversation, or Command contracts.
+
+The canvas contains additive V2 fields alongside the existing `nodes`, `edges`, and
+`runs` fields:
+
+```json
+{
+  "schema_version": 2,
+  "revision": 12,
+  "scopes": [],
+  "conversation_sessions": [],
+  "command_proposals": [],
+  "executions": [],
+  "events": []
+}
+```
+
+Graph mutations accept an optional `expected_revision`. A stale revision receives a
+conflict instead of silently overwriting a newer canvas. The file store now writes JSON
+atomically for local development. It is still a local prototype adapter: production
+collaboration and worker execution need a transactional database plus object storage.
+
+### Focused Conversation Workspace
+
+The canvas interface is a three-part research workspace:
+
+1. The left panel shows one conversation session and its progress steps.
+2. The center renders the active Scope projection, not the entire graph.
+3. The right panel is a global-map navigator. Double-clicking it opens the `scope-global`
+   projection; it never creates a duplicate canvas.
+
+This keeps a conversation's current phase legible while preserving the whole graph as
+an available reference.
+
+### Extensible Operation Nodes
+
+`Modify` remains compatible with existing canvases, but it is no longer the only
+possible operation shape. `operation_definitions/*/manifest.json` defines an operation
+node through its stable ID/version, category path, typed input ports, output profiles,
+tool-selection rules, execution contract, and presentation hints. The initial
+`operation.transform` definition is intentionally generic.
+
+An `operation` node stores a `definition_ref`, parameter values, tool selections, and
+an output profile. Adding a future operation family therefore means adding a manifest
+and executor implementation rather than extending frontend conditionals or forcing a
+new tool hierarchy into Modify. Tool packages continue to own theory, contracts,
+constraints, evaluators, and versions; operation definitions only describe how a graph
+node may select and execute them.
+
 ## Modify Pipeline
 
 1. Upstream `data` edges define direct inputs.

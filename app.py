@@ -23,22 +23,30 @@ from server.config import (
 from server.documents import inspect_document
 from server.graph_store import (
     add_edge,
+    add_command_proposal,
+    add_conversation,
+    add_conversation_message,
     add_node,
+    add_scope,
     create_project,
     delete_edge,
     delete_node,
     delete_project,
     ensure_store,
     get_project,
+    get_interaction,
+    get_scope_projection,
     read_canvas,
     read_projects,
     recommend_output_for_modify,
     run_modify,
+    resolve_command_proposal,
     update_node,
     update_project,
 )
 from server.model_service import model_environment_status
 from server.modifier_registry import list_output_types, public_modifier_tools
+from server.operation_registry import list_operation_definitions
 from server.rendering import render_document
 
 
@@ -109,11 +117,34 @@ class AppHandler(SimpleHTTPRequestHandler):
             self.send_json({"tools": public_modifier_tools(), "output_types": list_output_types()})
             return
 
+        if parsed.path == "/api/operation-definitions":
+            self.send_json({"definitions": list_operation_definitions()})
+            return
+
         if parsed.path == "/api/model/status":
             self.send_json({"model": model_environment_status()})
             return
 
         route = self.match_project_route(parsed.path)
+        if route and len(route) == 2 and route[1] == "interaction":
+            project_id = route[0]
+            if not get_project(project_id):
+                self.send_json({"error": "Project not found."}, status=HTTPStatus.NOT_FOUND)
+                return
+            self.send_json({"interaction": get_interaction(project_id)})
+            return
+
+        if route and len(route) == 4 and route[1] == "scopes" and route[3] == "projection":
+            project_id, _, scope_id, _ = route
+            if not get_project(project_id):
+                self.send_json({"error": "Project not found."}, status=HTTPStatus.NOT_FOUND)
+                return
+            try:
+                self.send_json({"projection": get_scope_projection(project_id, scope_id)})
+            except KeyError as exc:
+                self.send_json({"error": str(exc)}, status=HTTPStatus.NOT_FOUND)
+            return
+
         if route and len(route) == 2 and route[1] == "canvas":
             project_id = route[0]
             if not get_project(project_id):
@@ -161,7 +192,7 @@ class AppHandler(SimpleHTTPRequestHandler):
             if action == ["nodes"]:
                 payload = self.read_json_body()
                 try:
-                    node = add_node(project_id, payload)
+                    node = add_node(project_id, payload, expected_revision=self.expected_revision(payload))
                 except ValueError as exc:
                     self.send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
                     return
@@ -171,15 +202,76 @@ class AppHandler(SimpleHTTPRequestHandler):
             if action == ["edges"]:
                 payload = self.read_json_body()
                 try:
-                    edge = add_edge(project_id, payload)
+                    edge = add_edge(project_id, payload, expected_revision=self.expected_revision(payload))
                 except (KeyError, ValueError) as exc:
                     self.send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
                     return
                 self.send_json({"edge": edge}, status=HTTPStatus.CREATED)
                 return
 
+            if action == ["scopes"]:
+                payload = self.read_json_body()
+                try:
+                    scope = add_scope(project_id, payload, expected_revision=self.expected_revision(payload))
+                except (KeyError, ValueError) as exc:
+                    self.send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+                    return
+                self.send_json({"scope": scope}, status=HTTPStatus.CREATED)
+                return
+
+            if action == ["conversations"]:
+                payload = self.read_json_body()
+                try:
+                    session = add_conversation(project_id, payload, expected_revision=self.expected_revision(payload))
+                except (KeyError, ValueError) as exc:
+                    self.send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+                    return
+                self.send_json({"conversation": session}, status=HTTPStatus.CREATED)
+                return
+
+            if len(action) == 3 and action[0] == "conversations" and action[2] == "messages":
+                payload = self.read_json_body()
+                try:
+                    message = add_conversation_message(
+                        project_id,
+                        action[1],
+                        payload,
+                        expected_revision=self.expected_revision(payload),
+                    )
+                except (KeyError, ValueError) as exc:
+                    self.send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+                    return
+                self.send_json({"message": message}, status=HTTPStatus.CREATED)
+                return
+
+            if action == ["command-proposals"]:
+                payload = self.read_json_body()
+                try:
+                    proposal = add_command_proposal(project_id, payload, expected_revision=self.expected_revision(payload))
+                except (KeyError, ValueError) as exc:
+                    self.send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+                    return
+                self.send_json({"command": proposal}, status=HTTPStatus.CREATED)
+                return
+
+            if len(action) == 3 and action[0] == "command-proposals" and action[2] == "resolve":
+                payload = self.read_json_body()
+                try:
+                    proposal = resolve_command_proposal(
+                        project_id,
+                        action[1],
+                        str(payload.get("resolution") or ""),
+                        expected_revision=self.expected_revision(payload),
+                    )
+                except (KeyError, ValueError) as exc:
+                    self.send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+                    return
+                self.send_json({"command": proposal})
+                return
+
             if len(action) == 3 and action[0] == "nodes" and action[2] == "run":
                 node_id = action[1]
+                payload = self.read_json_body()
                 api_key = self.user_api_key()
                 if user_api_key_required() and not api_key:
                     self.send_json(
@@ -188,7 +280,12 @@ class AppHandler(SimpleHTTPRequestHandler):
                     )
                     return
                 try:
-                    result = run_modify(project_id, node_id, api_key=api_key or None)
+                    result = run_modify(
+                        project_id,
+                        node_id,
+                        api_key=api_key or None,
+                        expected_revision=self.expected_revision(payload),
+                    )
                 except (KeyError, ValueError) as exc:
                     self.send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
                     return
@@ -232,9 +329,13 @@ class AppHandler(SimpleHTTPRequestHandler):
                 self.send_json({"error": "Project not found."}, status=HTTPStatus.NOT_FOUND)
                 return
             try:
-                node = update_node(project_id, node_id, self.read_json_body())
+                payload = self.read_json_body()
+                node = update_node(project_id, node_id, payload, expected_revision=self.expected_revision(payload))
             except KeyError as exc:
                 self.send_json({"error": str(exc)}, status=HTTPStatus.NOT_FOUND)
+                return
+            except ValueError as exc:
+                self.send_json({"error": str(exc)}, status=HTTPStatus.CONFLICT)
                 return
             self.send_json({"node": node})
             return
@@ -453,6 +554,12 @@ class AppHandler(SimpleHTTPRequestHandler):
         if len(key) > MAX_USER_API_KEY_CHARS:
             return ""
         return key
+
+    def expected_revision(self, payload: dict | None = None):
+        if isinstance(payload, dict) and "expected_revision" in payload:
+            return payload.pop("expected_revision")
+        value = self.headers.get("If-Match", "").strip().strip('"')
+        return value or None
 
     def send_json(self, payload: dict, status: HTTPStatus = HTTPStatus.OK) -> None:
         body = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")

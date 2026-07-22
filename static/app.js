@@ -40,9 +40,30 @@ const apiAccessForm = document.querySelector("#api-access-form");
 const apiAccessKey = document.querySelector("#api-access-key");
 const apiAccessError = document.querySelector("#api-access-error");
 const appShell = document.querySelector("#app-shell");
+const conversationTitle = document.querySelector("#conversation-title");
+const conversationPolicy = document.querySelector("#conversation-policy");
+const conversationProgress = document.querySelector("#conversation-progress");
+const conversationMessages = document.querySelector("#conversation-messages");
+const conversationForm = document.querySelector("#conversation-form");
+const conversationInput = document.querySelector("#conversation-input");
+const scopeViewTitle = document.querySelector("#scope-view-title");
+const scopeNodeCount = document.querySelector("#scope-node-count");
+const globalMap = document.querySelector("#global-map");
+const scopeList = document.querySelector("#scope-list");
+const commandProposals = document.querySelector("#command-proposals");
+const navigatorRevision = document.querySelector("#navigator-revision");
+const toolSidebarList = document.querySelector("#tool-sidebar-list");
+const toolSidebarCount = document.querySelector("#tool-sidebar-count");
+const returnLocalScope = document.querySelector("#return-local-scope");
+const overviewPanel = document.querySelector("#overview-panel");
+const closeOverview = document.querySelector("#close-overview");
 
 let activeProject = null;
 let activeCanvas = null;
+let activeInteraction = null;
+let activeProjection = null;
+let activeSessionId = null;
+let activeScopeId = null;
 let dragState = null;
 let connectionDraft = null;
 let panState = null;
@@ -93,15 +114,19 @@ const translations = {
     "nodes.image": "Image",
     "nodes.multimodal": "Text+Image",
     "nodes.modify": "Modify",
+    "nodes.tool": "Tool",
+    "nodes.operation": "Operation",
     "nodes.textTitle": "Text Node",
     "nodes.conversationTitle": "Conversation",
     "nodes.uploadTitle": "Upload",
     "nodes.imageTitle": "Image Node",
     "nodes.multimodalTitle": "Text+Image Node",
     "nodes.modifyTitle": "Modify",
+    "nodes.operationTitle": "Operation Node",
     "nodes.textDefault": "New text information node.",
     "nodes.conversationDefault": "Conversation or intermediate thinking content.",
     "nodes.imageDefault": "Image semantic summary placeholder.",
+    "nodes.operationDefault": "Configurable operation definition.",
     "output.text": "Text",
     "output.image": "Image",
     "output.multimodal": "Text+Image",
@@ -120,6 +145,7 @@ const translations = {
     "status.failed": "failed",
     "status.stale": "stale",
     "status.generated": "generated",
+    "status.orphaned": "orphaned",
     "inspector.canvasSnapshot": "Canvas Snapshot",
     "inspector.openCanvas": "Open a canvas to inspect its graph state.",
     "inspector.modelApi": "Model API",
@@ -169,6 +195,41 @@ const translations = {
     "access.invalid": "Enter a valid API key to continue.",
     "access.required": "Enter your API key before running a model operation.",
     "access.active": "A personal API key is active for this tab. It is never saved by this site.",
+    "conversation.eyebrow": "Conversation scope",
+    "conversation.emptyTitle": "Working thread",
+    "conversation.inputLabel": "Add to conversation",
+    "conversation.placeholder": "Add a research instruction for this scope",
+    "conversation.send": "Add",
+    "conversation.none": "No messages in this scope yet.",
+    "conversation.user": "researcher",
+    "conversation.assistant": "assistant",
+    "conversation.system": "system",
+    "scope.eyebrow": "Focused graph",
+    "scope.loading": "Loading scope",
+    "scope.global": "Global graph",
+    "scope.returnLocal": "Return to local",
+    "navigator.eyebrow": "Global graph",
+    "navigator.title": "Navigator",
+    "navigator.openGlobal": "Open global graph",
+    "navigator.hint": "Select a local scope to return to its focused graph.",
+    "navigator.scopes": "Scopes",
+    "navigator.proposals": "Command proposals",
+    "navigator.none": "No pending proposals.",
+    "toolSidebar.eyebrow": "Tool nodes",
+    "toolSidebar.title": "Tools",
+    "toolSidebar.none": "No Modify tools in this scope.",
+    "toolSidebar.nodeType": "tool",
+    "toolSidebar.selected": "selected",
+    "toolSidebar.remove": "Remove",
+    "toolSidebar.toModify": "to Modify",
+    "modify.toolsInSidebar": "{count} tool nodes in sidebar",
+    "command.approve": "Approve",
+    "command.reject": "Reject",
+    "command.proposed": "proposed",
+    "command.approved": "approved",
+    "command.rejected": "rejected",
+    "command.applied": "applied",
+    "command.superseded": "superseded",
   },
   zh: {
     "document.title": "思辨设计画布",
@@ -206,15 +267,19 @@ const translations = {
     "nodes.image": "图像",
     "nodes.multimodal": "图文",
     "nodes.modify": "推演",
+    "nodes.tool": "工具",
+    "nodes.operation": "操作",
     "nodes.textTitle": "文本节点",
     "nodes.conversationTitle": "对话",
     "nodes.uploadTitle": "上传",
     "nodes.imageTitle": "图像节点",
     "nodes.multimodalTitle": "图文节点",
     "nodes.modifyTitle": "推演",
+    "nodes.operationTitle": "操作节点",
     "nodes.textDefault": "新的文本信息节点。",
     "nodes.conversationDefault": "对话或中间思考内容。",
     "nodes.imageDefault": "图像语义摘要占位。",
+    "nodes.operationDefault": "可配置的操作定义。",
     "output.text": "文本",
     "output.image": "图像",
     "output.multimodal": "图文",
@@ -233,6 +298,7 @@ const translations = {
     "status.failed": "失败",
     "status.stale": "待更新",
     "status.generated": "已生成",
+    "status.orphaned": "已脱离原节点",
     "inspector.canvasSnapshot": "画布快照",
     "inspector.openCanvas": "打开一个画布以查看图谱状态。",
     "inspector.modelApi": "模型 API",
@@ -282,6 +348,41 @@ const translations = {
     "access.invalid": "请输入有效的 API Key 后继续。",
     "access.required": "运行模型操作前，请先输入你的 API Key。",
     "access.active": "当前标签页已启用个人 API Key；网站不会保存该 Key。",
+    "conversation.eyebrow": "对话范围",
+    "conversation.emptyTitle": "工作线程",
+    "conversation.inputLabel": "添加对话内容",
+    "conversation.placeholder": "为当前范围补充研究指令",
+    "conversation.send": "添加",
+    "conversation.none": "当前范围暂无消息。",
+    "conversation.user": "研究者",
+    "conversation.assistant": "助手",
+    "conversation.system": "系统",
+    "scope.eyebrow": "局部图谱",
+    "scope.loading": "正在载入范围",
+    "scope.global": "全局图谱",
+    "scope.returnLocal": "返回局部",
+    "navigator.eyebrow": "全局图谱",
+    "navigator.title": "导航",
+    "navigator.openGlobal": "打开全局图谱",
+    "navigator.hint": "选择局部范围即可回到对应的局部图谱。",
+    "navigator.scopes": "范围",
+    "navigator.proposals": "命令提案",
+    "navigator.none": "没有待处理提案。",
+    "toolSidebar.eyebrow": "工具节点",
+    "toolSidebar.title": "工具",
+    "toolSidebar.none": "当前局部没有推演工具。",
+    "toolSidebar.nodeType": "工具",
+    "toolSidebar.selected": "已选",
+    "toolSidebar.remove": "移除",
+    "toolSidebar.toModify": "关联推演",
+    "modify.toolsInSidebar": "{count} 个工具节点在侧栏",
+    "command.approve": "批准",
+    "command.reject": "拒绝",
+    "command.proposed": "待审核",
+    "command.approved": "已批准",
+    "command.rejected": "已拒绝",
+    "command.applied": "已应用",
+    "command.superseded": "已替代",
   },
 };
 let locale = localStorage.getItem(LOCALE_KEY) === "zh" ? "zh" : "en";
@@ -353,6 +454,11 @@ async function requestJson(url, options = {}) {
   return payload;
 }
 
+function withExpectedRevision(payload) {
+  const revision = activeInteraction?.revision ?? activeCanvas?.revision;
+  return Number.isInteger(revision) ? { ...payload, expected_revision: revision } : payload;
+}
+
 function requireTabApiKey() {
   if (tabApiKey) return true;
   apiAccessError.textContent = t("access.required");
@@ -419,6 +525,10 @@ async function loadProjects() {
 
 async function openCanvas(project) {
   activeProject = project;
+  activeInteraction = null;
+  activeProjection = null;
+  activeSessionId = null;
+  activeScopeId = null;
   updateCanvasTitle(project.title);
   home.classList.add("hidden");
   canvas.classList.add("active");
@@ -442,10 +552,105 @@ async function loadCanvas({ preserveView = true } = {}) {
   const shouldPreserveView = preserveView && previousCanvasId === graph.id;
   activeCanvas = graph;
   zoom = shouldPreserveView ? clampZoom(previousZoom) : clampZoom(activeCanvas.viewport?.zoom ?? 1);
+  await loadInteraction({ preserveScope: shouldPreserveView });
   setStatus(canvasStatus, "ready");
   canvasOutput.textContent = JSON.stringify(summarizeCanvas(graph), null, 2);
   renderCanvas();
   if (shouldPreserveView) restoreCanvasView(previousView);
+}
+
+async function loadInteraction({ preserveScope = true } = {}) {
+  if (!activeProject) return;
+  const { interaction } = await requestJson(`/api/projects/${activeProject.id}/interaction`);
+  activeInteraction = interaction;
+  const sessions = interaction.conversation_sessions || [];
+  const currentSession = sessions.find((session) => session.id === activeSessionId);
+  const focusedSession = sessions.find((session) => session.active_scope_id && session.active_scope_id !== "scope-global");
+  const session = currentSession || focusedSession || sessions[0] || null;
+  activeSessionId = session?.id || null;
+  const availableScopeIds = new Set((interaction.scopes || []).map((scope) => scope.id));
+  const preferredScope = preserveScope && availableScopeIds.has(activeScopeId)
+    ? activeScopeId
+    : (session?.active_scope_id || "scope-global");
+  await loadScopeProjection(preferredScope, { render: false, fit: !preserveScope });
+  renderInteraction();
+}
+
+async function loadScopeProjection(scopeId, { render = true, fit = true } = {}) {
+  if (!activeProject) return;
+  const { projection } = await requestJson(`/api/projects/${activeProject.id}/scopes/${scopeId}/projection`);
+  activeScopeId = projection.scope.id;
+  activeProjection = projection;
+  if (fit) zoom = fittedScopeZoom(projection);
+  if (render) {
+    renderInteraction();
+    renderCanvas();
+  }
+}
+
+function fittedScopeZoom(projection) {
+  const nodes = projection?.nodes || [];
+  if (!nodes.length) return 1;
+  const maxRight = Math.max(...nodes.map((node) => Number(node.position?.x || 0) + Number(node.size?.width || 240)), 320) + 72;
+  const maxBottom = Math.max(...nodes.map((node) => Number(node.position?.y || 0) + Number(node.size?.height || 170)), 260) + 72;
+  const availableWidth = Math.max(280, workspace.clientWidth - 18);
+  const availableHeight = Math.max(260, workspace.clientHeight - 18);
+  return clampZoom(Math.min(1, availableWidth / maxRight, availableHeight / maxBottom));
+}
+
+function displayGraph() {
+  const graph = activeProjection || activeCanvas || { nodes: [], edges: [] };
+  return graphWithPresentationTools(graph);
+}
+
+function activeSession() {
+  return (activeInteraction?.conversation_sessions || []).find((session) => session.id === activeSessionId) || null;
+}
+
+function defaultLocalScopeId() {
+  const sessionScopeId = activeSession()?.active_scope_id;
+  if (sessionScopeId && sessionScopeId !== "scope-global") return sessionScopeId;
+  return (activeInteraction?.scopes || []).find((scope) => scope.id !== "scope-global")?.id || "scope-global";
+}
+
+function graphWithPresentationTools(graph) {
+  const toolNodes = [];
+  const toolEdges = [];
+  for (const node of graph.nodes || []) {
+    if (node.type !== "modify") continue;
+    const selectedTools = (node.config?.tools || []).filter((tool) => tool.selected);
+    selectedTools.forEach((tool, index) => {
+      const toolNodeId = `presentation-tool:${node.id}:${tool.id}`;
+      toolNodes.push({
+        id: toolNodeId,
+        type: "tool",
+        presentation_kind: "tool",
+        parent_modify_id: node.id,
+        tool_id: tool.id,
+        title: tool.label || tool.id,
+        status: "ready",
+        position: {
+          x: Math.max(0, Number(node.position?.x || 0) - 218),
+          y: Number(node.position?.y || 0) + index * 122,
+        },
+        size: { width: 194, height: 104 },
+        payload: { description: tool.description || "" },
+        config: { tool },
+      });
+      toolEdges.push({
+        id: `presentation-edge:${node.id}:${tool.id}`,
+        source_node_id: toolNodeId,
+        target_node_id: node.id,
+        edge_kind: "configuration-reference",
+        presentation_only: true,
+      });
+    });
+  }
+  return {
+    ...graph,
+    nodes: [...(graph.nodes || []), ...toolNodes],
+    edges: [...(graph.edges || []), ...toolEdges],
+  };
 }
 
 function captureCanvasView() {
@@ -475,12 +680,171 @@ async function loadModelStatus() {
 }
 
 function renderCanvas() {
-  if (!activeCanvas) return;
+  const graph = displayGraph();
+  if (!graph) return;
   nodesLayer.innerHTML = "";
-  for (const node of activeCanvas.nodes) {
+  for (const node of graph.nodes || []) {
     nodesLayer.append(renderNode(node));
   }
   requestAnimationFrame(renderPlane);
+}
+
+function renderInteraction() {
+  const interaction = activeInteraction;
+  const session = activeSession();
+  const scope = activeProjection?.scope || (interaction?.scopes || []).find((item) => item.id === activeScopeId);
+  conversationTitle.textContent = session?.title || t("conversation.emptyTitle");
+  conversationPolicy.textContent = session?.control_policy || "confirm";
+  scopeViewTitle.textContent = scope?.label || t("scope.loading");
+  scopeNodeCount.textContent = `${scope?.node_count ?? activeProjection?.nodes?.length ?? 0}`;
+  navigatorRevision.textContent = `r${interaction?.revision ?? activeCanvas?.revision ?? 0}`;
+  const isGlobalScope = activeScopeId === "scope-global";
+  returnLocalScope.classList.toggle("hidden", !isGlobalScope);
+  overviewPanel.classList.toggle("hidden", !isGlobalScope);
+
+  const progress = session?.progress || [];
+  conversationProgress.innerHTML = progress.map((step) => `
+    <button class="progress-step ${escapeHtml(step.status || "pending")}" type="button" data-progress-scope="${escapeHtml(step.scope_id)}">
+      <span>${escapeHtml(step.label)}</span><span>${escapeHtml(statusLabel(step.status || "pending"))}</span>
+    </button>
+  `).join("");
+  conversationProgress.querySelectorAll("[data-progress-scope]").forEach((button) => {
+    button.addEventListener("click", () => setActiveScope(button.dataset.progressScope));
+  });
+
+  const messages = session?.messages || [];
+  conversationMessages.innerHTML = messages.length
+    ? messages.map((message) => `
+      <article class="conversation-message ${escapeHtml(message.role)}">
+        <span class="message-role">${escapeHtml(t(`conversation.${message.role}`))}</span>
+        <p>${escapeHtml(message.body)}</p>
+      </article>
+    `).join("")
+    : `<p class="empty-panel">${escapeHtml(t("conversation.none"))}</p>`;
+
+  const scopes = interaction?.scopes || [];
+  scopeList.innerHTML = scopes.map((item) => `
+    <button class="scope-row ${item.id === activeScopeId ? "active" : ""}" type="button" data-scope-id="${escapeHtml(item.id)}">
+      <span>${escapeHtml(item.label)}</span><span>${escapeHtml(item.node_count)}</span>
+    </button>
+  `).join("");
+  scopeList.querySelectorAll("[data-scope-id]").forEach((button) => {
+    button.addEventListener("click", () => setActiveScope(button.dataset.scopeId));
+  });
+
+  renderGlobalMap();
+  renderCommandProposals();
+  renderToolSidebar();
+}
+
+function renderToolSidebar() {
+  const nodes = activeProjection?.nodes || [];
+  const modifyNodes = nodes.filter((node) => node.type === "modify");
+  const toolCount = modifyNodes.reduce((count, node) => count + (node.config?.tools || []).length, 0);
+  toolSidebarCount.textContent = String(toolCount);
+  if (!modifyNodes.length) {
+    toolSidebarList.innerHTML = `<p class="empty-panel">${escapeHtml(t("toolSidebar.none"))}</p>`;
+    return;
+  }
+  toolSidebarList.innerHTML = modifyNodes.map((node) => {
+    const tools = node.config?.tools || [];
+    return `
+      <section class="tool-sidebar-group">
+        <span class="tool-sidebar-group-title">${escapeHtml(node.title)}</span>
+        ${tools.map((tool) => `
+          <button
+            class="tool-sidebar-row ${tool.selected ? "selected" : ""}"
+            type="button"
+            data-sidebar-modify-id="${escapeHtml(node.id)}"
+            data-sidebar-tool-id="${escapeHtml(tool.id)}"
+            title="${escapeHtml(tool.description || tool.label || tool.id)}"
+          ><span class="dot"></span><span>${escapeHtml(tool.label || tool.id)}</span></button>
+        `).join("")}
+      </section>
+    `;
+  }).join("");
+  toolSidebarList.querySelectorAll("[data-sidebar-tool-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const modifyNode = activeCanvas?.nodes.find((node) => node.id === button.dataset.sidebarModifyId);
+      if (!modifyNode) return;
+      const tool = (modifyNode.config?.tools || []).find((item) => item.id === button.dataset.sidebarToolId);
+      setToolSelection(modifyNode, button.dataset.sidebarToolId, !tool?.selected).catch((error) => {
+        setStatus(canvasStatus, "error");
+        canvasOutput.textContent = error.message;
+      });
+    });
+  });
+}
+
+function renderGlobalMap() {
+  if (!globalMap) return;
+  globalMap.innerHTML = "";
+  const nodes = activeCanvas?.nodes || [];
+  if (!nodes.length) return;
+  const activeIds = new Set((activeProjection?.nodes || []).map((node) => node.id));
+  const maxX = Math.max(...nodes.map((node) => Number(node.position?.x || 0)), 1);
+  const maxY = Math.max(...nodes.map((node) => Number(node.position?.y || 0)), 1);
+  for (const node of nodes) {
+    const marker = document.createElement("span");
+    marker.className = `global-map-node ${activeIds.has(node.id) ? "in-scope" : ""}`;
+    marker.style.left = `${7 + (Number(node.position?.x || 0) / maxX) * 84}%`;
+    marker.style.top = `${10 + (Number(node.position?.y || 0) / maxY) * 76}%`;
+    marker.title = node.title || node.id;
+    globalMap.append(marker);
+  }
+}
+
+function renderCommandProposals() {
+  const proposals = activeInteraction?.command_proposals || [];
+  commandProposals.innerHTML = proposals.length
+    ? proposals.map((proposal) => `
+      <article class="command-card">
+        <p>${escapeHtml(proposal.title)}</p>
+        <small>${escapeHtml(t(`command.${proposal.status}`))} · ${escapeHtml(proposal.action)}</small>
+        ${proposal.status === "proposed" ? `
+          <div class="command-actions">
+            <button type="button" data-command-id="${escapeHtml(proposal.id)}" data-command-resolution="approved">${t("command.approve")}</button>
+            <button type="button" data-command-id="${escapeHtml(proposal.id)}" data-command-resolution="rejected">${t("command.reject")}</button>
+          </div>
+        ` : ""}
+      </article>
+    `).join("")
+    : `<p class="empty-panel">${escapeHtml(t("navigator.none"))}</p>`;
+  commandProposals.querySelectorAll("[data-command-id]").forEach((button) => {
+    button.addEventListener("click", () => resolveCommand(button.dataset.commandId, button.dataset.commandResolution));
+  });
+}
+
+async function setActiveScope(scopeId) {
+  if (!scopeId || scopeId === activeScopeId) return;
+  try {
+    await loadScopeProjection(scopeId);
+  } catch (error) {
+    setStatus(canvasStatus, "error");
+    canvasOutput.textContent = error.message;
+  }
+}
+
+async function submitConversationMessage(event) {
+  event.preventDefault();
+  const session = activeSession();
+  const body = conversationInput.value.trim();
+  if (!activeProject || !session || !body) return;
+  await requestJson(`/api/projects/${activeProject.id}/conversations/${session.id}/messages`, {
+    method: "POST",
+    body: JSON.stringify(withExpectedRevision({ body, scope_id: activeScopeId })),
+  });
+  conversationInput.value = "";
+  await loadCanvas();
+}
+
+async function resolveCommand(commandId, resolution) {
+  if (!activeProject || !commandId || !resolution) return;
+  await requestJson(`/api/projects/${activeProject.id}/command-proposals/${commandId}/resolve`, {
+    method: "POST",
+    body: JSON.stringify(withExpectedRevision({ resolution })),
+  });
+  await loadCanvas();
 }
 
 function renderPlane() {
@@ -495,13 +859,14 @@ function renderPlane() {
 }
 
 function renderEdges(size = canvasBaseSize()) {
-  if (!activeCanvas) return;
+  const graph = displayGraph();
+  if (!graph) return;
   edgesLayer.innerHTML = "";
   edgesLayer.setAttribute("width", String(size.width));
   edgesLayer.setAttribute("height", String(size.height));
   edgesLayer.removeAttribute("viewBox");
 
-  for (const edge of activeCanvas.edges) {
+  for (const edge of graph.edges || []) {
     const sourceEl = nodesLayer.querySelector(`[data-node-id="${cssEscape(edge.source_node_id)}"]`);
     const targetEl = nodesLayer.querySelector(`[data-node-id="${cssEscape(edge.target_node_id)}"]`);
     if (!sourceEl || !targetEl) continue;
@@ -513,7 +878,7 @@ function renderEdges(size = canvasBaseSize()) {
 }
 
 function canvasBaseSize() {
-  const nodes = activeCanvas?.nodes || [];
+  const nodes = displayGraph()?.nodes || [];
   const contentBounds = nodes.reduce(
     (bounds, node) => {
       const element = nodesLayer.querySelector(`[data-node-id="${cssEscape(node.id)}"]`);
@@ -542,8 +907,12 @@ function renderEdge(sourceEl, targetEl, edge) {
   hit.setAttribute("d", d);
   hit.classList.add("edge-hit");
   hit.dataset.edgeId = edge.id;
-  hit.addEventListener("contextmenu", (event) => openEdgeMenu(event, edge));
-  group.addEventListener("contextmenu", (event) => openEdgeMenu(event, edge));
+  if (!edge.presentation_only) {
+    hit.addEventListener("contextmenu", (event) => openEdgeMenu(event, edge));
+    group.addEventListener("contextmenu", (event) => openEdgeMenu(event, edge));
+  } else {
+    hit.style.pointerEvents = "none";
+  }
   group.append(path, hit);
   return group;
 }
@@ -589,6 +958,7 @@ function nodeBox(element) {
 }
 
 function renderNode(node) {
+  if (node.presentation_kind === "tool") return renderPresentationToolNode(node);
   const article = document.createElement("article");
   article.className = `node ${node.type}-node ${node.status || ""}`;
   article.dataset.nodeId = node.id;
@@ -660,21 +1030,43 @@ function renderNode(node) {
   return article;
 }
 
+function renderPresentationToolNode(node) {
+  const article = document.createElement("article");
+  article.className = "node tool-node ready";
+  article.dataset.nodeId = node.id;
+  article.style.left = `${node.position.x}px`;
+  article.style.top = `${node.position.y}px`;
+  article.style.width = `${node.size?.width || 194}px`;
+  article.innerHTML = `
+    <header>
+      <span>${escapeHtml(t("toolSidebar.nodeType"))}</span>
+      <span>${escapeHtml(t("toolSidebar.selected"))}</span>
+    </header>
+    <p class="tool-node-label">${escapeHtml(node.title)}</p>
+    <p class="tool-node-description">${escapeHtml(node.payload?.description || "")}</p>
+    <button class="tool-node-action" type="button" data-remove-presentation-tool>${t("toolSidebar.remove")}</button>
+    <footer>
+      <span>${escapeHtml(t("toolSidebar.toModify"))}</span>
+      <span>${escapeHtml(node.parent_modify_id || "")}</span>
+    </footer>
+  `;
+  article.querySelector("[data-remove-presentation-tool]").addEventListener("click", (event) => {
+    event.stopPropagation();
+    const modifyNode = activeCanvas?.nodes.find((item) => item.id === node.parent_modify_id);
+    if (!modifyNode) return;
+    setToolSelection(modifyNode, node.tool_id, false).catch((error) => {
+      setStatus(canvasStatus, "error");
+      canvasOutput.textContent = error.message;
+    });
+  });
+  return article;
+}
+
 function renderNodeBody(node) {
   if (node.type === "modify") {
     const tools = node.config?.tools || [];
     const outputType = node.config?.output_type || "text";
     const recommendation = outputRecommendation(node);
-    const toolRows = tools
-      .map(
-        (tool) => `
-          <button class="tool-row ${tool.selected ? "selected" : ""}" type="button" data-tool-id="${escapeHtml(tool.id)}">
-            <span class="dot"></span><span>${escapeHtml(tool.label)}</span>
-            ${tool.description ? `<span class="tool-tooltip" role="tooltip">${escapeHtml(tool.description)}</span>` : ""}
-          </button>
-        `,
-      )
-      .join("");
     const outputRows = ["text", "image", "multimodal"]
       .map(
         (type) => `
@@ -685,7 +1077,7 @@ function renderNodeBody(node) {
       )
       .join("");
     return `
-      <div class="tool-stack">${toolRows}</div>
+      <div class="modify-summary">${escapeHtml(t("modify.toolsInSidebar", { count: tools.filter((tool) => tool.selected).length }))}</div>
       <div class="output-stack">
         <div class="micro-label">${t("common.output")}</div>
         ${outputRows}
@@ -694,6 +1086,21 @@ function renderNodeBody(node) {
       <div class="node-actions">
         <span>${escapeHtml(t(`composition.${node.config?.composition || "parallel"}`))}</span>
         <button type="button" data-run-modify>${t("common.run")}</button>
+      </div>
+    `;
+  }
+
+  if (node.type === "operation") {
+    const definition = node.config?.definition || {};
+    const selectedTools = node.config?.tool_selections || [];
+    return `
+      <div class="operation-definition">
+        <strong>${escapeHtml(definition.label || node.title)}</strong>
+        <span>${escapeHtml(definition.description || t("nodes.operationDefault"))}</span>
+      </div>
+      <div class="node-actions">
+        <span>${escapeHtml(selectedTools.length ? `${selectedTools.length} tools` : "definition")}</span>
+        <span>${escapeHtml(node.config?.output_profile || "text")}</span>
       </div>
     `;
   }
@@ -935,7 +1342,7 @@ async function addNode(type) {
   };
   await requestJson(`/api/projects/${activeProject.id}/nodes`, {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: JSON.stringify(withExpectedRevision(payload)),
   });
   await loadCanvas();
 }
@@ -943,12 +1350,18 @@ async function addNode(type) {
 async function toggleTool(event, node) {
   event.stopPropagation();
   const toolId = event.currentTarget.dataset.toolId;
-  const tools = node.config.tools.map((tool) =>
-    tool.id === toolId ? { ...tool, selected: !tool.selected } : tool,
+  const tool = (node.config?.tools || []).find((item) => item.id === toolId);
+  await setToolSelection(node, toolId, !tool?.selected);
+}
+
+async function setToolSelection(node, toolId, selected) {
+  if (!activeProject || !node || !toolId) return;
+  const tools = (node.config?.tools || []).map((tool) =>
+    tool.id === toolId ? { ...tool, selected } : tool,
   );
   await requestJson(`/api/projects/${activeProject.id}/nodes/${node.id}`, {
     method: "PATCH",
-    body: JSON.stringify({ config: { tools } }),
+    body: JSON.stringify(withExpectedRevision({ config: { tools } })),
   });
   await loadCanvas();
 }
@@ -958,7 +1371,7 @@ async function setOutputType(event, node) {
   const outputType = event.currentTarget.dataset.outputType;
   await requestJson(`/api/projects/${activeProject.id}/nodes/${node.id}`, {
     method: "PATCH",
-    body: JSON.stringify({ config: { output_type: outputType } }),
+    body: JSON.stringify(withExpectedRevision({ config: { output_type: outputType } })),
   });
   await loadCanvas();
 }
@@ -1467,13 +1880,13 @@ async function createEdge(sourceNodeId, targetNodeId) {
   if (!activeProject || !sourceNodeId || !targetNodeId || sourceNodeId === targetNodeId) return;
   await requestJson(`/api/projects/${activeProject.id}/edges`, {
     method: "POST",
-    body: JSON.stringify({
+    body: JSON.stringify(withExpectedRevision({
       source_node_id: sourceNodeId,
       target_node_id: targetNodeId,
       source_port: "out",
       target_port: "in",
       edge_kind: "data",
-    }),
+    })),
   });
   await loadCanvas();
 }
@@ -1492,7 +1905,7 @@ async function runModify(event, node) {
   try {
     await requestJson(`/api/projects/${activeProject.id}/nodes/${node.id}/run`, {
       method: "POST",
-      body: JSON.stringify({}),
+      body: JSON.stringify(withExpectedRevision({})),
       requiresApiKey: true,
     });
     await loadCanvas();
@@ -1511,7 +1924,7 @@ async function runModify(event, node) {
 async function updateNodePayload(node, payload) {
   await requestJson(`/api/projects/${activeProject.id}/nodes/${node.id}`, {
     method: "PATCH",
-    body: JSON.stringify({ payload, status: "ready" }),
+    body: JSON.stringify(withExpectedRevision({ payload, status: "ready" })),
   });
   await loadCanvas();
 }
@@ -1610,6 +2023,10 @@ function backHome() {
   home.classList.remove("hidden");
   activeProject = null;
   activeCanvas = null;
+  activeInteraction = null;
+  activeProjection = null;
+  activeSessionId = null;
+  activeScopeId = null;
 }
 
 async function deleteProject(project) {
@@ -1711,6 +2128,7 @@ function titleForType(type) {
     image: t("nodes.imageTitle"),
     multimodal: t("nodes.multimodalTitle"),
     modify: t("nodes.modifyTitle"),
+    operation: t("nodes.operationTitle"),
   }[type];
 }
 
@@ -1721,6 +2139,7 @@ function defaultTextForType(type) {
     upload: "",
     image: t("nodes.imageDefault"),
     modify: "",
+    operation: t("nodes.operationDefault"),
   }[type];
 }
 
@@ -1810,6 +2229,25 @@ canvasTitle.addEventListener("dblclick", () => {
 });
 document.querySelectorAll("[data-add-node]").forEach((button) => {
   button.addEventListener("click", () => addNode(button.dataset.addNode));
+});
+
+conversationForm.addEventListener("submit", (event) => {
+  submitConversationMessage(event).catch((error) => {
+    setStatus(canvasStatus, "error");
+    canvasOutput.textContent = error.message;
+  });
+});
+
+globalMap.addEventListener("click", () => {
+  setActiveScope("scope-global");
+});
+
+returnLocalScope.addEventListener("click", () => {
+  setActiveScope(defaultLocalScopeId());
+});
+
+closeOverview.addEventListener("click", () => {
+  setActiveScope(defaultLocalScopeId());
 });
 
 apiAccessForm.addEventListener("submit", acceptTabApiKey);

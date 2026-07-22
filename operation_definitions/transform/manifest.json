@@ -1,0 +1,33 @@
+{
+  "id": "operation.transform",
+  "version": "0.1.0",
+  "label": "Transform",
+  "description": "A configurable operation shell that turns selected graph context into a new research artifact without prescribing a fixed speculative-design tool hierarchy.",
+  "category_path": ["operations", "transform"],
+  "input_ports": [
+    {
+      "id": "source",
+      "label": "Source context",
+      "accepted_modalities": ["text", "image", "multimodal"],
+      "cardinality": "many",
+      "required": true
+    }
+  ],
+  "output_profiles": [
+    {"id": "text", "label": "Text artifact", "modalities": ["text"], "artifact_kind": "artifact"},
+    {"id": "multimodal", "label": "Text + image artifact", "modalities": ["text", "image"], "artifact_kind": "artifact"}
+  ],
+  "tool_selector": {
+    "selection_mode": "many",
+    "accepted_layers": ["method", "tool", "principle"]
+  },
+  "execution": {
+    "kind": "model",
+    "supports_progress": true,
+    "requires_confirmation": true
+  },
+  "ui": {
+    "shell": "operation",
+    "show_tool_selector": true
+  }
+}

@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Speculative Web</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20260717" />
+    <link rel="stylesheet" href="/static/styles.css?v=20260723" />
   </head>
   <body>
     <main id="app-shell" class="app-shell">
@@ -66,20 +66,89 @@
           <button type="button" data-add-node="upload" data-i18n="nodes.upload">Upload</button>
           <button type="button" data-add-node="image" data-i18n="nodes.image">Image</button>
           <button type="button" data-add-node="modify" data-i18n="nodes.modify">Modify</button>
+          <button type="button" data-add-node="operation" data-i18n="nodes.operation">Operation</button>
           <span class="tool-spacer"></span>
           <button id="zoom-out" type="button" data-i18n-aria-label="canvas.zoomOut" aria-label="Zoom out">-</button>
           <span id="zoom-level" class="zoom-level">100%</span>
           <button id="zoom-in" type="button" data-i18n-aria-label="canvas.zoomIn" aria-label="Zoom in">+</button>
         </nav>
 
-        <div class="workspace">
-          <div id="canvas-content" class="canvas-content">
-            <div id="canvas-plane" class="canvas-plane">
-              <svg id="edges" class="edges" aria-hidden="true"></svg>
-              <div id="nodes" class="nodes-layer"></div>
+        <div class="workspace-layout">
+          <aside class="tool-sidebar" aria-labelledby="tool-sidebar-title">
+            <header class="panel-header">
+              <div>
+                <p class="eyebrow" data-i18n="toolSidebar.eyebrow">Tool nodes</p>
+                <h3 id="tool-sidebar-title" data-i18n="toolSidebar.title">Tools</h3>
+              </div>
+              <span id="tool-sidebar-count" class="panel-status">0</span>
+            </header>
+            <div id="tool-sidebar-list" class="tool-sidebar-list"></div>
+          </aside>
+
+          <section class="graph-column" aria-labelledby="scope-view-title">
+            <header class="scope-view-header">
+              <div>
+                <p class="eyebrow" data-i18n="scope.eyebrow">Focused graph</p>
+                <h3 id="scope-view-title" data-i18n="scope.loading">Loading scope</h3>
+              </div>
+              <div class="scope-view-actions">
+                <span id="scope-node-count" class="panel-status">0</span>
+                <button id="return-local-scope" class="return-local-scope hidden" type="button" data-i18n="scope.returnLocal">Return to local</button>
+              </div>
+            </header>
+            <div class="canvas-frame">
+              <div class="workspace">
+                <div id="canvas-content" class="canvas-content">
+                  <div id="canvas-plane" class="canvas-plane">
+                    <svg id="edges" class="edges" aria-hidden="true"></svg>
+                    <div id="nodes" class="nodes-layer"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="canvas-minimap">
+                <button id="global-map" class="global-map" type="button" data-i18n-aria-label="navigator.openGlobal" aria-label="Open global graph"></button>
+                <span id="navigator-revision" class="minimap-revision">r0</span>
+              </div>
+              <aside id="overview-panel" class="overview-panel hidden" aria-labelledby="navigator-title">
+                <header class="panel-header">
+                  <div>
+                    <p class="eyebrow" data-i18n="navigator.eyebrow">Global graph</p>
+                    <h3 id="navigator-title" data-i18n="navigator.title">Navigator</h3>
+                  </div>
+                  <button id="close-overview" class="overview-close" type="button" data-i18n="common.close">Close</button>
+                </header>
+                <p class="navigator-hint" data-i18n="navigator.hint">Open the global graph, then select a local scope to return.</p>
+                <div class="navigator-section">
+                  <p class="micro-label" data-i18n="navigator.scopes">Scopes</p>
+                  <div id="scope-list" class="scope-list"></div>
+                </div>
+                <div class="navigator-section">
+                  <p class="micro-label" data-i18n="navigator.proposals">Command proposals</p>
+                  <div id="command-proposals" class="command-proposals"></div>
+                </div>
+              </aside>
             </div>
-          </div>
+          </section>
         </div>
+
+        <section class="conversation-dock" aria-labelledby="conversation-title">
+          <header class="panel-header">
+            <div>
+              <p class="eyebrow" data-i18n="conversation.eyebrow">Conversation scope</p>
+              <h3 id="conversation-title" data-i18n="conversation.emptyTitle">Working thread</h3>
+            </div>
+            <span id="conversation-policy" class="panel-status">confirm</span>
+          </header>
+          <div id="conversation-progress" class="conversation-progress"></div>
+          <div class="conversation-dock-body">
+            <div id="conversation-messages" class="conversation-messages" aria-live="polite"></div>
+            <form id="conversation-form" class="conversation-form">
+              <label class="sr-only" for="conversation-input" data-i18n="conversation.inputLabel">Add to conversation</label>
+              <textarea id="conversation-input" rows="3" data-i18n-placeholder="conversation.placeholder" placeholder="Add a research instruction for this scope"></textarea>
+              <button type="submit" data-i18n="conversation.send">Add</button>
+            </form>
+          </div>
+        </section>
 
         <aside class="inspector-grid">
           <section class="inspector">
@@ -174,6 +243,6 @@
           </form>
         </div>
     </section>
-    <script src="/static/app.js?v=20260717"></script>
+    <script src="/static/app.js?v=20260724"></script>
   </body>
 </html>

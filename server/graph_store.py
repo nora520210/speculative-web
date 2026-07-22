@@ -24,12 +24,29 @@ from server.modifier_registry import (
     title_for_output,
     tool_snapshot,
 )
+from server.interaction_runtime import (
+    RevisionConflict,
+    append_message as append_conversation_message,
+    assert_expected_revision,
+    create_command_proposal as create_command_proposal_record,
+    create_conversation as create_conversation_record,
+    create_scope as create_scope_record,
+    ensure_interaction_data,
+    get_scope,
+    interaction_payload,
+    record_execution_from_run,
+    record_graph_event,
+    resolve_command_proposal as resolve_command_proposal_record,
+    scope_node_ids,
+    scope_projection,
+)
+from server.operation_registry import normalize_operation_config
 from server.visual_context import visual_context_for_nodes
 
 
 PROJECTS_FILE = DATA_DIR / "projects.json"
 CANVAS_DIR = DATA_DIR / "canvases"
-NODE_TYPES = {"text", "conversation", "upload", "image", "multimodal", "modify"}
+NODE_TYPES = {"text", "conversation", "upload", "image", "multimodal", "modify", "operation"}
 EDGE_KINDS = {"data", "reference", "control", "configuration-reference"}
 
 
@@ -72,7 +89,7 @@ def read_projects() -> list[dict]:
 
 def write_projects(projects: list[dict]) -> None:
     ensure_dirs()
-    PROJECTS_FILE.write_text(json.dumps(projects, ensure_ascii=False, indent=2), encoding="utf-8")
+    write_json_atomically(PROJECTS_FILE, projects)
 
 
 def create_project(title: str) -> dict:
@@ -146,6 +163,7 @@ def read_canvas(project_id: str) -> dict:
         write_canvas(project_id, canvas)
         return canvas
     canvas = json.loads(path.read_text(encoding="utf-8"))
+    ensure_interaction_data(canvas)
     refresh_runtime_config(canvas)
     return canvas
 
@@ -153,25 +171,85 @@ def read_canvas(project_id: str) -> dict:
 def write_canvas(project_id: str, canvas: dict) -> None:
     ensure_dirs()
     CANVAS_DIR.mkdir(exist_ok=True)
+    ensure_interaction_data(canvas)
     canvas["updated_at"] = utc_now()
-    canvas_file(project_id).write_text(
-        json.dumps(canvas, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+    write_json_atomically(canvas_file(project_id), canvas)
     touch_project(project_id, node_count=len(canvas.get("nodes", [])))
 
 
-def add_node(project_id: str, payload: dict) -> dict:
+def write_json_atomically(path: Path, payload) -> None:
+    temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex[:8]}.tmp")
+    temporary.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    temporary.replace(path)
+
+
+def get_interaction(project_id: str) -> dict:
+    return interaction_payload(read_canvas(project_id))
+
+
+def get_scope_projection(project_id: str, scope_id: str) -> dict:
+    return scope_projection(read_canvas(project_id), scope_id)
+
+
+def add_scope(project_id: str, payload: dict, expected_revision=None) -> dict:
     canvas = read_canvas(project_id)
+    assert_expected_revision(canvas, expected_revision)
+    scope = create_scope_record(canvas, payload)
+    record_graph_event(canvas, "scope.created", {"scope_id": scope["id"]})
+    write_canvas(project_id, canvas)
+    return scope
+
+
+def add_conversation(project_id: str, payload: dict, expected_revision=None) -> dict:
+    canvas = read_canvas(project_id)
+    assert_expected_revision(canvas, expected_revision)
+    session = create_conversation_record(canvas, payload)
+    record_graph_event(canvas, "conversation.created", {"session_id": session["id"]})
+    write_canvas(project_id, canvas)
+    return session
+
+
+def add_conversation_message(project_id: str, session_id: str, payload: dict, expected_revision=None) -> dict:
+    canvas = read_canvas(project_id)
+    assert_expected_revision(canvas, expected_revision)
+    message = append_conversation_message(canvas, session_id, payload)
+    record_graph_event(canvas, "conversation.message_added", {"session_id": session_id, "message_id": message["id"]})
+    write_canvas(project_id, canvas)
+    return message
+
+
+def add_command_proposal(project_id: str, payload: dict, expected_revision=None) -> dict:
+    canvas = read_canvas(project_id)
+    assert_expected_revision(canvas, expected_revision)
+    proposal = create_command_proposal_record(canvas, payload)
+    record_graph_event(canvas, "command.proposed", {"command_id": proposal["id"], "action": proposal["action"]})
+    write_canvas(project_id, canvas)
+    return proposal
+
+
+def resolve_command_proposal(project_id: str, command_id: str, resolution: str, expected_revision=None) -> dict:
+    canvas = read_canvas(project_id)
+    assert_expected_revision(canvas, expected_revision)
+    proposal = resolve_command_proposal_record(canvas, command_id, resolution)
+    record_graph_event(canvas, "command.resolved", {"command_id": command_id, "status": resolution})
+    write_canvas(project_id, canvas)
+    return proposal
+
+
+def add_node(project_id: str, payload: dict, expected_revision=None) -> dict:
+    canvas = read_canvas(project_id)
+    assert_expected_revision(canvas, expected_revision)
     node = normalize_node(payload)
     canvas["nodes"].append(node)
     refresh_runtime_config(canvas)
+    record_graph_event(canvas, "node.created", {"node_id": node["id"], "node_type": node["type"]})
     write_canvas(project_id, canvas)
     return node
 
 
-def update_node(project_id: str, node_id: str, patch: dict) -> dict:
+def update_node(project_id: str, node_id: str, patch: dict, expected_revision=None) -> dict:
     canvas = read_canvas(project_id)
+    assert_expected_revision(canvas, expected_revision)
     for node in canvas["nodes"]:
         if node["id"] == node_id:
             node.update({key: value for key, value in patch.items() if key in {"position", "size", "status"}})
@@ -180,13 +258,15 @@ def update_node(project_id: str, node_id: str, patch: dict) -> dict:
             if "payload" in patch and isinstance(patch["payload"], dict):
                 node.setdefault("payload", {}).update(patch["payload"])
             refresh_runtime_config(canvas)
+            record_graph_event(canvas, "node.updated", {"node_id": node_id, "fields": sorted(patch.keys())})
             write_canvas(project_id, canvas)
             return node
     raise KeyError(f"Node not found: {node_id}")
 
 
-def delete_node(project_id: str, node_id: str) -> dict:
+def delete_node(project_id: str, node_id: str, expected_revision=None) -> dict:
     canvas = read_canvas(project_id)
+    assert_expected_revision(canvas, expected_revision)
     node = next((item for item in canvas.get("nodes", []) if item.get("id") == node_id), None)
     if not node:
         raise KeyError(f"Node not found: {node_id}")
@@ -207,17 +287,20 @@ def delete_node(project_id: str, node_id: str) -> dict:
         for edge in canvas.get("edges", [])
         if edge.get("source_node_id") != node_id and edge.get("target_node_id") != node_id
     ]
-    canvas["runs"] = [
-        run
-        for run in canvas.get("runs", [])
-        if run.get("node_id") != node_id and node_id not in run.get("input_node_ids", [])
-    ]
+    for run in canvas.get("runs", []):
+        if run.get("id") not in removed_run_ids:
+            continue
+        orphaned = run.setdefault("orphaned_node_ids", [])
+        if node_id not in orphaned:
+            orphaned.append(node_id)
+        run["status"] = "orphaned"
     for item in canvas.get("nodes", []):
         if item.get("active_run_id") in removed_run_ids:
             item["active_run_id"] = None
         if item.get("produced_by_run_id") in removed_run_ids:
             item["status"] = "stale"
     refresh_runtime_config(canvas)
+    record_graph_event(canvas, "node.deleted", {"node_id": node_id, "preserved_run_ids": removed_run_ids})
     write_canvas(project_id, canvas)
     return {
         "node": node,
@@ -226,8 +309,9 @@ def delete_node(project_id: str, node_id: str) -> dict:
     }
 
 
-def add_edge(project_id: str, payload: dict) -> dict:
+def add_edge(project_id: str, payload: dict, expected_revision=None) -> dict:
     canvas = read_canvas(project_id)
+    assert_expected_revision(canvas, expected_revision)
     node_ids = {node["id"] for node in canvas.get("nodes", [])}
     source_node_id = payload["source_node_id"]
     target_node_id = payload["target_node_id"]
@@ -249,23 +333,27 @@ def add_edge(project_id: str, payload: dict) -> dict:
     }
     canvas["edges"].append(edge)
     refresh_runtime_config(canvas)
+    record_graph_event(canvas, "edge.created", {"edge_id": edge["id"], "edge_kind": edge_kind})
     write_canvas(project_id, canvas)
     return edge
 
 
-def delete_edge(project_id: str, edge_id: str) -> dict:
+def delete_edge(project_id: str, edge_id: str, expected_revision=None) -> dict:
     canvas = read_canvas(project_id)
+    assert_expected_revision(canvas, expected_revision)
     edge = next((item for item in canvas.get("edges", []) if item.get("id") == edge_id), None)
     if not edge:
         raise KeyError(f"Edge not found: {edge_id}")
     canvas["edges"] = [item for item in canvas.get("edges", []) if item.get("id") != edge_id]
     refresh_runtime_config(canvas)
+    record_graph_event(canvas, "edge.deleted", {"edge_id": edge_id})
     write_canvas(project_id, canvas)
     return {"edge": edge}
 
 
-def run_modify(project_id: str, node_id: str, api_key: str | None = None) -> dict:
+def run_modify(project_id: str, node_id: str, api_key: str | None = None, expected_revision=None) -> dict:
     canvas = read_canvas(project_id)
+    assert_expected_revision(canvas, expected_revision)
     modify = next((node for node in canvas["nodes"] if node["id"] == node_id), None)
     if not modify:
         raise KeyError(f"Modify node not found: {node_id}")
@@ -351,8 +439,18 @@ def run_modify(project_id: str, node_id: str, api_key: str | None = None) -> dic
     canvas["edges"].append(edge)
     modify["active_run_id"] = run["id"]
     modify["status"] = "success" if run["status"] == "succeeded" else "failed"
+    scope_id = next(
+        (
+            scope["id"]
+            for scope in canvas.get("scopes", [])
+            if scope.get("id") != "scope-global" and node_id in scope_node_ids(canvas, scope)
+        ),
+        "scope-global",
+    )
+    execution = record_execution_from_run(canvas, run, scope_id)
+    record_graph_event(canvas, "execution.completed", {"execution_id": execution["id"], "run_id": run["id"], "status": run["status"]})
     write_canvas(project_id, canvas)
-    return {"run": run, "output_node": output_node, "edge": edge}
+    return {"run": run, "execution": execution, "output_node": output_node, "edge": edge}
 
 
 def generate_or_placeholder_output(
@@ -947,12 +1045,13 @@ def recommend_output_for_modify(modify: dict) -> dict:
 
 def refresh_runtime_config(canvas: dict) -> None:
     for node in canvas.get("nodes", []):
-        if node.get("type") != "modify":
-            continue
-        node["config"] = normalize_modify_config(
-            node.get("config", {}),
-            input_modalities_for_modify(canvas, node["id"]),
-        )
+        if node.get("type") == "modify":
+            node["config"] = normalize_modify_config(
+                node.get("config", {}),
+                input_modalities_for_modify(canvas, node["id"]),
+            )
+        if node.get("type") == "operation":
+            node["config"] = normalize_operation_config(node.get("config", {}))
 
 
 def input_modalities_for_modify(canvas: dict, node_id: str) -> list[str]:
@@ -1007,6 +1106,8 @@ def normalize_node(payload: dict) -> dict:
     }
     if node_type == "modify":
         node["config"] = normalize_modify_config(node.get("config", {}))
+    if node_type == "operation":
+        node["config"] = normalize_operation_config(node.get("config", {}))
     return node
 
 
@@ -1017,6 +1118,8 @@ def default_config(node_type: str) -> dict:
             "output_type": "text",
             "tools": default_modifier_tools(),
         }
+    if node_type == "operation":
+        return normalize_operation_config({})
     return {}
 
 
@@ -1028,21 +1131,31 @@ def default_title(node_type: str) -> str:
         "image": "Image Node",
         "multimodal": "Text+Image Node",
         "modify": "Modify",
+        "operation": "Operation",
     }.get(node_type, "Node")
 
 
 def empty_canvas(project_id: str) -> dict:
-    return {
+    canvas = {
         "id": project_id,
         "project_id": project_id,
-        "version": 1,
+        "version": 2,
+        "schema_version": 2,
+        "revision": 0,
         "viewport": {"x": 0, "y": 0, "zoom": 1},
         "nodes": [],
         "edges": [],
         "runs": [],
         "pinned_context": [],
+        "events": [],
+        "scopes": [],
+        "conversation_sessions": [],
+        "command_proposals": [],
+        "executions": [],
         "updated_at": utc_now(),
     }
+    ensure_interaction_data(canvas)
+    return canvas
 
 
 def default_canvas(project_id: str) -> dict:
@@ -1120,6 +1233,7 @@ def default_canvas(project_id: str) -> dict:
             "created_at": utc_now(),
         },
     ]
+    ensure_interaction_data(canvas, seed_demo=True)
     return canvas
 
 

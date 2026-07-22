@@ -241,6 +241,8 @@ def test_run_modify_creates_output():
             assert result["run"]["model_snapshot"]["provider"] == "placeholder"
             assert result["run"]["context_snapshot"]["output_recommendation"]["type"] == "multimodal"
             assert result["output_node"]["produced_by_run_id"] == result["run"]["id"]
+            assert result["execution"]["run_id"] == result["run"]["id"]
+            assert result["execution"]["status"] == "succeeded"
     finally:
         if original_openai_runs is None:
             os.environ.pop("SPEC_WEB_ENABLE_OPENAI_RUNS", None)
