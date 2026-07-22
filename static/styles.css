@@ -1681,7 +1681,92 @@ pre {
   color: var(--muted);
 }
 
+/* Desktop canvas: the work area and conversation remain visible in one viewport. */
+@media (min-width: 761px) {
+  .canvas-shell.active {
+    display: grid;
+    grid-template-rows: auto auto minmax(180px, 1fr) clamp(200px, 28vh, 260px);
+    gap: 10px;
+    height: 100dvh;
+    overflow: hidden;
+    padding: 16px 20px;
+  }
+
+  .canvas-shell.active .canvas-bar {
+    min-height: 0;
+    padding-bottom: 10px;
+  }
+
+  .canvas-shell.active .canvas-tools {
+    min-height: 34px;
+    margin-top: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 1px;
+  }
+
+  .canvas-shell.active .workspace-layout {
+    min-height: 0;
+    margin-top: 0;
+  }
+
+  .canvas-shell.active .tool-sidebar,
+  .canvas-shell.active .graph-column,
+  .canvas-shell.active .canvas-frame,
+  .canvas-shell.active .workspace-layout .workspace {
+    min-height: 0;
+    height: 100%;
+  }
+
+  .canvas-shell.active .graph-column {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .canvas-shell.active .scope-view-header {
+    margin-bottom: 8px;
+  }
+
+  .canvas-shell.active .conversation-dock {
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    min-height: 0;
+    margin-top: 0;
+  }
+
+  .canvas-shell.active .conversation-dock .panel-header {
+    padding: 9px 12px;
+  }
+
+  .canvas-shell.active .conversation-dock-body,
+  .canvas-shell.active .conversation-dock .conversation-messages {
+    min-height: 0;
+  }
+
+  .canvas-shell.active .conversation-dock .conversation-messages {
+    max-height: none;
+  }
+
+  .canvas-shell.active .conversation-dock .conversation-form {
+    padding: 10px 12px;
+  }
+
+  .canvas-shell.active .conversation-dock .conversation-form textarea {
+    min-height: 52px;
+  }
+
+  .canvas-shell.active .inspector-grid {
+    display: none;
+  }
+}
+
 @media (max-width: 760px) {
+  .canvas-shell.active {
+    display: block;
+    height: auto;
+    overflow: visible;
+  }
+
   .workspace-layout {
     grid-template-columns: 1fr;
   }
