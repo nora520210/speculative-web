@@ -146,11 +146,11 @@ input port. To delete one edge, right-click the edge line and choose `Delete`.
 
 Deletes one directed edge without deleting either connected node.
 
-## Modify Run
+## Model Operations
 
 `POST /api/projects/{project_id}/nodes/{node_id}/run`
 
-Runs a Modify node through the backend executor. In the default deployment mode, the
+Runs a Modify node or a runnable manifest-defined Operation through the backend executor. In the default deployment mode, the
 request must include the visitor's key in the `X-Speculative-Web-Api-Key` header. The
 key is used only for this run and is never included in the JSON body or response. If
 `SPEC_WEB_ENABLE_OPENAI_RUNS` is not disabled, this endpoint calls OpenAI from the
@@ -170,6 +170,19 @@ method terms to their node text. The interface itself can be switched between
 Chinese and English without changing node content.
 
 Graph editing endpoints intentionally do not generate content. Node creation, node movement, edge creation, tool toggles, and output-format changes only update graph state. Generation starts only at this Run endpoint.
+
+### Guided Scenario Run
+
+`operation.guided-scenario` requires at least one direct `data` input. Its backend
+executor snapshots the `dators-four-futures` and `what-if` packages, then creates four
+text branch artifacts and four snapshot Scopes: `growth`, `collapse`, `discipline`, and
+`transformation`. Each artifact contains a What-if, a future premise, actors, tension,
+visual brief, opening question, role prompts, and summary lenses. The response returns
+`output_nodes`, `edges`, and `scopes` rather than one generic output node.
+
+If model execution is unavailable or malformed, the operation creates an explicitly
+marked template fallback. Inspect `run.model_snapshot.fallback_used` and
+`fallback_reason`; do not treat this result as generated model content.
 
 `GET /api/projects/{project_id}/nodes/{node_id}/output-recommendation`
 

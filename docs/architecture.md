@@ -96,6 +96,27 @@ new tool hierarchy into Modify. Tool packages continue to own theory, contracts,
 constraints, evaluators, and versions; operation definitions only describe how a graph
 node may select and execute them.
 
+### Guided Scenario Operation
+
+`operation.guided-scenario` is the first runnable operation-node family. It adapts the
+reviewed guided-agent workflow without importing its client-side phase machine:
+
+1. It resolves only direct `data` inputs from the graph.
+2. It snapshots the installed `dators-four-futures` and `what-if` tool packages.
+3. Its backend executor generates—or, in offline mode, transparently templates—four
+   ordered branches: growth, collapse, discipline, and transformation.
+4. Each branch becomes a separate text artifact and a snapshot Scope containing only
+   its direct research inputs and itself. No branch is selected or discussed
+   automatically.
+5. The branch artifact carries an opening question, researcher/designer role prompts,
+   and summary lenses. A later conversation operation can use these as input without
+   duplicating conversation state into the node.
+
+The Run records the definition/version, direct input IDs, exact package snapshots,
+output node IDs, model/fallback metadata, and the four branch Scope IDs. A fallback is
+always marked in `model_snapshot.fallback_used`; it is never presented as
+model-generated content.
+
 ## Modify Pipeline
 
 1. Upstream `data` edges define direct inputs.

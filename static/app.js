@@ -116,6 +116,7 @@ const translations = {
     "nodes.modify": "Modify",
     "nodes.tool": "Tool",
     "nodes.operation": "Operation",
+    "nodes.guidedScenario": "Guided Scenario",
     "nodes.textTitle": "Text Node",
     "nodes.conversationTitle": "Conversation",
     "nodes.uploadTitle": "Upload",
@@ -269,6 +270,7 @@ const translations = {
     "nodes.modify": "推演",
     "nodes.tool": "工具",
     "nodes.operation": "操作",
+    "nodes.guidedScenario": "引导情境",
     "nodes.textTitle": "文本节点",
     "nodes.conversationTitle": "对话",
     "nodes.uploadTitle": "上传",
@@ -998,9 +1000,9 @@ function renderNode(node) {
   article.querySelectorAll("[data-output-type]").forEach((button) => {
     button.addEventListener("click", (event) => setOutputType(event, node));
   });
-  const runButton = article.querySelector("[data-run-modify]");
+  const runButton = article.querySelector("[data-run-modify], [data-run-operation]");
   if (runButton) {
-    runButton.addEventListener("click", (event) => runModify(event, node));
+    runButton.addEventListener("click", (event) => runNode(event, node));
   }
   article.querySelectorAll("[data-open-image]").forEach((button) => {
     button.addEventListener("click", (event) => {
@@ -1093,6 +1095,8 @@ function renderNodeBody(node) {
   if (node.type === "operation") {
     const definition = node.config?.definition || {};
     const selectedTools = node.config?.tool_selections || [];
+    const runLabel = definition.ui?.run_label || t("common.run");
+    const canRun = Boolean(definition.execution?.executor);
     return `
       <div class="operation-definition">
         <strong>${escapeHtml(definition.label || node.title)}</strong>
@@ -1100,7 +1104,9 @@ function renderNodeBody(node) {
       </div>
       <div class="node-actions">
         <span>${escapeHtml(selectedTools.length ? `${selectedTools.length} tools` : "definition")}</span>
-        <span>${escapeHtml(node.config?.output_profile || "text")}</span>
+        ${canRun
+          ? `<button type="button" data-run-operation>${escapeHtml(runLabel)}</button>`
+          : `<span>${escapeHtml(node.config?.output_profile || "text")}</span>`}
       </div>
     `;
   }
@@ -1331,14 +1337,15 @@ async function renameProject(project = activeProject) {
   await loadProjects();
 }
 
-async function addNode(type) {
+async function addNode(type, options = {}) {
   if (!activeProject || !activeCanvas) return;
   const offset = activeCanvas.nodes.length * 24;
   const payload = {
     type,
-    title: titleForType(type),
+    title: options.title || titleForType(type),
     position: { x: 92 + offset, y: 110 + offset },
     payload: { text: defaultTextForType(type) },
+    ...options,
   };
   await requestJson(`/api/projects/${activeProject.id}/nodes`, {
     method: "POST",
@@ -1891,7 +1898,7 @@ async function createEdge(sourceNodeId, targetNodeId) {
   await loadCanvas();
 }
 
-async function runModify(event, node) {
+async function runNode(event, node) {
   event.stopPropagation();
   if (!requireTabApiKey()) return;
   setStatus(canvasStatus, "running");
@@ -2229,6 +2236,13 @@ canvasTitle.addEventListener("dblclick", () => {
 });
 document.querySelectorAll("[data-add-node]").forEach((button) => {
   button.addEventListener("click", () => addNode(button.dataset.addNode));
+});
+
+document.querySelectorAll("[data-add-operation-definition]").forEach((button) => {
+  button.addEventListener("click", () => addNode("operation", {
+    title: "",
+    config: { definition_ref: { id: button.dataset.addOperationDefinition } },
+  }));
 });
 
 conversationForm.addEventListener("submit", (event) => {

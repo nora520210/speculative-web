@@ -54,6 +54,10 @@ def main() -> int:
         if "tools" not in tools:
             print("modifier tools endpoint failed")
             return 1
+        operations = fetch_json(f"http://127.0.0.1:{port}/api/operation-definitions")
+        if not any(item.get("id") == "operation.guided-scenario" for item in operations.get("definitions", [])):
+            print("guided scenario operation definition failed")
+            return 1
         model = fetch_json(f"http://127.0.0.1:{port}/api/model/status")
         if "model" not in model:
             print("model endpoint failed")

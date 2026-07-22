@@ -41,6 +41,7 @@ from server.interaction_runtime import (
     scope_projection,
 )
 from server.operation_registry import normalize_operation_config
+from server.guided_scenario import generate_guided_scenarios, render_branch_text
 from server.visual_context import visual_context_for_nodes
 
 
@@ -451,6 +452,136 @@ def run_modify(project_id: str, node_id: str, api_key: str | None = None, expect
     record_graph_event(canvas, "execution.completed", {"execution_id": execution["id"], "run_id": run["id"], "status": run["status"]})
     write_canvas(project_id, canvas)
     return {"run": run, "execution": execution, "output_node": output_node, "edge": edge}
+
+
+def run_operation(project_id: str, node_id: str, api_key: str | None = None, expected_revision=None) -> dict:
+    """Run a manifest-defined operation without reusing Modify's generic executor."""
+
+    canvas = read_canvas(project_id)
+    assert_expected_revision(canvas, expected_revision)
+    operation = next((node for node in canvas["nodes"] if node["id"] == node_id), None)
+    if not operation:
+        raise KeyError(f"Operation node not found: {node_id}")
+    if operation.get("type") != "operation":
+        raise ValueError("Only Operation nodes can be run through this operation executor.")
+
+    definition = operation.get("config", {}).get("definition", {})
+    executor = definition.get("execution", {}).get("executor")
+    if executor != "guided_scenario":
+        raise ValueError("This operation definition does not yet have a runnable executor.")
+
+    upstream_ids = [edge["source_node_id"] for edge in ordered_data_input_edges(canvas, node_id)]
+    if not upstream_ids:
+        raise ValueError("Guided Scenario requires at least one direct data input node.")
+    source_context = upstream_context(canvas, upstream_ids)
+    if not any(str(item.get("text") or "").strip() for item in source_context):
+        raise ValueError("Guided Scenario requires direct research text or multimodal text context.")
+
+    package_ids = [
+        str(item)
+        for item in definition.get("execution", {}).get("tool_package_ids", [])
+        if isinstance(item, str) and item
+    ]
+    snapshot = tool_snapshot(package_ids)
+    if len(snapshot) != len(package_ids):
+        raise ValueError("Guided Scenario references an unavailable tool package.")
+
+    run_id = f"run-{uuid.uuid4().hex[:10]}"
+    result = generate_guided_scenarios(source_context, snapshot, api_key=api_key)
+    branches = result["branches"]
+    run = {
+        "id": run_id,
+        "node_id": node_id,
+        "status": "succeeded",
+        "input_node_ids": upstream_ids,
+        "output_node_ids": [],
+        "context_snapshot": {
+            "direct_input_node_ids": upstream_ids,
+            "edge_policy": "data edges only; sibling branches excluded",
+            "operation_definition": {
+                "id": definition.get("id", ""),
+                "version": definition.get("version", ""),
+            },
+            "requested_output_profile": operation.get("config", {}).get("output_profile", "branch-set"),
+            "selected_tools": package_ids,
+            "tool_snapshot": snapshot,
+            "facilitation_contract": {
+                "branch_count": 4,
+                "requires_human_branch_selection": True,
+                "required_summary_lenses": ["shared ground", "disagreement", "unresolved question"],
+            },
+        },
+        "model_snapshot": result["model_snapshot"],
+        "created_at": utc_now(),
+    }
+
+    output_nodes = []
+    edges = []
+    scopes = []
+    base_position = operation.get("position", {})
+    for index, branch in enumerate(branches):
+        output_node = normalize_node(
+            {
+                "type": "text",
+                "title": f"{branch['strategy_label']} scenario",
+                "position": {
+                    "x": base_position.get("x", 0) + 340,
+                    "y": base_position.get("y", 0) + index * 180,
+                },
+                "payload": {
+                    "text": render_branch_text(branch),
+                    "scenario_branch": branch,
+                    "provenance": [{"produced_by_run_id": run_id}],
+                },
+                "status": "success",
+            }
+        )
+        output_node["produced_by_run_id"] = run_id
+        output_nodes.append(output_node)
+        run["output_node_ids"].append(output_node["id"])
+        edges.append(
+            {
+                "id": f"edge-{uuid.uuid4().hex[:8]}",
+                "source_node_id": node_id,
+                "target_node_id": output_node["id"],
+                "source_port": "out",
+                "target_port": "in",
+                "edge_kind": "data",
+                "created_at": utc_now(),
+            }
+        )
+
+    canvas["runs"].append(run)
+    canvas["nodes"].extend(output_nodes)
+    canvas["edges"].extend(edges)
+    for output_node, branch in zip(output_nodes, branches):
+        scope = create_scope_record(
+            canvas,
+            {
+                "id": f"scope-{run_id}-{branch['strategy']}",
+                "label": f"{branch['strategy_label']}: {branch['what_if'][:72]}",
+                "mode": "snapshot",
+                "selector": {"kind": "explicit", "node_ids": [*upstream_ids, output_node["id"]]},
+            },
+        )
+        scopes.append(scope)
+
+    operation["active_run_id"] = run_id
+    operation["status"] = "success"
+    execution = record_execution_from_run(canvas, run, "scope-global")
+    record_graph_event(
+        canvas,
+        "operation.guided_scenario.completed",
+        {
+            "execution_id": execution["id"],
+            "run_id": run_id,
+            "branch_node_ids": run["output_node_ids"],
+            "scope_ids": [scope["id"] for scope in scopes],
+            "fallback_used": bool(result["model_snapshot"].get("fallback_used")),
+        },
+    )
+    write_canvas(project_id, canvas)
+    return {"run": run, "execution": execution, "output_nodes": output_nodes, "edges": edges, "scopes": scopes}
 
 
 def generate_or_placeholder_output(
@@ -1108,6 +1239,8 @@ def normalize_node(payload: dict) -> dict:
         node["config"] = normalize_modify_config(node.get("config", {}))
     if node_type == "operation":
         node["config"] = normalize_operation_config(node.get("config", {}))
+        if not payload.get("title"):
+            node["title"] = node["config"]["definition"]["label"]
     return node
 
 

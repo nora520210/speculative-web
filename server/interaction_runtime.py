@@ -387,7 +387,11 @@ def create_scope(canvas: dict, payload: dict) -> dict:
     if any(item.get("id") == scope["id"] for item in canvas.get("scopes", [])):
         raise ValueError("Scope id already exists.")
     if scope["mode"] == "snapshot" and not scope["snapshot_node_ids"]:
-        scope["snapshot_node_ids"] = scope_node_ids(canvas, scope)
+        # Snapshot membership is derived from its selector once, before the scope
+        # becomes snapshot-only. Asking scope_node_ids on the snapshot itself would
+        # otherwise read the still-empty snapshot_node_ids array.
+        selector_scope = {**scope, "mode": "live"}
+        scope["snapshot_node_ids"] = scope_node_ids(canvas, selector_scope)
     canvas["scopes"].append(scope)
     return with_scope_count(scope, canvas)
 

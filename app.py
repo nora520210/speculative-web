@@ -40,6 +40,7 @@ from server.graph_store import (
     read_projects,
     recommend_output_for_modify,
     run_modify,
+    run_operation,
     resolve_command_proposal,
     update_node,
     update_project,
@@ -275,12 +276,17 @@ class AppHandler(SimpleHTTPRequestHandler):
                 api_key = self.user_api_key()
                 if user_api_key_required() and not api_key:
                     self.send_json(
-                        {"error": "Enter an API key in this browser tab before running a Modify node."},
+                        {"error": "Enter an API key in this browser tab before running a model operation."},
                         status=HTTPStatus.UNAUTHORIZED,
                     )
                     return
                 try:
-                    result = run_modify(
+                    canvas = read_canvas(project_id)
+                    node = next((item for item in canvas.get("nodes", []) if item.get("id") == node_id), None)
+                    if not node:
+                        raise KeyError(f"Node not found: {node_id}")
+                    runner = run_modify if node.get("type") == "modify" else run_operation
+                    result = runner(
                         project_id,
                         node_id,
                         api_key=api_key or None,

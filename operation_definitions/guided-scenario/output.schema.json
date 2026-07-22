@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Guided Scenario output",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["branches"],
+  "properties": {
+    "branches": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "required": [
+          "strategy",
+          "what_if",
+          "future_premise",
+          "key_actors",
+          "core_tension",
+          "visual_brief",
+          "facilitation"
+        ],
+        "properties": {
+          "strategy": {"enum": ["growth", "collapse", "discipline", "transformation"]},
+          "what_if": {"type": "string", "minLength": 1},
+          "future_premise": {"type": "string", "minLength": 1},
+          "key_actors": {"type": "array", "minItems": 2, "items": {"type": "string"}},
+          "core_tension": {"type": "string", "minLength": 1},
+          "visual_brief": {"type": "string", "minLength": 1},
+          "facilitation": {
+            "type": "object",
+            "required": ["opening_question", "role_prompts", "summary_lenses"],
+            "properties": {
+              "opening_question": {"type": "string", "minLength": 1},
+              "role_prompts": {"type": "array", "minItems": 2, "items": {"type": "string"}},
+              "summary_lenses": {"type": "array", "minItems": 3, "items": {"type": "string"}}
+            }
+          }
+        }
+      }
+    }
+  }
+}

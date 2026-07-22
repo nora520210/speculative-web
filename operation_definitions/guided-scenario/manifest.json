@@ -1,0 +1,42 @@
+{
+  "id": "operation.guided-scenario",
+  "version": "0.1.0",
+  "label": "Guided Scenario",
+  "description": "Turns direct research context into four independently scoped futures, each with a discussable premise, role prompts, and a non-resolving question.",
+  "category_path": ["operations", "facilitation"],
+  "input_ports": [
+    {
+      "id": "research",
+      "label": "Research context",
+      "accepted_modalities": ["text", "multimodal"],
+      "cardinality": "many",
+      "required": true
+    }
+  ],
+  "output_profiles": [
+    {
+      "id": "branch-set",
+      "label": "Four future branches",
+      "modalities": ["text"],
+      "artifact_kind": "scenario_branch"
+    }
+  ],
+  "tool_selector": {
+    "selection_mode": "none",
+    "accepted_layers": []
+  },
+  "execution": {
+    "kind": "model",
+    "executor": "guided_scenario",
+    "supports_progress": true,
+    "requires_confirmation": true,
+    "tool_package_ids": ["dators-four-futures", "what-if"],
+    "input_schema": "input.schema.json",
+    "output_schema": "output.schema.json"
+  },
+  "ui": {
+    "shell": "operation",
+    "run_label": "Generate four scenarios",
+    "entry_point": true
+  }
+}
