@@ -1,0 +1,58 @@
+{
+  "id": "workflow.four-futures-foundation",
+  "version": "0.1.0",
+  "label": "Four Futures foundation",
+  "description": "A low-friction research path: frame one inquiry, confirm keywords, compare four What-if futures, choose one branch, then discuss it in a focused scope.",
+  "start_input": {
+    "required": [
+      "start_mode",
+      "topic"
+    ],
+    "optional": [
+      "research_focus",
+      "assumptions",
+      "stakeholders",
+      "tensions"
+    ]
+  },
+  "stages": [
+    {
+      "id": "frame",
+      "label": "Frame the inquiry",
+      "kind": "input",
+      "description": "Capture the topic, point of view, research concern, assumptions, stakeholders, and tension as one editable research brief."
+    },
+    {
+      "id": "keywords",
+      "label": "Confirm keywords",
+      "kind": "derived",
+      "description": "Keep a deterministic keyword scaffold beside the brief; a later keyword operation can replace it without changing the workflow."
+    },
+    {
+      "id": "four_futures",
+      "label": "Generate four What-if futures",
+      "kind": "operation",
+      "operation_definition_id": "operation.guided-scenario",
+      "description": "Run the existing Guided Scenario operation from direct research inputs only."
+    },
+    {
+      "id": "choose_future",
+      "label": "Choose one future",
+      "kind": "selection",
+      "description": "Compare all four branches before explicitly selecting one; no branch is selected automatically."
+    },
+    {
+      "id": "discussion",
+      "label": "Discuss the chosen future",
+      "kind": "conversation",
+      "description": "Move the existing conversation session into the selected branch Scope. Tool, image, and summary operations may be added later."
+    }
+  ],
+  "ui": {
+    "start_label": "Start Four Futures flow",
+    "start_mode_options": [
+      "research",
+      "design"
+    ]
+  }
+}

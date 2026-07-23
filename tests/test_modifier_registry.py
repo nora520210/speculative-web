@@ -56,6 +56,32 @@ def test_tool_package_manifest_is_discoverable():
     assert "package_path" in snapshot[0]
 
 
+def test_tool_card_metadata_stays_with_the_package_contract():
+    import server.modifier_registry as registry
+
+    tools = {tool["id"]: tool for tool in registry.list_modifier_tools()}
+    four_futures = tools["dators-four-futures"]
+    assert four_futures["presentation"]["card_kind"] == "four-futures"
+    assert four_futures["presentation"]["asset"] == {"kind": "none", "path": ""}
+
+    configured = registry.normalize_modifier_tools([{"id": "dators-four-futures", "selected": True}])
+    snapshot = registry.tool_snapshot(["dators-four-futures"])
+    configured_four_futures = next(tool for tool in configured if tool["id"] == "dators-four-futures")
+    assert configured_four_futures["presentation"] == four_futures["presentation"]
+    assert snapshot[0]["presentation"] == four_futures["presentation"]
+
+    invalid_asset = registry.normalize_tool_presentation(
+        {"asset": {"kind": "package-relative", "path": "../outside.svg"}},
+        {"id": "example", "label": "Example"},
+    )
+    absolute_asset = registry.normalize_tool_presentation(
+        {"asset": {"kind": "package-relative", "path": "/outside.svg"}},
+        {"id": "example", "label": "Example"},
+    )
+    assert invalid_asset["asset"] == {"kind": "none", "path": ""}
+    assert absolute_asset["asset"] == {"kind": "none", "path": ""}
+
+
 def test_critical_embodiment_constraints_remain_owned_by_individual_packages():
     import server.modifier_registry as registry
 

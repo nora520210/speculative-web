@@ -133,6 +133,21 @@
   "ui": {
     "short_description": "Generate growth, collapse, discipline, and transformation futures."
   },
+  "presentation": {
+    "card_kind": "four-futures",
+    "icon_token": "four-futures",
+    "accent_token": "neutral",
+    "asset": {
+      "kind": "none",
+      "path": ""
+    },
+    "summary_fields": [
+      "description",
+      "theory_mapping.method",
+      "recommendation.best_when"
+    ],
+    "interaction_hint": "Use this card when a team needs to compare structurally different futures before choosing one to discuss."
+  },
   "selected": false,
   "placeholder": true,
   "recommendation": {

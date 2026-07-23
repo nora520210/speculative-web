@@ -17,6 +17,7 @@ RENDER_DIR = DATA_DIR / "renders"
 GENERATED_IMAGE_DIR = DATA_DIR / "generated"
 TOOL_REGISTRY_FILE = DATA_DIR / "tool_registry.json"
 TOOL_PACKAGE_DIR = ROOT / "tool_packages"
+WORKFLOW_DEFINITION_DIR = ROOT / "workflow_definitions"
 MAX_JSON_BODY_BYTES = int(os.environ.get("SPEC_WEB_MAX_JSON_BODY_BYTES", str(1_000_000)))
 MAX_UPLOAD_BYTES = int(os.environ.get("SPEC_WEB_MAX_UPLOAD_BYTES", str(25_000_000)))
 MAX_USER_API_KEY_CHARS = int(os.environ.get("SPEC_WEB_MAX_USER_API_KEY_CHARS", "512"))

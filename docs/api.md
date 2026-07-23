@@ -88,6 +88,47 @@ until an explicit command executor is added.
 All graph, interaction, and run mutation bodies may include `expected_revision`. It is
 compared with the current canvas revision to prevent silent last-write-wins updates.
 
+## Foundation Workflow
+
+`GET /api/workflow-definitions`
+
+Returns backend-owned workflow manifests. Definitions describe stages and required
+input only; they do not contain model prompts, tool theory, or a duplicate graph.
+
+`POST /api/projects/{project_id}/workflows`
+
+Starts `workflow.four-futures-foundation` from an editable research brief.
+
+```json
+{
+  "definition_id": "workflow.four-futures-foundation",
+  "start_mode": "research",
+  "topic": "Public-space speech recognition and the right to refuse",
+  "research_focus": "How consent is communicated in shared space",
+  "assumptions": ["Convenience is the default"],
+  "stakeholders": ["Passers-by", "Operators"],
+  "tensions": ["Safety and silence"]
+}
+```
+
+This deterministic action creates a Research Brief node, a keyword-scaffold node, an
+`operation.guided-scenario` node with direct data edges, a foundation Scope, and one
+ConversationSession. It does **not** call a model, choose a tool, run an operation, or
+create an image.
+
+`POST /api/projects/{project_id}/workflows/{workflow_id}/select-branch`
+
+Selects one current Guided Scenario branch after its four outputs have been generated.
+
+```json
+{ "branch_node_id": "node-branch" }
+```
+
+The API moves the linked ConversationSession into that branch's existing snapshot
+Scope and activates its discussion step. It rejects a branch that is absent, belongs to
+another workflow, or is stale. Editing a workflow source node after branch generation
+marks all corresponding branches stale, requiring a new run before selection.
+
 ## Nodes
 
 `POST /api/projects/{project_id}/nodes`
@@ -183,6 +224,11 @@ visual brief, opening question, role prompts, and summary lenses. The response r
 If model execution is unavailable or malformed, the operation creates an explicitly
 marked template fallback. Inspect `run.model_snapshot.fallback_used` and
 `fallback_reason`; do not treat this result as generated model content.
+
+When this operation belongs to a Four Futures Foundation workflow, the same Run also
+creates a comparison Scope for all four branch artifacts and advances the linked
+session to explicit selection. A standalone Guided Scenario operation keeps its
+existing behavior and creates only the four isolated branch Scopes.
 
 `GET /api/projects/{project_id}/nodes/{node_id}/output-recommendation`
 

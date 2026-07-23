@@ -34,13 +34,17 @@ from server.interaction_runtime import (
     ensure_interaction_data,
     get_scope,
     interaction_payload,
+    mark_workflows_stale_for_source_node,
     record_execution_from_run,
     record_graph_event,
+    record_workflow_futures,
     resolve_command_proposal as resolve_command_proposal_record,
+    select_workflow_branch as select_workflow_branch_record,
     scope_node_ids,
     scope_projection,
 )
 from server.operation_registry import normalize_operation_config
+from server.workflow_registry import default_workflow_definition, get_workflow_definition
 from server.guided_scenario import generate_guided_scenarios, render_branch_text
 from server.visual_context import visual_context_for_nodes
 
@@ -219,6 +223,281 @@ def add_conversation_message(project_id: str, session_id: str, payload: dict, ex
     return message
 
 
+def start_four_futures_workflow(project_id: str, payload: dict, expected_revision=None) -> dict:
+    """Materialise the document's low-friction foundation as graph-owned references.
+
+    This action is deterministic: it creates editable source/keyword nodes and a ready
+    Guided Scenario operation, but it does not call a model, select tools, or generate images.
+    """
+
+    canvas = read_canvas(project_id)
+    assert_expected_revision(canvas, expected_revision)
+    requested_id = str(payload.get("definition_id") or "workflow.four-futures-foundation")
+    definition = get_workflow_definition(requested_id) or (
+        default_workflow_definition() if not payload.get("definition_id") else None
+    )
+    if not definition or definition["id"] != "workflow.four-futures-foundation":
+        raise ValueError("This endpoint only starts the Four Futures foundation workflow.")
+
+    start_mode = str(payload.get("start_mode") or "research").strip().lower()
+    if start_mode not in {"research", "design"}:
+        raise ValueError("start_mode must be research or design.")
+    topic = str(payload.get("topic") or "").strip()
+    if not topic:
+        raise ValueError("A research topic is required to start the Four Futures workflow.")
+
+    brief = {
+        "start_mode": start_mode,
+        "topic": topic[:600],
+        "research_focus": str(payload.get("research_focus") or "").strip()[:1200],
+        "assumptions": workflow_text_list(payload.get("assumptions")),
+        "stakeholders": workflow_text_list(payload.get("stakeholders")),
+        "tensions": workflow_text_list(payload.get("tensions")),
+    }
+    keywords = foundation_keywords(brief)
+    offset = len(canvas.get("nodes", [])) * 20
+    source_node = normalize_node(
+        {
+            "type": "text",
+            "title": "Research brief",
+            "position": {"x": 72 + offset, "y": 96 + offset},
+            "payload": {
+                "text": render_foundation_brief(brief),
+                "workflow_role": "research_brief",
+                "workflow_brief": brief,
+            },
+            "status": "ready",
+        }
+    )
+    keyword_node = normalize_node(
+        {
+            "type": "text",
+            "title": "Keywords to confirm",
+            "position": {"x": 388 + offset, "y": 96 + offset},
+            "payload": {
+                "text": render_keyword_scaffold(keywords),
+                "workflow_role": "keyword_scaffold",
+                "keywords": keywords,
+                "keyword_source": "deterministic scaffold from the research brief; no model call",
+            },
+            "status": "ready",
+        }
+    )
+    operation_node = normalize_node(
+        {
+            "type": "operation",
+            "title": "",
+            "position": {"x": 700 + offset, "y": 96 + offset},
+            "config": {"definition_ref": {"id": "operation.guided-scenario"}},
+            "payload": {"workflow_role": "four_futures_operation"},
+            "status": "ready",
+        }
+    )
+    canvas["nodes"].extend([source_node, keyword_node, operation_node])
+    canvas["edges"].extend(
+        [
+            {
+                "id": f"edge-{uuid.uuid4().hex[:8]}",
+                "source_node_id": source_node["id"],
+                "target_node_id": keyword_node["id"],
+                "source_port": "out",
+                "target_port": "in",
+                "edge_kind": "reference",
+                "created_at": utc_now(),
+            },
+            {
+                "id": f"edge-{uuid.uuid4().hex[:8]}",
+                "source_node_id": source_node["id"],
+                "target_node_id": operation_node["id"],
+                "source_port": "out",
+                "target_port": "research",
+                "edge_kind": "data",
+                "created_at": utc_now(),
+            },
+            {
+                "id": f"edge-{uuid.uuid4().hex[:8]}",
+                "source_node_id": keyword_node["id"],
+                "target_node_id": operation_node["id"],
+                "source_port": "out",
+                "target_port": "research",
+                "edge_kind": "data",
+                "created_at": utc_now(),
+            },
+        ]
+    )
+    workflow_id = f"workflow-{uuid.uuid4().hex[:10]}"
+    scope = create_scope_record(
+        canvas,
+        {
+            "id": f"scope-{workflow_id}-foundation",
+            "label": "Four Futures foundation",
+            "mode": "live",
+            "selector": {
+                "kind": "explicit",
+                "node_ids": [source_node["id"], keyword_node["id"], operation_node["id"]],
+            },
+        },
+    )
+    progress = [
+        {
+            "id": f"step-{workflow_id}-frame",
+            "workflow_stage_id": "frame",
+            "label": "Frame the inquiry",
+            "scope_id": scope["id"],
+            "status": "succeeded",
+        },
+        {
+            "id": f"step-{workflow_id}-keywords",
+            "workflow_stage_id": "keywords",
+            "label": "Confirm keywords",
+            "scope_id": scope["id"],
+            "status": "succeeded",
+        },
+        {
+            "id": f"step-{workflow_id}-futures",
+            "workflow_stage_id": "four_futures",
+            "label": "Generate four What-if futures",
+            "scope_id": scope["id"],
+            "status": "active",
+        },
+        {
+            "id": f"step-{workflow_id}-choose",
+            "workflow_stage_id": "choose_future",
+            "label": "Choose one future",
+            "scope_id": scope["id"],
+            "status": "pending",
+        },
+        {
+            "id": f"step-{workflow_id}-discussion",
+            "workflow_stage_id": "discussion",
+            "label": "Discuss the chosen future",
+            "scope_id": scope["id"],
+            "status": "pending",
+        },
+    ]
+    session = create_conversation_record(
+        canvas,
+        {
+            "title": "Four Futures research thread",
+            "control_policy": "confirm",
+            "workflow_instance_id": workflow_id,
+            "active_scope_id": scope["id"],
+            "progress": progress,
+        },
+    )
+    workflow = {
+        "id": workflow_id,
+        "definition_ref": {"id": definition["id"], "version": definition["version"]},
+        "label": definition["label"],
+        "status": "active",
+        "stage": "four_futures",
+        "session_id": session["id"],
+        "foundation_scope_id": scope["id"],
+        "comparison_scope_id": "",
+        "source_node_ids": [source_node["id"], keyword_node["id"]],
+        "keyword_node_id": keyword_node["id"],
+        "operation_node_id": operation_node["id"],
+        "branch_node_ids": [],
+        "branch_scope_ids": {},
+        "selected_branch_node_id": "",
+        "input_revision": int(canvas.get("revision") or 0) + 1,
+        "created_at": utc_now(),
+        "updated_at": utc_now(),
+    }
+    canvas.setdefault("workflow_instances", []).append(workflow)
+    append_conversation_message(
+        canvas,
+        session["id"],
+        {
+            "role": "system",
+            "scope_id": scope["id"],
+            "related_node_ids": [source_node["id"], keyword_node["id"], operation_node["id"]],
+            "body": "This foundation workflow references the canonical graph. Editing a brief never creates a second copy of the research material.",
+        },
+    )
+    append_conversation_message(
+        canvas,
+        session["id"],
+        {
+            "role": "assistant",
+            "scope_id": scope["id"],
+            "related_node_ids": [source_node["id"], keyword_node["id"], operation_node["id"]],
+            "body": "The research brief and keyword scaffold are ready. Review either node if needed, then run Guided Scenario to compare four What-if futures.",
+        },
+    )
+    record_graph_event(
+        canvas,
+        "workflow.four_futures.started",
+        {
+            "workflow_id": workflow_id,
+            "session_id": session["id"],
+            "scope_id": scope["id"],
+            "source_node_ids": workflow["source_node_ids"],
+            "operation_node_id": operation_node["id"],
+        },
+    )
+    write_canvas(project_id, canvas)
+    return {"workflow": workflow, "conversation": session, "scope": scope, "nodes": [source_node, keyword_node, operation_node]}
+
+
+def select_four_futures_branch(project_id: str, workflow_id: str, payload: dict, expected_revision=None) -> dict:
+    canvas = read_canvas(project_id)
+    assert_expected_revision(canvas, expected_revision)
+    branch_node_id = str(payload.get("branch_node_id") or "")
+    result = select_workflow_branch_record(canvas, workflow_id, branch_node_id)
+    record_graph_event(
+        canvas,
+        "workflow.four_futures.branch_selected",
+        {"workflow_id": workflow_id, "branch_node_id": branch_node_id, "scope_id": result["scope_id"]},
+    )
+    write_canvas(project_id, canvas)
+    return result
+
+
+def workflow_text_list(value) -> list[str]:
+    if isinstance(value, str):
+        parts = value.replace("；", ";").replace("，", ",").replace("\n", ",").split(",")
+    elif isinstance(value, list):
+        parts = value
+    else:
+        parts = []
+    result = []
+    for item in parts:
+        text = str(item or "").strip()
+        if text and text not in result:
+            result.append(text[:180])
+    return result[:8]
+
+
+def foundation_keywords(brief: dict) -> list[str]:
+    candidates = [brief.get("topic", ""), brief.get("research_focus", ""), *brief.get("assumptions", []), *brief.get("stakeholders", []), *brief.get("tensions", [])]
+    keywords = []
+    for item in candidates:
+        text = str(item or "").strip()
+        if text and text not in keywords:
+            keywords.append(text[:72])
+    return keywords[:8]
+
+
+def render_foundation_brief(brief: dict) -> str:
+    lines = [
+        f"Starting point: {'Real research / researcher-led' if brief['start_mode'] == 'research' else 'Design proposition / designer-led'}",
+        f"Topic: {brief['topic']}",
+    ]
+    if brief.get("research_focus"):
+        lines.append(f"Research focus: {brief['research_focus']}")
+    for label, values in (("Default assumptions", brief.get("assumptions", [])), ("Stakeholders", brief.get("stakeholders", [])), ("Core tensions", brief.get("tensions", []))):
+        if values:
+            lines.append(f"{label}: " + "; ".join(values))
+    return "\n".join(lines)
+
+
+def render_keyword_scaffold(keywords: list[str]) -> str:
+    if not keywords:
+        return "Keywords to confirm\n\nAdd the concepts, trends, and tensions that should seed the four futures."
+    return "Keywords to confirm\n\n" + "\n".join(f"- {keyword}" for keyword in keywords)
+
+
 def add_command_proposal(project_id: str, payload: dict, expected_revision=None) -> dict:
     canvas = read_canvas(project_id)
     assert_expected_revision(canvas, expected_revision)
@@ -259,7 +538,24 @@ def update_node(project_id: str, node_id: str, patch: dict, expected_revision=No
             if "payload" in patch and isinstance(patch["payload"], dict):
                 node.setdefault("payload", {}).update(patch["payload"])
             refresh_runtime_config(canvas)
-            record_graph_event(canvas, "node.updated", {"node_id": node_id, "fields": sorted(patch.keys())})
+            stale_workflows = mark_workflows_stale_for_source_node(canvas, node_id) if "payload" in patch else []
+            stale_branch_ids = {
+                branch_id
+                for workflow in stale_workflows
+                for branch_id in workflow.get("branch_node_ids", [])
+            }
+            for candidate in canvas.get("nodes", []):
+                if candidate.get("id") in stale_branch_ids:
+                    candidate["status"] = "stale"
+            record_graph_event(
+                canvas,
+                "node.updated",
+                {
+                    "node_id": node_id,
+                    "fields": sorted(patch.keys()),
+                    "stale_workflow_ids": [workflow["id"] for workflow in stale_workflows],
+                },
+            )
             write_canvas(project_id, canvas)
             return node
     raise KeyError(f"Node not found: {node_id}")
@@ -568,6 +864,12 @@ def run_operation(project_id: str, node_id: str, api_key: str | None = None, exp
 
     operation["active_run_id"] = run_id
     operation["status"] = "success"
+    workflow_result = record_workflow_futures(canvas, node_id, run, output_nodes, scopes)
+    if workflow_result:
+        stale_branch_ids = set(workflow_result.get("stale_branch_node_ids", []))
+        for candidate in canvas.get("nodes", []):
+            if candidate.get("id") in stale_branch_ids:
+                candidate["status"] = "stale"
     execution = record_execution_from_run(canvas, run, "scope-global")
     record_graph_event(
         canvas,
@@ -577,11 +879,20 @@ def run_operation(project_id: str, node_id: str, api_key: str | None = None, exp
             "run_id": run_id,
             "branch_node_ids": run["output_node_ids"],
             "scope_ids": [scope["id"] for scope in scopes],
+            "workflow_id": (workflow_result or {}).get("workflow", {}).get("id", ""),
             "fallback_used": bool(result["model_snapshot"].get("fallback_used")),
         },
     )
     write_canvas(project_id, canvas)
-    return {"run": run, "execution": execution, "output_nodes": output_nodes, "edges": edges, "scopes": scopes}
+    return {
+        "run": run,
+        "execution": execution,
+        "output_nodes": output_nodes,
+        "edges": edges,
+        "scopes": scopes,
+        "workflow": (workflow_result or {}).get("workflow"),
+        "comparison_scope": (workflow_result or {}).get("comparison_scope"),
+    }
 
 
 def generate_or_placeholder_output(

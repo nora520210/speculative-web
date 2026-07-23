@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Speculative Web tool presentation contract",
+  "description": "Optional package-owned metadata for future graphical and card-based tool presentation. The frontend may render this data but must not duplicate method logic or use it as an executor input.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "card_kind": {
+      "type": "string",
+      "description": "Stable card family token, such as method, analysis, consequence, or artifact."
+    },
+    "icon_token": {
+      "type": "string",
+      "description": "Design-system icon token; the frontend maps it to a graphic without restating tool theory."
+    },
+    "accent_token": {
+      "type": "string",
+      "description": "Optional design-system accent token, not a hardcoded colour value."
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "none",
+            "package-relative"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "description": "Optional path relative to this tool package. Absolute and parent-directory paths are invalid."
+        }
+      }
+    },
+    "summary_fields": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Package fields a compact card should surface."
+    },
+    "interaction_hint": {
+      "type": "string",
+      "description": "Short package-owned prompt describing when the card should be opened."
+    }
+  }
+}

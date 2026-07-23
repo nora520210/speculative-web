@@ -6,7 +6,8 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from urllib.request import urlopen
+from tempfile import TemporaryDirectory
+from urllib.request import Request, urlopen
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,12 +19,24 @@ def fetch_json(url: str) -> dict:
         return json.loads(response.read().decode("utf-8"))
 
 
+def post_json(url: str, payload: dict) -> dict:
+    request = Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urlopen(request, timeout=5) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
 def main() -> int:
     port = "8765"
+    data_dir = TemporaryDirectory(prefix="speculative-web-smoke-")
     process = subprocess.Popen(
         [PYTHON, str(ROOT / "app.py")],
         cwd=ROOT,
-        env={**os.environ, "PORT": port},
+        env={**os.environ, "PORT": port, "SPEC_WEB_DATA_DIR": data_dir.name},
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
@@ -58,6 +71,21 @@ def main() -> int:
         if not any(item.get("id") == "operation.guided-scenario" for item in operations.get("definitions", [])):
             print("guided scenario operation definition failed")
             return 1
+        workflows = fetch_json(f"http://127.0.0.1:{port}/api/workflow-definitions")
+        if not any(item.get("id") == "workflow.four-futures-foundation" for item in workflows.get("definitions", [])):
+            print("four futures workflow definition failed")
+            return 1
+        foundation = post_json(
+            f"http://127.0.0.1:{port}/api/projects/{first_project['id']}/workflows",
+            {
+                "definition_id": "workflow.four-futures-foundation",
+                "start_mode": "research",
+                "topic": "Smoke-test inquiry",
+            },
+        )
+        if foundation.get("workflow", {}).get("stage") != "four_futures" or len(foundation.get("nodes", [])) != 3:
+            print("four futures workflow start failed")
+            return 1
         model = fetch_json(f"http://127.0.0.1:{port}/api/model/status")
         if "model" not in model:
             print("model endpoint failed")
@@ -67,6 +95,7 @@ def main() -> int:
     finally:
         process.terminate()
         process.wait(timeout=5)
+        data_dir.cleanup()
 
 
 if __name__ == "__main__":

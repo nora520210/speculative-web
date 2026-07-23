@@ -18,6 +18,8 @@ SCOPE_SELECTOR_KINDS = {"all", "explicit", "neighborhood"}
 COMMAND_ACTIONS = {"create_node", "patch_node", "connect_nodes", "create_scope"}
 COMMAND_STATUSES = {"proposed", "approved", "rejected", "applied", "superseded"}
 EXECUTION_STATUSES = {"queued", "running", "awaiting_input", "succeeded", "failed", "cancelled"}
+PROGRESS_STATUSES = {"pending", "active", "succeeded", "failed", "stale"}
+WORKFLOW_STATUSES = {"active", "awaiting_selection", "discussion", "stale", "complete"}
 
 
 class RevisionConflict(ValueError):
@@ -42,6 +44,7 @@ def ensure_interaction_data(canvas: dict, *, seed_demo: bool = False) -> None:
     canvas.setdefault("conversation_sessions", [])
     canvas.setdefault("command_proposals", [])
     canvas.setdefault("executions", [])
+    canvas.setdefault("workflow_instances", [])
 
     canvas["scopes"] = [normalize_scope(scope, canvas) for scope in canvas["scopes"] if isinstance(scope, dict)]
     if not any(scope.get("id") == "scope-global" for scope in canvas["scopes"]):
@@ -53,6 +56,10 @@ def ensure_interaction_data(canvas: dict, *, seed_demo: bool = False) -> None:
         canvas["conversation_sessions"] = [
             normalize_session(session, canvas) for session in canvas["conversation_sessions"] if isinstance(session, dict)
         ]
+
+    canvas["workflow_instances"] = [
+        normalize_workflow(workflow, canvas) for workflow in canvas["workflow_instances"] if isinstance(workflow, dict)
+    ]
 
     canvas["command_proposals"] = [
         normalize_command(proposal, canvas) for proposal in canvas["command_proposals"] if isinstance(proposal, dict)
@@ -220,12 +227,22 @@ def normalize_session(session: dict, canvas: dict) -> dict:
                 "id": str(item.get("id") or new_id("step")),
                 "label": str(item.get("label") or "Untitled step")[:96],
                 "scope_id": item.get("scope_id") if item.get("scope_id") in scope_ids else active_scope_id,
-                "status": item.get("status") if item.get("status") in {"pending", "active", "succeeded", "failed"} else "pending",
+                "status": item.get("status") if item.get("status") in PROGRESS_STATUSES else "pending",
+                "workflow_stage_id": str(item.get("workflow_stage_id") or "")[:64],
                 "execution_id": str(item.get("execution_id") or ""),
             }
         )
     if not progress:
-        progress = [{"id": new_id("step"), "label": "Start", "scope_id": active_scope_id, "status": "active", "execution_id": ""}]
+        progress = [
+            {
+                "id": new_id("step"),
+                "label": "Start",
+                "scope_id": active_scope_id,
+                "status": "active",
+                "workflow_stage_id": "",
+                "execution_id": "",
+            }
+        ]
     messages = []
     for message in session.get("messages", []):
         if not isinstance(message, dict):
@@ -246,11 +263,54 @@ def normalize_session(session: dict, canvas: dict) -> dict:
         "title": str(session.get("title") or "Working thread")[:96],
         "status": session.get("status") if session.get("status") in {"active", "paused", "closed"} else "active",
         "control_policy": session.get("control_policy") if session.get("control_policy") in CONTROL_POLICIES else "confirm",
+        "workflow_instance_id": str(session.get("workflow_instance_id") or ""),
         "active_scope_id": active_scope_id,
         "progress": progress,
         "messages": messages,
         "created_at": session.get("created_at") or utc_now(),
         "updated_at": session.get("updated_at") or utc_now(),
+    }
+
+
+def normalize_workflow(workflow: dict, canvas: dict) -> dict:
+    """Normalize a workflow instance without copying graph nodes into workflow state."""
+
+    known_node_ids = {node["id"] for node in canvas.get("nodes", [])}
+    node_ids = normalize_node_ids(workflow.get("source_node_ids"), canvas)
+    branch_node_ids = normalize_node_ids(workflow.get("branch_node_ids"), canvas)
+    scope_ids = {scope["id"] for scope in canvas.get("scopes", [])}
+    sessions = {session["id"] for session in canvas.get("conversation_sessions", [])}
+    branch_scope_ids = {}
+    raw_branch_scopes = workflow.get("branch_scope_ids") if isinstance(workflow.get("branch_scope_ids"), dict) else {}
+    for branch_id in branch_node_ids:
+        scope_id = raw_branch_scopes.get(branch_id)
+        if scope_id in scope_ids:
+            branch_scope_ids[branch_id] = scope_id
+    selected_branch_node_id = workflow.get("selected_branch_node_id")
+    if selected_branch_node_id not in branch_node_ids:
+        selected_branch_node_id = ""
+
+    return {
+        "id": str(workflow.get("id") or new_id("workflow")),
+        "definition_ref": {
+            "id": str((workflow.get("definition_ref") or {}).get("id") or ""),
+            "version": str((workflow.get("definition_ref") or {}).get("version") or ""),
+        },
+        "label": str(workflow.get("label") or "Guided workflow")[:96],
+        "status": workflow.get("status") if workflow.get("status") in WORKFLOW_STATUSES else "active",
+        "stage": str(workflow.get("stage") or "frame")[:64],
+        "session_id": workflow.get("session_id") if workflow.get("session_id") in sessions else "",
+        "foundation_scope_id": workflow.get("foundation_scope_id") if workflow.get("foundation_scope_id") in scope_ids else "",
+        "comparison_scope_id": workflow.get("comparison_scope_id") if workflow.get("comparison_scope_id") in scope_ids else "",
+        "source_node_ids": node_ids,
+        "keyword_node_id": workflow.get("keyword_node_id") if workflow.get("keyword_node_id") in known_node_ids else "",
+        "operation_node_id": workflow.get("operation_node_id") if workflow.get("operation_node_id") in known_node_ids else "",
+        "branch_node_ids": branch_node_ids,
+        "branch_scope_ids": branch_scope_ids,
+        "selected_branch_node_id": selected_branch_node_id,
+        "input_revision": int(workflow.get("input_revision") or canvas.get("revision") or 0),
+        "created_at": workflow.get("created_at") or utc_now(),
+        "updated_at": workflow.get("updated_at") or utc_now(),
     }
 
 
@@ -377,6 +437,7 @@ def interaction_payload(canvas: dict) -> dict:
         "revision": canvas.get("revision", 0),
         "scopes": [with_scope_count(scope, canvas) for scope in canvas.get("scopes", [])],
         "conversation_sessions": deepcopy(canvas.get("conversation_sessions", [])),
+        "workflow_instances": deepcopy(canvas.get("workflow_instances", [])),
         "command_proposals": deepcopy(canvas.get("command_proposals", [])),
         "executions": deepcopy(canvas.get("executions", [])),
     }
@@ -402,6 +463,7 @@ def create_conversation(canvas: dict, payload: dict) -> dict:
             "id": payload.get("id") or new_id("session"),
             "title": payload.get("title") or "Working thread",
             "control_policy": payload.get("control_policy") or "confirm",
+            "workflow_instance_id": payload.get("workflow_instance_id") or "",
             "active_scope_id": payload.get("active_scope_id") or "scope-global",
             "messages": [],
             "progress": payload.get("progress") or [],
@@ -432,6 +494,175 @@ def append_message(canvas: dict, session_id: str, payload: dict) -> dict:
     session.setdefault("messages", []).append(message)
     session["updated_at"] = utc_now()
     return deepcopy(message)
+
+
+def get_workflow(canvas: dict, workflow_id: str) -> dict | None:
+    return next((item for item in canvas.get("workflow_instances", []) if item.get("id") == workflow_id), None)
+
+
+def workflow_for_operation(canvas: dict, operation_node_id: str) -> dict | None:
+    return next(
+        (item for item in canvas.get("workflow_instances", []) if item.get("operation_node_id") == operation_node_id),
+        None,
+    )
+
+
+def _progress_step(session: dict, stage_id: str) -> dict | None:
+    return next(
+        (step for step in session.get("progress", []) if step.get("workflow_stage_id") == stage_id),
+        None,
+    )
+
+
+def _set_progress(session: dict, stage_id: str, status: str, *, scope_id: str | None = None, execution_id: str = "") -> None:
+    step = _progress_step(session, stage_id)
+    if not step:
+        return
+    step["status"] = status if status in PROGRESS_STATUSES else "pending"
+    if scope_id:
+        step["scope_id"] = scope_id
+    if execution_id:
+        step["execution_id"] = execution_id
+
+
+def record_workflow_futures(
+    canvas: dict,
+    operation_node_id: str,
+    run: dict,
+    output_nodes: list[dict],
+    branch_scopes: list[dict],
+) -> dict | None:
+    """Attach a Guided Scenario run to a workflow instance, if it owns this operation."""
+
+    workflow = workflow_for_operation(canvas, operation_node_id)
+    if not workflow:
+        return None
+
+    previous_branch_ids = list(workflow.get("branch_node_ids", []))
+    branch_node_ids = [node["id"] for node in output_nodes]
+    branch_scope_ids = {
+        node["id"]: scope["id"]
+        for node, scope in zip(output_nodes, branch_scopes)
+        if node.get("id") and scope.get("id")
+    }
+    comparison_scope = create_scope(
+        canvas,
+        {
+            "id": f"scope-{run['id']}-four-futures",
+            "label": "Compare four What-if futures",
+            "mode": "snapshot",
+            "selector": {
+                "kind": "explicit",
+                "node_ids": [*workflow.get("source_node_ids", []), *branch_node_ids],
+            },
+        },
+    )
+    workflow.update(
+        {
+            "status": "awaiting_selection",
+            "stage": "choose_future",
+            "comparison_scope_id": comparison_scope["id"],
+            "branch_node_ids": branch_node_ids,
+            "branch_scope_ids": branch_scope_ids,
+            "selected_branch_node_id": "",
+            "input_revision": int(canvas.get("revision") or 0),
+            "updated_at": utc_now(),
+        }
+    )
+
+    session = next((item for item in canvas.get("conversation_sessions", []) if item.get("id") == workflow.get("session_id")), None)
+    if session:
+        session["active_scope_id"] = comparison_scope["id"]
+        _set_progress(session, "four_futures", "succeeded", scope_id=comparison_scope["id"])
+        _set_progress(session, "choose_future", "active", scope_id=comparison_scope["id"])
+        _set_progress(session, "discussion", "pending", scope_id=comparison_scope["id"])
+        append_message(
+            canvas,
+            session["id"],
+            {
+                "role": "assistant",
+                "scope_id": comparison_scope["id"],
+                "related_node_ids": branch_node_ids,
+                "execution_id": run.get("id", ""),
+                "body": "Four What-if futures are ready. Compare their assumptions and tensions, then choose one branch before beginning discussion.",
+            },
+        )
+        session["updated_at"] = utc_now()
+
+    return {
+        "workflow": deepcopy(workflow),
+        "comparison_scope": comparison_scope,
+        "stale_branch_node_ids": [node_id for node_id in previous_branch_ids if node_id not in branch_node_ids],
+    }
+
+
+def select_workflow_branch(canvas: dict, workflow_id: str, branch_node_id: str) -> dict:
+    workflow = get_workflow(canvas, workflow_id)
+    if not workflow:
+        raise KeyError(f"Workflow not found: {workflow_id}")
+    if workflow.get("status") == "stale":
+        raise ValueError("The research brief changed. Re-run the four futures before selecting a branch.")
+    if branch_node_id not in workflow.get("branch_node_ids", []):
+        raise ValueError("Choose one of this workflow's current four futures.")
+    scope_id = workflow.get("branch_scope_ids", {}).get(branch_node_id)
+    if not scope_id or not get_scope(canvas, scope_id):
+        raise ValueError("The selected future no longer has an isolated Scope.")
+
+    branch = next((node for node in canvas.get("nodes", []) if node.get("id") == branch_node_id), None)
+    scenario = (branch or {}).get("payload", {}).get("scenario_branch", {})
+    opening_question = str((scenario.get("facilitation") or {}).get("opening_question") or "")
+    branch_title = str((branch or {}).get("title") or "selected future")
+    workflow.update(
+        {
+            "status": "discussion",
+            "stage": "discussion",
+            "selected_branch_node_id": branch_node_id,
+            "updated_at": utc_now(),
+        }
+    )
+
+    session = next((item for item in canvas.get("conversation_sessions", []) if item.get("id") == workflow.get("session_id")), None)
+    if session:
+        session["active_scope_id"] = scope_id
+        _set_progress(session, "choose_future", "succeeded", scope_id=scope_id)
+        _set_progress(session, "discussion", "active", scope_id=scope_id)
+        append_message(
+            canvas,
+            session["id"],
+            {
+                "role": "assistant",
+                "scope_id": scope_id,
+                "related_node_ids": [*workflow.get("source_node_ids", []), branch_node_id],
+                "body": opening_question or f"You selected {branch_title}. What assumption in this future should the discussion challenge first?",
+            },
+        )
+        session["updated_at"] = utc_now()
+
+    return {
+        "workflow": deepcopy(workflow),
+        "session": deepcopy(session) if session else None,
+        "scope_id": scope_id,
+    }
+
+
+def mark_workflows_stale_for_source_node(canvas: dict, node_id: str) -> list[dict]:
+    """Mark derived futures stale when their explicit research input changes."""
+
+    changed = []
+    for workflow in canvas.get("workflow_instances", []):
+        if node_id not in workflow.get("source_node_ids", []) or not workflow.get("branch_node_ids"):
+            continue
+        workflow["status"] = "stale"
+        workflow["stage"] = "stale"
+        workflow["updated_at"] = utc_now()
+        session = next((item for item in canvas.get("conversation_sessions", []) if item.get("id") == workflow.get("session_id")), None)
+        if session:
+            _set_progress(session, "four_futures", "stale")
+            _set_progress(session, "choose_future", "pending")
+            _set_progress(session, "discussion", "pending")
+            session["updated_at"] = utc_now()
+        changed.append(deepcopy(workflow))
+    return changed
 
 
 def create_command_proposal(canvas: dict, payload: dict) -> dict:

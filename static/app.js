@@ -57,6 +57,10 @@ const toolSidebarCount = document.querySelector("#tool-sidebar-count");
 const returnLocalScope = document.querySelector("#return-local-scope");
 const overviewPanel = document.querySelector("#overview-panel");
 const closeOverview = document.querySelector("#close-overview");
+const startFoundationWorkflow = document.querySelector("#start-foundation-workflow");
+const foundationWorkflowDialog = document.querySelector("#foundation-workflow-dialog");
+const foundationWorkflowForm = document.querySelector("#foundation-workflow-form");
+const closeFoundationWorkflow = document.querySelector("#close-foundation-workflow");
 
 let activeProject = null;
 let activeCanvas = null;
@@ -117,6 +121,25 @@ const translations = {
     "nodes.tool": "Tool",
     "nodes.operation": "Operation",
     "nodes.guidedScenario": "Guided Scenario",
+    "workflow.start": "Start Four Futures flow",
+    "workflow.eyebrow": "Guided foundation",
+    "workflow.dialogTitle": "Frame a research inquiry",
+    "workflow.dialogIntro": "Create an editable research brief and a ready four-futures operation. No model, tool, or image action happens here.",
+    "workflow.startMode": "Starting point",
+    "workflow.modeResearch": "Real research / researcher-led",
+    "workflow.modeDesign": "Design proposition / designer-led",
+    "workflow.topic": "Research topic",
+    "workflow.topicPlaceholder": "What should this inquiry examine?",
+    "workflow.focus": "Research focus",
+    "workflow.focusPlaceholder": "What needs attention, evidence, or reframing?",
+    "workflow.assumptions": "Default assumptions",
+    "workflow.stakeholders": "Stakeholders",
+    "workflow.tensions": "Core tensions",
+    "workflow.listPlaceholder": "One item per line",
+    "workflow.create": "Create foundation",
+    "workflow.choose": "Choose this future",
+    "workflow.chosen": "Selected for discussion",
+    "workflow.awaitingSelection": "Compare and choose a future",
     "nodes.textTitle": "Text Node",
     "nodes.conversationTitle": "Conversation",
     "nodes.uploadTitle": "Upload",
@@ -271,6 +294,25 @@ const translations = {
     "nodes.tool": "工具",
     "nodes.operation": "操作",
     "nodes.guidedScenario": "引导情境",
+    "workflow.start": "开始四种未来流程",
+    "workflow.eyebrow": "引导式基础流程",
+    "workflow.dialogTitle": "确立研究议题",
+    "workflow.dialogIntro": "创建可编辑的研究简报和待运行的四种未来操作；此处不会调用模型、工具或图像生成。",
+    "workflow.startMode": "起点类型",
+    "workflow.modeResearch": "真实研究 / 研究者主导",
+    "workflow.modeDesign": "设计设想 / 设计师主导",
+    "workflow.topic": "研究议题",
+    "workflow.topicPlaceholder": "这项研究想要探讨什么？",
+    "workflow.focus": "研究关注点",
+    "workflow.focusPlaceholder": "哪些证据、问题或前提需要被重新审视？",
+    "workflow.assumptions": "默认假设",
+    "workflow.stakeholders": "利益相关者",
+    "workflow.tensions": "核心张力",
+    "workflow.listPlaceholder": "每行填写一项",
+    "workflow.create": "创建基础流程",
+    "workflow.choose": "选择这条未来",
+    "workflow.chosen": "已选，进入讨论",
+    "workflow.awaitingSelection": "比较并选择一条未来",
     "nodes.textTitle": "文本节点",
     "nodes.conversationTitle": "对话",
     "nodes.uploadTitle": "上传",
@@ -609,6 +651,20 @@ function activeSession() {
   return (activeInteraction?.conversation_sessions || []).find((session) => session.id === activeSessionId) || null;
 }
 
+function activeWorkflow() {
+  const session = activeSession();
+  const workflows = activeInteraction?.workflow_instances || [];
+  return workflows.find((workflow) => workflow.session_id === session?.id)
+    || workflows.find((workflow) => workflow.id === session?.workflow_instance_id)
+    || null;
+}
+
+function workflowForBranch(nodeId) {
+  return (activeInteraction?.workflow_instances || []).find((workflow) =>
+    Array.isArray(workflow.branch_node_ids) && workflow.branch_node_ids.includes(nodeId),
+  ) || null;
+}
+
 function defaultLocalScopeId() {
   const sessionScopeId = activeSession()?.active_scope_id;
   if (sessionScopeId && sessionScopeId !== "scope-global") return sessionScopeId;
@@ -636,7 +692,7 @@ function graphWithPresentationTools(graph) {
           y: Number(node.position?.y || 0) + index * 122,
         },
         size: { width: 194, height: 104 },
-        payload: { description: tool.description || "" },
+        payload: { description: tool.description || "", presentation: tool.presentation || {} },
         config: { tool },
       });
       toolEdges.push({
@@ -1004,6 +1060,15 @@ function renderNode(node) {
   if (runButton) {
     runButton.addEventListener("click", (event) => runNode(event, node));
   }
+  article.querySelectorAll("[data-select-workflow-branch]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      selectWorkflowBranch(button.dataset.selectWorkflowBranch, node.id).catch((error) => {
+        setStatus(canvasStatus, "error");
+        canvasOutput.textContent = error.message;
+      });
+    });
+  });
   article.querySelectorAll("[data-open-image]").forEach((button) => {
     button.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -1111,6 +1176,10 @@ function renderNodeBody(node) {
     `;
   }
 
+  if (node.payload?.scenario_branch) {
+    return renderScenarioBranchBody(node);
+  }
+
   if (node.type === "image") {
     return `
       ${node.produced_by_run_id ? "" : renderImageUploadControl(node)}
@@ -1140,6 +1209,24 @@ function renderNodeBody(node) {
   }
 
   return `<p>${escapeHtml(node.payload?.text || "")}</p>`;
+}
+
+function renderScenarioBranchBody(node) {
+  const branch = node.payload?.scenario_branch || {};
+  const workflow = workflowForBranch(node.id);
+  const isSelected = workflow?.selected_branch_node_id === node.id;
+  const canChoose = workflow?.status === "awaiting_selection";
+  return `
+    <div class="scenario-branch">
+      <strong>${escapeHtml(branch.strategy_label || node.title)}</strong>
+      <p>${escapeHtml(branch.what_if || previewText(node.payload?.text || ""))}</p>
+      ${branch.future_premise ? `<span>${escapeHtml(branch.future_premise)}</span>` : ""}
+    </div>
+    <div class="node-actions">
+      <span>${escapeHtml(isSelected ? t("workflow.chosen") : (canChoose ? t("workflow.awaitingSelection") : "scenario"))}</span>
+      ${canChoose ? `<button type="button" data-select-workflow-branch="${escapeHtml(workflow.id)}">${escapeHtml(t("workflow.choose"))}</button>` : ""}
+    </div>
+  `;
 }
 
 function renderImageUploadControl(node) {
@@ -1352,6 +1439,65 @@ async function addNode(type, options = {}) {
     body: JSON.stringify(withExpectedRevision(payload)),
   });
   await loadCanvas();
+}
+
+function openFoundationWorkflowDialog() {
+  if (!activeProject) return;
+  if (typeof foundationWorkflowDialog.showModal === "function") {
+    foundationWorkflowDialog.showModal();
+  } else {
+    foundationWorkflowDialog.setAttribute("open", "");
+  }
+  foundationWorkflowForm.elements.topic.focus();
+}
+
+function closeFoundationWorkflowDialog() {
+  if (typeof foundationWorkflowDialog.close === "function") {
+    foundationWorkflowDialog.close();
+  } else {
+    foundationWorkflowDialog.removeAttribute("open");
+  }
+}
+
+function workflowListValue(value) {
+  return String(value || "")
+    .split(/[,;\n，；]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+async function submitFoundationWorkflow(event) {
+  event.preventDefault();
+  if (!activeProject) return;
+  const form = new FormData(foundationWorkflowForm);
+  const payload = {
+    definition_id: "workflow.four-futures-foundation",
+    start_mode: form.get("start_mode"),
+    topic: String(form.get("topic") || "").trim(),
+    research_focus: String(form.get("research_focus") || "").trim(),
+    assumptions: workflowListValue(form.get("assumptions")),
+    stakeholders: workflowListValue(form.get("stakeholders")),
+    tensions: workflowListValue(form.get("tensions")),
+  };
+  const result = await requestJson(`/api/projects/${activeProject.id}/workflows`, {
+    method: "POST",
+    body: JSON.stringify(withExpectedRevision(payload)),
+  });
+  foundationWorkflowForm.reset();
+  closeFoundationWorkflowDialog();
+  activeSessionId = result.conversation?.id || activeSessionId;
+  activeScopeId = result.scope?.id || activeScopeId;
+  await loadCanvas({ preserveView: false });
+}
+
+async function selectWorkflowBranch(workflowId, branchNodeId) {
+  if (!activeProject || !workflowId || !branchNodeId) return;
+  const result = await requestJson(`/api/projects/${activeProject.id}/workflows/${workflowId}/select-branch`, {
+    method: "POST",
+    body: JSON.stringify(withExpectedRevision({ branch_node_id: branchNodeId })),
+  });
+  activeScopeId = result.scope_id || activeScopeId;
+  await loadCanvas({ preserveView: false });
 }
 
 async function toggleTool(event, node) {
@@ -2243,6 +2389,18 @@ document.querySelectorAll("[data-add-operation-definition]").forEach((button) =>
     title: "",
     config: { definition_ref: { id: button.dataset.addOperationDefinition } },
   }));
+});
+
+startFoundationWorkflow.addEventListener("click", openFoundationWorkflowDialog);
+closeFoundationWorkflow.addEventListener("click", closeFoundationWorkflowDialog);
+foundationWorkflowDialog.addEventListener("click", (event) => {
+  if (event.target === foundationWorkflowDialog) closeFoundationWorkflowDialog();
+});
+foundationWorkflowForm.addEventListener("submit", (event) => {
+  submitFoundationWorkflow(event).catch((error) => {
+    setStatus(canvasStatus, "error");
+    canvasOutput.textContent = error.message;
+  });
 });
 
 conversationForm.addEventListener("submit", (event) => {

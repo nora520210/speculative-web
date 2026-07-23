@@ -42,12 +42,15 @@ from server.graph_store import (
     run_modify,
     run_operation,
     resolve_command_proposal,
+    select_four_futures_branch,
+    start_four_futures_workflow,
     update_node,
     update_project,
 )
 from server.model_service import model_environment_status
 from server.modifier_registry import list_output_types, public_modifier_tools
 from server.operation_registry import list_operation_definitions
+from server.workflow_registry import list_workflow_definitions
 from server.rendering import render_document
 
 
@@ -99,6 +102,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                         "projects": "/api/projects",
                         "canvas": "/api/projects/{project_id}/canvas",
                         "tools": "/api/modifier-tools",
+                        "workflows": "/api/workflow-definitions",
                         "model": "/api/model/status",
                     },
                 }
@@ -120,6 +124,10 @@ class AppHandler(SimpleHTTPRequestHandler):
 
         if parsed.path == "/api/operation-definitions":
             self.send_json({"definitions": list_operation_definitions()})
+            return
+
+        if parsed.path == "/api/workflow-definitions":
+            self.send_json({"definitions": list_workflow_definitions()})
             return
 
         if parsed.path == "/api/model/status":
@@ -228,6 +236,35 @@ class AppHandler(SimpleHTTPRequestHandler):
                     self.send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
                     return
                 self.send_json({"conversation": session}, status=HTTPStatus.CREATED)
+                return
+
+            if action == ["workflows"]:
+                payload = self.read_json_body()
+                try:
+                    workflow = start_four_futures_workflow(
+                        project_id,
+                        payload,
+                        expected_revision=self.expected_revision(payload),
+                    )
+                except (KeyError, ValueError) as exc:
+                    self.send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+                    return
+                self.send_json(workflow, status=HTTPStatus.CREATED)
+                return
+
+            if len(action) == 3 and action[0] == "workflows" and action[2] == "select-branch":
+                payload = self.read_json_body()
+                try:
+                    result = select_four_futures_branch(
+                        project_id,
+                        action[1],
+                        payload,
+                        expected_revision=self.expected_revision(payload),
+                    )
+                except (KeyError, ValueError) as exc:
+                    self.send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+                    return
+                self.send_json(result)
                 return
 
             if len(action) == 3 and action[0] == "conversations" and action[2] == "messages":

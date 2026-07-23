@@ -58,6 +58,7 @@ The canvas contains additive V2 fields alongside the existing `nodes`, `edges`, 
   "revision": 12,
   "scopes": [],
   "conversation_sessions": [],
+  "workflow_instances": [],
   "command_proposals": [],
   "executions": [],
   "events": []
@@ -117,6 +118,35 @@ output node IDs, model/fallback metadata, and the four branch Scope IDs. A fallb
 always marked in `model_snapshot.fallback_used`; it is never presented as
 model-generated content.
 
+### Four Futures Foundation Workflow
+
+`workflow_definitions/*/manifest.json` defines a reusable interaction sequence over
+the existing graph runtime. A workflow instance contains only references to canonical
+node IDs, Scope IDs, one ConversationSession, and its current stage. It never stores a
+second copy of research content or a client-side phase machine.
+
+The initial `workflow.four-futures-foundation` introduces the lower-cognitive-load
+path requested for the early and middle research process:
+
+1. Capture either a researcher-led inquiry or a designer-led proposition as one
+   editable Research Brief.
+2. Create a deterministic, editable keyword scaffold next to that brief. This is
+   intentionally not a model call.
+3. Prepare the existing `operation.guided-scenario` with direct data edges from the
+   brief and keywords. Starting the workflow does not select a tool, call a model, or
+   produce an image.
+4. When that operation is later run, move the linked conversation into a comparison
+   Scope containing all four results. The existing Four Futures executor keeps its
+   canonical `growth`, `collapse`, `discipline`, and `transformation` strategies.
+5. Require an explicit human branch selection before the conversation enters that
+   branch's isolated Scope. Only then does the workflow become a focused discussion.
+
+If either workflow input is edited after branch generation, the workflow and its old
+branch artifacts become `stale`. The user must run the four futures again rather than
+discussing a silently out-of-date result. This sequencing changes interaction state,
+not the model, image, or tool-selection mechanism, so those systems can evolve later
+without replacing the workflow contract.
+
 ## Modify Pipeline
 
 1. Upstream `data` edges define direct inputs.
@@ -141,8 +171,25 @@ The architecture supports iterative tool/theory mapping.
 - Tool package folders under `tool_packages/` are the canonical place for theory notes, schemas, constraints, evaluator prose, and examples. The frontend should only render the normalized registry view.
 - Modify nodes store a normalized snapshot of currently available tools, so the UI can render new or revised tools without hardcoding them.
 - Runs store a `tool_snapshot`, so generated output can later be traced back to the exact tool version and constraints used at generation time.
+- Each package may additionally carry an optional `presentation` object, validated by
+  `tool_packages/presentation.schema.json`. It owns card family, icon/accent tokens,
+  package-relative graphic assets, compact fields, and an interaction hint. The
+  frontend renders normalized presentation metadata but cannot use it to change a
+  package's theory, input/output contract, or executor. This keeps future graphical
+  tool cards coupled to the selected package rather than duplicated in UI conditionals.
 - `data/tool_registry.json` can override the default registry while keeping frontend code unchanged. Use `data/tool_registry.example.json` as the editable template.
 - Future Modify-like operation nodes should follow the same pattern: registry metadata, node config snapshot, executor call only from the Run endpoint, and run-level provenance.
+
+## External Prototype Isolation
+
+The reviewed external prototypes live under `7.22SPEC/` only as local reference
+material. The directory is ignored by Git and no registry, module loader, static route,
+or runtime glob reads from it. Production packages are discovered only from
+`tool_packages/*/manifest.json`, operation definitions from
+`operation_definitions/*/manifest.json`, and workflows from
+`workflow_definitions/*/manifest.json`. This allows their interaction logic to inform
+the implementation without importing their code, dependencies, state, or UI into this
+system.
 
 ## Security Boundaries
 

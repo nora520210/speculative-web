@@ -68,6 +68,7 @@
           <button type="button" data-add-node="modify" data-i18n="nodes.modify">Modify</button>
           <button type="button" data-add-node="operation" data-i18n="nodes.operation">Operation</button>
           <button type="button" data-add-operation-definition="operation.guided-scenario" data-i18n="nodes.guidedScenario">Guided Scenario</button>
+          <button id="start-foundation-workflow" type="button" data-i18n="workflow.start">Start Four Futures flow</button>
           <span class="tool-spacer"></span>
           <button id="zoom-out" type="button" data-i18n-aria-label="canvas.zoomOut" aria-label="Zoom out">-</button>
           <span id="zoom-level" class="zoom-level">100%</span>
@@ -177,6 +178,51 @@
           </section>
         </aside>
       </section>
+
+      <dialog id="foundation-workflow-dialog" class="foundation-workflow-dialog" aria-labelledby="foundation-workflow-title">
+        <form id="foundation-workflow-form" class="foundation-workflow-form" method="dialog">
+          <header>
+            <div>
+              <p class="eyebrow" data-i18n="workflow.eyebrow">Guided foundation</p>
+              <h2 id="foundation-workflow-title" data-i18n="workflow.dialogTitle">Frame a research inquiry</h2>
+            </div>
+            <button id="close-foundation-workflow" type="button" data-i18n="common.close">Close</button>
+          </header>
+          <p class="foundation-workflow-intro" data-i18n="workflow.dialogIntro">Create an editable research brief and a ready four-futures operation. No model, tool, or image action happens here.</p>
+          <label>
+            <span data-i18n="workflow.startMode">Starting point</span>
+            <select name="start_mode">
+              <option value="research" data-i18n="workflow.modeResearch">Real research / researcher-led</option>
+              <option value="design" data-i18n="workflow.modeDesign">Design proposition / designer-led</option>
+            </select>
+          </label>
+          <label>
+            <span data-i18n="workflow.topic">Research topic</span>
+            <textarea name="topic" rows="2" required data-i18n-placeholder="workflow.topicPlaceholder" placeholder="What should this inquiry examine?"></textarea>
+          </label>
+          <label>
+            <span data-i18n="workflow.focus">Research focus</span>
+            <textarea name="research_focus" rows="2" data-i18n-placeholder="workflow.focusPlaceholder" placeholder="What needs attention, evidence, or reframing?"></textarea>
+          </label>
+          <div class="foundation-workflow-grid">
+            <label>
+              <span data-i18n="workflow.assumptions">Default assumptions</span>
+              <textarea name="assumptions" rows="3" data-i18n-placeholder="workflow.listPlaceholder" placeholder="One item per line"></textarea>
+            </label>
+            <label>
+              <span data-i18n="workflow.stakeholders">Stakeholders</span>
+              <textarea name="stakeholders" rows="3" data-i18n-placeholder="workflow.listPlaceholder" placeholder="One item per line"></textarea>
+            </label>
+            <label>
+              <span data-i18n="workflow.tensions">Core tensions</span>
+              <textarea name="tensions" rows="3" data-i18n-placeholder="workflow.listPlaceholder" placeholder="One item per line"></textarea>
+            </label>
+          </div>
+          <footer>
+            <button type="submit" data-i18n="workflow.create">Create foundation</button>
+          </footer>
+        </form>
+      </dialog>
 
       <div id="node-menu" class="node-menu hidden" role="menu" data-i18n-aria-label="menu.nodeActions" aria-label="Node actions">
         <button type="button" data-menu-open-full data-i18n="common.open">Open</button>

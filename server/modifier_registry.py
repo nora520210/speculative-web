@@ -181,6 +181,7 @@ def normalize_registry_tool(tool: dict) -> dict:
         "supported_outputs": tool.get("supported_outputs") or ["text"],
         "selected": bool(tool.get("selected", False)),
         "placeholder": bool(tool.get("placeholder", True)),
+        "presentation": normalize_tool_presentation(tool.get("presentation"), tool),
     }
     for key in (
         "input_contract",
@@ -199,6 +200,41 @@ def normalize_registry_tool(tool: dict) -> dict:
         if key in tool:
             normalized[key] = deepcopy(tool[key])
     return normalized
+
+
+def normalize_tool_presentation(value, tool: dict) -> dict:
+    """Keep card/graphic metadata with the package that owns tool meaning.
+
+    Asset paths are deliberately package-relative. A frontend may map tokens to a design
+    system or load the declared package asset, but it cannot use a card to alter a tool's
+    theory, executor, or input/output contract.
+    """
+
+    value = value if isinstance(value, dict) else {}
+    asset = value.get("asset") if isinstance(value.get("asset"), dict) else {}
+    asset_kind = asset.get("kind") if asset.get("kind") in {"none", "package-relative"} else "none"
+    raw_asset_path = str(asset.get("path") or "").replace("\\", "/").strip()
+    asset_path = raw_asset_path.strip("/")
+    if raw_asset_path.startswith("/") or any(part == ".." for part in raw_asset_path.split("/")):
+        asset_path = ""
+        asset_kind = "none"
+    elif asset_path and asset_kind != "package-relative":
+        asset_kind = "package-relative"
+    elif not asset_path:
+        asset_kind = "none"
+    summary_fields = []
+    for field in value.get("summary_fields", []):
+        field_name = str(field).strip()
+        if field_name and field_name not in summary_fields:
+            summary_fields.append(field_name[:96])
+    return {
+        "card_kind": str(value.get("card_kind") or "method")[:48],
+        "icon_token": str(value.get("icon_token") or tool.get("id") or "tool")[:64],
+        "accent_token": str(value.get("accent_token") or "neutral")[:48],
+        "asset": {"kind": asset_kind, "path": asset_path},
+        "summary_fields": summary_fields or ["description", "theory_mapping.method", "recommendation.best_when"],
+        "interaction_hint": str(value.get("interaction_hint") or tool.get("description") or "")[:280],
+    }
 
 
 def list_modifier_tools() -> list[dict]:
@@ -254,6 +290,7 @@ def public_modifier_tools() -> list[dict]:
             "accepted_modalities": deepcopy(tool.get("accepted_modalities", ["text"])),
             "supported_outputs": deepcopy(tool.get("supported_outputs", ["text"])),
             "package_path": tool.get("package_path", ""),
+            "presentation": deepcopy(tool.get("presentation", {})),
             "selected": tool["selected"],
         }
         for tool in _registry_tools()
@@ -281,6 +318,7 @@ def normalize_modifier_tools(configured_tools: list[dict] | None) -> list[dict]:
                 "accepted_modalities": deepcopy(registry_tool.get("accepted_modalities", ["text"])),
                 "supported_outputs": deepcopy(registry_tool.get("supported_outputs", ["text"])),
                 "package_path": registry_tool.get("package_path", ""),
+                "presentation": deepcopy(registry_tool.get("presentation", {})),
                 "selected": bool(configured.get("selected", registry_tool["selected"])),
             }
         )
@@ -316,6 +354,7 @@ def tool_snapshot(tool_ids: list[str]) -> list[dict]:
             "text_output_forms": deepcopy(by_id.get(tool_id, {}).get("text_output_forms", {})),
             "output_budget": deepcopy(by_id.get(tool_id, {}).get("output_budget", {})),
             "validation": deepcopy(by_id.get(tool_id, {}).get("validation", {})),
+            "presentation": deepcopy(by_id.get(tool_id, {}).get("presentation", {})),
             "package_path": by_id.get(tool_id, {}).get("package_path", ""),
         }
         for tool_id in tool_ids
