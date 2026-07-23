@@ -35,8 +35,9 @@ that graph, never a second canvas that copies nodes.
   a bounded neighbourhood; a scope can be `live` or retain a node-ID snapshot. A
   projection returns only the selected nodes and their internal edges.
 - `ConversationSession` stores messages, a current scope, an adjustable control
-  policy, and progress steps. Messages reference node IDs and scopes; they do not
-  duplicate node content into a parallel graph.
+  policy, progress steps, and a small deterministic `guide` cursor. Messages reference
+  node IDs and scopes; they do not duplicate node content into a parallel graph. A
+  message may be ordinary conversation, a guide prompt, or a graph `activity` record.
 - `CommandProposal` represents an intended graph action such as `create_node`,
   `patch_node`, `connect_nodes`, or `create_scope`. Its lifecycle is
   `proposed -> approved | rejected -> applied`.
@@ -146,6 +147,37 @@ branch artifacts become `stale`. The user must run the four futures again rather
 discussing a silently out-of-date result. This sequencing changes interaction state,
 not the model, image, or tool-selection mechanism, so those systems can evolve later
 without replacing the workflow contract.
+
+### Conversation-first, Node-equivalent Control
+
+The default Working Thread starts with a deterministic guide rather than a blank
+chat. It asks for the topic, focus, assumptions, stakeholders, and tensions in small
+steps. Each answer is written directly into the owned Research Brief node and then
+rebuilds the editable keyword scaffold from that same node. There is no hidden chat
+copy of the brief. A direct text edit to the Brief explicitly supersedes its old
+structured guide object and deterministically rebuilds the Keywords node, so later
+What-if runs cannot combine a new brief with old keywords.
+
+The user can at any time take the equivalent node route: edit a node, connect or
+remove an edge, delete a branch, or select a branch from the graph. Semantic graph
+changes append an `activity` message to the linked conversation session with node
+references. Layout-only moves do not create noise in the timeline.
+
+For a workflow-owned Guided Scenario operation, `source_node_ids` and
+`input_edge_ids` record the semantic direct `data` inputs and their provenance at
+workflow creation. Adding, removing, editing, or deleting a managed input—or deleting/editing
+a generated branch—marks the workflow stale, clears any selected branch, returns the
+session to a safe global scope, and records why. The operation refuses to run against
+a different set of graph inputs. This makes dialogue control and direct node control
+two synchronized entrances to the same dataflow instead of two competing state
+machines.
+
+Every manifest-defined Operation also owns its data-port contract: an incoming edge
+must name a declared port, provide an accepted modality, respect the port cardinality,
+and satisfy required ports before execution. The canvas reads the initial connection
+port from that manifest; the backend repeats the validation as the authoritative
+check. This keeps tool packages and operation definitions modular rather than placing
+their contracts in the conversation or frontend layer.
 
 ## Modify Pipeline
 

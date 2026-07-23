@@ -43,6 +43,7 @@ const appShell = document.querySelector("#app-shell");
 const conversationTitle = document.querySelector("#conversation-title");
 const conversationPolicy = document.querySelector("#conversation-policy");
 const conversationProgress = document.querySelector("#conversation-progress");
+const conversationGuideActions = document.querySelector("#conversation-guide-actions");
 const conversationMessages = document.querySelector("#conversation-messages");
 const conversationForm = document.querySelector("#conversation-form");
 const conversationInput = document.querySelector("#conversation-input");
@@ -585,7 +586,7 @@ function updateCanvasTitle(title) {
   canvasTitle.title = t("project.renameHint");
 }
 
-async function loadCanvas({ preserveView = true } = {}) {
+async function loadCanvas({ preserveView = true, consistencyRetry = 0 } = {}) {
   if (!activeProject) return;
   const previousCanvasId = activeCanvas?.id;
   const previousZoom = zoom;
@@ -596,7 +597,10 @@ async function loadCanvas({ preserveView = true } = {}) {
   const shouldPreserveView = preserveView && previousCanvasId === graph.id;
   activeCanvas = graph;
   zoom = shouldPreserveView ? clampZoom(previousZoom) : clampZoom(activeCanvas.viewport?.zoom ?? 1);
-  await loadInteraction({ preserveScope: shouldPreserveView });
+  const interaction = await loadInteraction({ preserveScope: shouldPreserveView });
+  if (interaction?.revision !== graph.revision && consistencyRetry < 1) {
+    return loadCanvas({ preserveView: shouldPreserveView, consistencyRetry: consistencyRetry + 1 });
+  }
   setStatus(canvasStatus, "ready");
   canvasOutput.textContent = JSON.stringify(summarizeCanvas(graph), null, 2);
   renderCanvas();
@@ -613,11 +617,16 @@ async function loadInteraction({ preserveScope = true } = {}) {
   const session = currentSession || focusedSession || sessions[0] || null;
   activeSessionId = session?.id || null;
   const availableScopeIds = new Set((interaction.scopes || []).map((scope) => scope.id));
-  const preferredScope = preserveScope && availableScopeIds.has(activeScopeId)
+  const linkedWorkflow = (interaction.workflow_instances || []).find((workflow) =>
+    workflow.session_id === session?.id || workflow.id === session?.workflow_instance_id,
+  );
+  const mustFollowSessionScope = session?.guide?.stage_id === "stale" || linkedWorkflow?.status === "stale";
+  const preferredScope = !mustFollowSessionScope && preserveScope && availableScopeIds.has(activeScopeId)
     ? activeScopeId
     : (session?.active_scope_id || "scope-global");
   await loadScopeProjection(preferredScope, { render: false, fit: !preserveScope });
   renderInteraction();
+  return interaction;
 }
 
 async function loadScopeProjection(scopeId, { render = true, fit = true } = {}) {
@@ -773,12 +782,15 @@ function renderInteraction() {
   const messages = session?.messages || [];
   conversationMessages.innerHTML = messages.length
     ? messages.map((message) => `
-      <article class="conversation-message ${escapeHtml(message.role)}">
+      <article class="conversation-message ${escapeHtml(message.role)} ${escapeHtml(message.kind || "message")}">
         <span class="message-role">${escapeHtml(t(`conversation.${message.role}`))}</span>
         <p>${escapeHtml(message.body)}</p>
+        ${(message.related_node_ids || []).length ? `<small class="message-node-refs">${escapeHtml((message.related_node_ids || []).map((nodeId) => findNode(nodeId)?.title || nodeId).join(" · "))}</small>` : ""}
       </article>
     `).join("")
     : `<p class="empty-panel">${escapeHtml(t("conversation.none"))}</p>`;
+
+  renderConversationGuide(session);
 
   const scopes = interaction?.scopes || [];
   scopeList.innerHTML = scopes.map((item) => `
@@ -793,6 +805,49 @@ function renderInteraction() {
   renderGlobalMap();
   renderCommandProposals();
   renderToolSidebar();
+}
+
+function renderConversationGuide(session) {
+  if (!conversationGuideActions) return;
+  const guide = session?.guide;
+  if (!guide || guide.status !== "active") {
+    conversationGuideActions.innerHTML = "";
+    return;
+  }
+  const workflow = (activeInteraction?.workflow_instances || []).find((item) => item.id === guide.workflow_instance_id);
+  const stage = guide.stage_id || "start";
+  const localized = locale === "zh";
+  if (stage === "start") {
+    conversationGuideActions.innerHTML = `
+      <span>${localized ? "从哪种起点开始？" : "Choose a starting point:"}</span>
+      <button type="button" data-guide-start-mode="research">${localized ? "真实研究" : "Research-led"}</button>
+      <button type="button" data-guide-start-mode="design">${localized ? "设计命题" : "Design-led"}</button>
+    `;
+  } else if (["frame_focus", "frame_assumptions", "frame_stakeholders", "frame_tensions"].includes(stage)) {
+    conversationGuideActions.innerHTML = `<button type="button" data-guide-action="skip">${localized ? "跳过这一步" : "Skip this step"}</button>`;
+  } else if (stage === "keywords") {
+    conversationGuideActions.innerHTML = `<button type="button" data-guide-action="confirm_keywords">${localized ? "确认关键词，进入 What-if" : "Confirm keywords"}</button>`;
+  } else if (stage === "four_futures") {
+    conversationGuideActions.innerHTML = `<span>${localized ? "下一步：在节点上运行 Guided Scenario，生成四条 What-if。" : "Next: run Guided Scenario on its node to generate the four What-if directions."}</span>`;
+  } else if (stage === "choose_future" && workflow?.branch_node_ids?.length) {
+    conversationGuideActions.innerHTML = `
+      <span>${localized ? "选择一个方向进入讨论：" : "Choose a direction to discuss:"}</span>
+      ${workflow.branch_node_ids.map((nodeId) => `<button type="button" data-guide-branch-id="${escapeHtml(nodeId)}" data-guide-workflow-id="${escapeHtml(workflow.id)}">${escapeHtml(findNode(nodeId)?.title || (localized ? "未来方向" : "Future direction"))}</button>`).join("")}
+    `;
+  } else if (stage === "stale") {
+    conversationGuideActions.innerHTML = `<span>${localized ? "关联节点已改变。旧分支已失效；修复输入边后可直接重新运行该节点。" : "A linked node changed. Existing branches are stale; restore the inputs, then run the node again."}</span>`;
+  } else {
+    conversationGuideActions.innerHTML = "";
+  }
+  conversationGuideActions.querySelectorAll("[data-guide-start-mode]").forEach((button) => {
+    button.addEventListener("click", () => advanceConversationGuide({ action: "set_start_mode", start_mode: button.dataset.guideStartMode }));
+  });
+  conversationGuideActions.querySelectorAll("[data-guide-action]").forEach((button) => {
+    button.addEventListener("click", () => advanceConversationGuide({ action: button.dataset.guideAction }));
+  });
+  conversationGuideActions.querySelectorAll("[data-guide-branch-id]").forEach((button) => {
+    button.addEventListener("click", () => selectWorkflowBranch(button.dataset.guideWorkflowId, button.dataset.guideBranchId));
+  });
 }
 
 function renderToolSidebar() {
@@ -888,12 +943,26 @@ async function submitConversationMessage(event) {
   const session = activeSession();
   const body = conversationInput.value.trim();
   if (!activeProject || !session || !body) return;
-  await requestJson(`/api/projects/${activeProject.id}/conversations/${session.id}/messages`, {
+  const stage = session.guide?.stage_id || "";
+  const isGuidedEntry = stage === "start" || ["frame_focus", "frame_assumptions", "frame_stakeholders", "frame_tensions"].includes(stage);
+  await requestJson(`/api/projects/${activeProject.id}/conversations/${session.id}/${isGuidedEntry ? "guide-actions" : "messages"}`, {
     method: "POST",
-    body: JSON.stringify(withExpectedRevision({ body, scope_id: activeScopeId })),
+    body: JSON.stringify(withExpectedRevision(isGuidedEntry
+      ? { action: stage === "start" ? "begin" : "answer", body }
+      : { body, scope_id: activeScopeId })),
   });
   conversationInput.value = "";
   await loadCanvas();
+}
+
+async function advanceConversationGuide(payload) {
+  const session = activeSession();
+  if (!activeProject || !session) return;
+  await requestJson(`/api/projects/${activeProject.id}/conversations/${session.id}/guide-actions`, {
+    method: "POST",
+    body: JSON.stringify(withExpectedRevision(payload)),
+  });
+  await loadCanvas({ preserveView: false });
 }
 
 async function resolveCommand(commandId, resolution) {
@@ -1432,6 +1501,7 @@ async function addNode(type, options = {}) {
     title: options.title || titleForType(type),
     position: { x: 92 + offset, y: 110 + offset },
     payload: { text: defaultTextForType(type) },
+    session_id: activeSessionId,
     ...options,
   };
   await requestJson(`/api/projects/${activeProject.id}/nodes`, {
@@ -1478,6 +1548,7 @@ async function submitFoundationWorkflow(event) {
     assumptions: workflowListValue(form.get("assumptions")),
     stakeholders: workflowListValue(form.get("stakeholders")),
     tensions: workflowListValue(form.get("tensions")),
+    session_id: activeSessionId,
   };
   const result = await requestJson(`/api/projects/${activeProject.id}/workflows`, {
     method: "POST",
@@ -1494,7 +1565,7 @@ async function selectWorkflowBranch(workflowId, branchNodeId) {
   if (!activeProject || !workflowId || !branchNodeId) return;
   const result = await requestJson(`/api/projects/${activeProject.id}/workflows/${workflowId}/select-branch`, {
     method: "POST",
-    body: JSON.stringify(withExpectedRevision({ branch_node_id: branchNodeId })),
+    body: JSON.stringify(withExpectedRevision({ branch_node_id: branchNodeId, session_id: activeSessionId })),
   });
   activeScopeId = result.scope_id || activeScopeId;
   await loadCanvas({ preserveView: false });
@@ -1514,7 +1585,7 @@ async function setToolSelection(node, toolId, selected) {
   );
   await requestJson(`/api/projects/${activeProject.id}/nodes/${node.id}`, {
     method: "PATCH",
-    body: JSON.stringify(withExpectedRevision({ config: { tools } })),
+    body: JSON.stringify(withExpectedRevision({ config: { tools }, session_id: activeSessionId })),
   });
   await loadCanvas();
 }
@@ -1524,7 +1595,7 @@ async function setOutputType(event, node) {
   const outputType = event.currentTarget.dataset.outputType;
   await requestJson(`/api/projects/${activeProject.id}/nodes/${node.id}`, {
     method: "PATCH",
-    body: JSON.stringify(withExpectedRevision({ config: { output_type: outputType } })),
+    body: JSON.stringify(withExpectedRevision({ config: { output_type: outputType }, session_id: activeSessionId })),
   });
   await loadCanvas();
 }
@@ -1576,6 +1647,7 @@ async function deleteContextNode() {
     setStatus(canvasStatus, "deleting");
     await requestJson(`/api/projects/${activeProject.id}/edges/${edgeId}`, {
       method: "DELETE",
+      body: JSON.stringify(withExpectedRevision({ session_id: activeSessionId })),
     });
     await loadCanvas();
     return;
@@ -1591,6 +1663,7 @@ async function deleteContextNode() {
   setStatus(canvasStatus, "deleting");
   await requestJson(`/api/projects/${activeProject.id}/nodes/${nodeId}`, {
     method: "DELETE",
+    body: JSON.stringify(withExpectedRevision({ session_id: activeSessionId })),
   });
   await loadCanvas();
 }
@@ -2031,14 +2104,19 @@ function stripTextArtifacts(text) {
 
 async function createEdge(sourceNodeId, targetNodeId) {
   if (!activeProject || !sourceNodeId || !targetNodeId || sourceNodeId === targetNodeId) return;
+  const targetNode = findNode(targetNodeId);
+  const targetPort = targetNode?.type === "operation"
+    ? (targetNode.config?.definition?.input_ports?.[0]?.id || "in")
+    : "in";
   await requestJson(`/api/projects/${activeProject.id}/edges`, {
     method: "POST",
     body: JSON.stringify(withExpectedRevision({
       source_node_id: sourceNodeId,
       target_node_id: targetNodeId,
       source_port: "out",
-      target_port: "in",
+      target_port: targetPort,
       edge_kind: "data",
+      session_id: activeSessionId,
     })),
   });
   await loadCanvas();
@@ -2058,7 +2136,7 @@ async function runNode(event, node) {
   try {
     await requestJson(`/api/projects/${activeProject.id}/nodes/${node.id}/run`, {
       method: "POST",
-      body: JSON.stringify(withExpectedRevision({})),
+      body: JSON.stringify(withExpectedRevision({ session_id: activeSessionId })),
       requiresApiKey: true,
     });
     await loadCanvas();
@@ -2077,7 +2155,7 @@ async function runNode(event, node) {
 async function updateNodePayload(node, payload) {
   await requestJson(`/api/projects/${activeProject.id}/nodes/${node.id}`, {
     method: "PATCH",
-    body: JSON.stringify(withExpectedRevision({ payload, status: "ready" })),
+    body: JSON.stringify(withExpectedRevision({ payload, status: "ready", session_id: activeSessionId })),
   });
   await loadCanvas();
 }
@@ -2165,7 +2243,7 @@ window.addEventListener("pointerup", async (event) => {
   dragState = null;
   await requestJson(`/api/projects/${activeProject.id}/nodes/${node.id}`, {
     method: "PATCH",
-    body: JSON.stringify({ position: node.position }),
+    body: JSON.stringify(withExpectedRevision({ position: node.position, session_id: activeSessionId })),
   });
 });
 

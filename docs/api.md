@@ -74,6 +74,21 @@ Creates a conversation session with a title, `control_policy` (`manual`, `propos
 Appends a user, assistant, or system message. Messages store their Scope and optional
 node references; they do not mutate graph nodes.
 
+`POST /api/projects/{project_id}/conversations/{session_id}/guide-actions`
+
+Advances the default deterministic Four Futures entry guide. `begin` accepts the
+first topic, `answer` writes the current short answer to the canonical Research Brief
+node, `skip` leaves an optional field empty, and `confirm_keywords` unlocks the
+four-What-if stage. `set_start_mode` switches between `research` and `design` before
+the topic is entered.
+
+```json
+{ "action": "answer", "body": "Public-space consent and refusal" }
+```
+
+This endpoint does not choose a tool, invoke a model, or create an image. It changes
+only graph-owned brief/keyword nodes and the linked session's guide/progress state.
+
 `POST /api/projects/{project_id}/command-proposals`
 
 Creates an auditable proposal for a future graph change. Supported action values are
@@ -116,6 +131,10 @@ This deterministic action creates a Research Brief node, a keyword-scaffold node
 ConversationSession. It does **not** call a model, choose a tool, run an operation, or
 create an image.
 
+Pass an existing `session_id` with the start body to reuse the active conversation
+instead of creating a second thread. The conversation guide uses this route internally
+with `guided: true`; clients should normally use `guide-actions` for the default flow.
+
 `POST /api/projects/{project_id}/workflows/{workflow_id}/select-branch`
 
 Selects one current Guided Scenario branch after its four outputs have been generated.
@@ -127,7 +146,9 @@ Selects one current Guided Scenario branch after its four outputs have been gene
 The API moves the linked ConversationSession into that branch's existing snapshot
 Scope and activates its discussion step. It rejects a branch that is absent, belongs to
 another workflow, or is stale. Editing a workflow source node after branch generation
-marks all corresponding branches stale, requiring a new run before selection.
+marks all corresponding branches stale, requiring a new run before selection. Deleting
+or editing a generated branch also clears the workflow's selection and records an
+activity message in the linked conversation.
 
 ## Nodes
 
@@ -150,12 +171,23 @@ Operation node.
 
 Updates position, size, status, payload, or config.
 
+Graph mutation bodies may include `session_id`. When supplied, non-layout node edits
+are written as linked activity messages in that conversation. Workflow-owned source
+or branch edits invalidate dependent future branches rather than leaving them live.
+Editing the canonical Research Brief also rebuilds its Keywords node from the current
+Brief (and replaces a previous guided structured brief when the user edits free text),
+then returns the linked conversation to `scope-global`.
+
 `DELETE /api/projects/{project_id}/nodes/{node_id}`
 
 Deletes one node and removes attached edges. If related runs reference the deleted
 node as an executor or direct input, those run records are removed and dependent
 outputs are marked stale when needed. The frontend exposes this through the node
 right-click menu.
+
+For a workflow-owned source, operation, or future branch, deletion also marks the
+workflow stale and clears any selected branch. Send `expected_revision` and optional
+`session_id` in the JSON DELETE body.
 
 ## Edges
 
@@ -173,6 +205,11 @@ Creates a directed edge.
 }
 ```
 
+For a manifest-defined Operation, `target_port` must be one of the operation
+definition's declared input ports (for example, Guided Scenario uses `research`, not
+`in`). The backend validates the port's accepted modalities, cardinality, and required
+ports before a run.
+
 Supported `edge_kind` values follow the requirement document:
 
 - `data`
@@ -186,6 +223,10 @@ input port. To delete one edge, right-click the edge line and choose `Delete`.
 `DELETE /api/projects/{project_id}/edges/{edge_id}`
 
 Deletes one directed edge without deleting either connected node.
+
+For a Four Futures operation's direct `data` inputs, adding or removing an edge makes
+the current workflow stale. Its run endpoint then refuses input sets that no longer
+match the workflow's recorded canonical input set.
 
 ## Model Operations
 

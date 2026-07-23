@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
+import re
 import uuid
 from pathlib import Path
 
@@ -26,6 +27,7 @@ from server.modifier_registry import (
 )
 from server.interaction_runtime import (
     RevisionConflict,
+    append_activity_message,
     append_message as append_conversation_message,
     assert_expected_revision,
     create_command_proposal as create_command_proposal_record,
@@ -40,8 +42,10 @@ from server.interaction_runtime import (
     record_workflow_futures,
     resolve_command_proposal as resolve_command_proposal_record,
     select_workflow_branch as select_workflow_branch_record,
+    set_session_guide,
     scope_node_ids,
     scope_projection,
+    workflow_for_operation,
 )
 from server.operation_registry import normalize_operation_config
 from server.workflow_registry import default_workflow_definition, get_workflow_definition
@@ -232,6 +236,8 @@ def start_four_futures_workflow(project_id: str, payload: dict, expected_revisio
 
     canvas = read_canvas(project_id)
     assert_expected_revision(canvas, expected_revision)
+    guided = bool(payload.get("guided"))
+    requested_session_id = str(payload.get("session_id") or "")
     requested_id = str(payload.get("definition_id") or "workflow.four-futures-foundation")
     definition = get_workflow_definition(requested_id) or (
         default_workflow_definition() if not payload.get("definition_id") else None
@@ -294,37 +300,34 @@ def start_four_futures_workflow(project_id: str, payload: dict, expected_revisio
         }
     )
     canvas["nodes"].extend([source_node, keyword_node, operation_node])
-    canvas["edges"].extend(
-        [
-            {
-                "id": f"edge-{uuid.uuid4().hex[:8]}",
-                "source_node_id": source_node["id"],
-                "target_node_id": keyword_node["id"],
-                "source_port": "out",
-                "target_port": "in",
-                "edge_kind": "reference",
-                "created_at": utc_now(),
-            },
-            {
-                "id": f"edge-{uuid.uuid4().hex[:8]}",
-                "source_node_id": source_node["id"],
-                "target_node_id": operation_node["id"],
-                "source_port": "out",
-                "target_port": "research",
-                "edge_kind": "data",
-                "created_at": utc_now(),
-            },
-            {
-                "id": f"edge-{uuid.uuid4().hex[:8]}",
-                "source_node_id": keyword_node["id"],
-                "target_node_id": operation_node["id"],
-                "source_port": "out",
-                "target_port": "research",
-                "edge_kind": "data",
-                "created_at": utc_now(),
-            },
-        ]
-    )
+    source_keyword_edge = {
+        "id": f"edge-{uuid.uuid4().hex[:8]}",
+        "source_node_id": source_node["id"],
+        "target_node_id": keyword_node["id"],
+        "source_port": "out",
+        "target_port": "in",
+        "edge_kind": "reference",
+        "created_at": utc_now(),
+    }
+    source_operation_edge = {
+        "id": f"edge-{uuid.uuid4().hex[:8]}",
+        "source_node_id": source_node["id"],
+        "target_node_id": operation_node["id"],
+        "source_port": "out",
+        "target_port": "research",
+        "edge_kind": "data",
+        "created_at": utc_now(),
+    }
+    keyword_operation_edge = {
+        "id": f"edge-{uuid.uuid4().hex[:8]}",
+        "source_node_id": keyword_node["id"],
+        "target_node_id": operation_node["id"],
+        "source_port": "out",
+        "target_port": "research",
+        "edge_kind": "data",
+        "created_at": utc_now(),
+    }
+    canvas["edges"].extend([source_keyword_edge, source_operation_edge, keyword_operation_edge])
     workflow_id = f"workflow-{uuid.uuid4().hex[:10]}"
     scope = create_scope_record(
         canvas,
@@ -344,21 +347,21 @@ def start_four_futures_workflow(project_id: str, payload: dict, expected_revisio
             "workflow_stage_id": "frame",
             "label": "Frame the inquiry",
             "scope_id": scope["id"],
-            "status": "succeeded",
+            "status": "active" if guided else "succeeded",
         },
         {
             "id": f"step-{workflow_id}-keywords",
             "workflow_stage_id": "keywords",
             "label": "Confirm keywords",
             "scope_id": scope["id"],
-            "status": "succeeded",
+            "status": "pending" if guided else "succeeded",
         },
         {
             "id": f"step-{workflow_id}-futures",
             "workflow_stage_id": "four_futures",
             "label": "Generate four What-if futures",
             "scope_id": scope["id"],
-            "status": "active",
+            "status": "pending" if guided else "active",
         },
         {
             "id": f"step-{workflow_id}-choose",
@@ -375,28 +378,47 @@ def start_four_futures_workflow(project_id: str, payload: dict, expected_revisio
             "status": "pending",
         },
     ]
-    session = create_conversation_record(
-        canvas,
-        {
-            "title": "Four Futures research thread",
-            "control_policy": "confirm",
-            "workflow_instance_id": workflow_id,
-            "active_scope_id": scope["id"],
-            "progress": progress,
-        },
+    session = next(
+        (item for item in canvas.get("conversation_sessions", []) if item.get("id") == requested_session_id),
+        None,
     )
+    if requested_session_id and not session:
+        raise KeyError(f"Conversation session not found: {requested_session_id}")
+    if session:
+        session.update(
+            {
+                "title": "Four Futures research thread",
+                "control_policy": "confirm",
+                "workflow_instance_id": workflow_id,
+                "active_scope_id": scope["id"],
+                "progress": progress,
+                "updated_at": utc_now(),
+            }
+        )
+    else:
+        session = create_conversation_record(
+            canvas,
+            {
+                "title": "Four Futures research thread",
+                "control_policy": "confirm",
+                "workflow_instance_id": workflow_id,
+                "active_scope_id": scope["id"],
+                "progress": progress,
+            },
+        )
     workflow = {
         "id": workflow_id,
         "definition_ref": {"id": definition["id"], "version": definition["version"]},
         "label": definition["label"],
         "status": "active",
-        "stage": "four_futures",
+        "stage": "frame" if guided else "four_futures",
         "session_id": session["id"],
         "foundation_scope_id": scope["id"],
         "comparison_scope_id": "",
         "source_node_ids": [source_node["id"], keyword_node["id"]],
         "keyword_node_id": keyword_node["id"],
         "operation_node_id": operation_node["id"],
+        "input_edge_ids": [source_operation_edge["id"], keyword_operation_edge["id"]],
         "branch_node_ids": [],
         "branch_scope_ids": {},
         "selected_branch_node_id": "",
@@ -405,14 +427,21 @@ def start_four_futures_workflow(project_id: str, payload: dict, expected_revisio
         "updated_at": utc_now(),
     }
     canvas.setdefault("workflow_instances", []).append(workflow)
+    set_session_guide(
+        session,
+        "frame_focus" if guided else "four_futures",
+        workflow_instance_id=workflow_id,
+        pending_field="research_focus" if guided else "",
+    )
     append_conversation_message(
         canvas,
         session["id"],
         {
             "role": "system",
+            "kind": "guide",
             "scope_id": scope["id"],
             "related_node_ids": [source_node["id"], keyword_node["id"], operation_node["id"]],
-            "body": "This foundation workflow references the canonical graph. Editing a brief never creates a second copy of the research material.",
+            "body": "This conversation writes to the canonical research nodes. You can also edit those nodes directly; both routes update the same workflow record.",
         },
     )
     append_conversation_message(
@@ -420,9 +449,14 @@ def start_four_futures_workflow(project_id: str, payload: dict, expected_revisio
         session["id"],
         {
             "role": "assistant",
+            "kind": "guide",
             "scope_id": scope["id"],
             "related_node_ids": [source_node["id"], keyword_node["id"], operation_node["id"]],
-            "body": "The research brief and keyword scaffold are ready. Review either node if needed, then run Guided Scenario to compare four What-if futures.",
+            "body": (
+                "What should this inquiry focus on? You can write a short answer, skip it, or edit the Research brief node directly."
+                if guided
+                else "The research brief and keyword scaffold are ready. Review either node if needed, then run Guided Scenario to compare four What-if futures."
+            ),
         },
     )
     record_graph_event(
@@ -445,6 +479,15 @@ def select_four_futures_branch(project_id: str, workflow_id: str, payload: dict,
     assert_expected_revision(canvas, expected_revision)
     branch_node_id = str(payload.get("branch_node_id") or "")
     result = select_workflow_branch_record(canvas, workflow_id, branch_node_id)
+    workflow = next((item for item in canvas.get("workflow_instances", []) if item.get("id") == workflow_id), None)
+    _record_graph_activity(
+        canvas,
+        "Selected a What-if branch for the discussion scope.",
+        requested_session_id=str(payload.get("session_id") or ""),
+        workflow=workflow,
+        related_node_ids=[branch_node_id],
+        activity_type="workflow.branch_selected",
+    )
     record_graph_event(
         canvas,
         "workflow.four_futures.branch_selected",
@@ -452,6 +495,196 @@ def select_four_futures_branch(project_id: str, workflow_id: str, payload: dict,
     )
     write_canvas(project_id, canvas)
     return result
+
+
+GUIDE_FIELD_SEQUENCE = {
+    "research_focus": ("frame_assumptions", "assumptions", "What assumptions currently shape this topic? Add one per line or sentence; you can also skip."),
+    "assumptions": ("frame_stakeholders", "stakeholders", "Who is affected, involved, or able to act? Add stakeholders or skip."),
+    "stakeholders": ("frame_tensions", "tensions", "What is the central tension or trade-off? Add one or more, or skip."),
+}
+
+
+def advance_conversation_guide(project_id: str, session_id: str, payload: dict, expected_revision=None) -> dict:
+    """Advance the conversation-first foundation flow without duplicating graph data.
+
+    The assistant's deterministic questions only change the Research brief and
+    Keywords nodes that the workflow owns.  It intentionally knows nothing about
+    tool packages, model selection, or image generation.
+    """
+
+    action = str(payload.get("action") or "answer")
+    if action == "begin":
+        canvas = read_canvas(project_id)
+        session = next((item for item in canvas.get("conversation_sessions", []) if item.get("id") == session_id), None)
+        if not session:
+            raise KeyError(f"Conversation session not found: {session_id}")
+        guide = session.get("guide") if isinstance(session.get("guide"), dict) else {}
+        return start_four_futures_workflow(
+            project_id,
+            {
+                "definition_id": "workflow.four-futures-foundation",
+                "guided": True,
+                "session_id": session_id,
+                "start_mode": guide.get("start_mode") or "research",
+                "topic": str(payload.get("body") or "").strip(),
+            },
+            expected_revision=expected_revision,
+        )
+
+    canvas = read_canvas(project_id)
+    assert_expected_revision(canvas, expected_revision)
+    session = next((item for item in canvas.get("conversation_sessions", []) if item.get("id") == session_id), None)
+    if not session:
+        raise KeyError(f"Conversation session not found: {session_id}")
+    guide = session.get("guide") if isinstance(session.get("guide"), dict) else {}
+
+    if action == "set_start_mode":
+        if guide.get("stage_id") != "start":
+            raise ValueError("Starting mode can only be changed before the inquiry begins.")
+        start_mode = str(payload.get("start_mode") or "").strip().lower()
+        if start_mode not in {"research", "design"}:
+            raise ValueError("start_mode must be research or design.")
+        guide["start_mode"] = start_mode
+        session["guide"] = guide
+        append_conversation_message(
+            canvas,
+            session_id,
+            {
+                "role": "assistant",
+                "kind": "guide",
+                "scope_id": session.get("active_scope_id", "scope-global"),
+                "body": "Start from a real research inquiry." if start_mode == "research" else "Start from a design proposition.",
+            },
+        )
+        record_graph_event(canvas, "conversation.guide.start_mode_set", {"session_id": session_id, "start_mode": start_mode})
+        write_canvas(project_id, canvas)
+        return {"conversation": session}
+
+    workflow_id = str(guide.get("workflow_instance_id") or session.get("workflow_instance_id") or "")
+    workflow = next((item for item in canvas.get("workflow_instances", []) if item.get("id") == workflow_id), None)
+    if not workflow:
+        raise ValueError("Begin with a topic before answering the guided questions.")
+    if action not in {"answer", "skip", "confirm_keywords"}:
+        raise ValueError("Unsupported guided conversation action.")
+    if workflow.get("status") == "stale":
+        raise ValueError("This workflow is stale. Reframe the inquiry before continuing.")
+
+    if action == "confirm_keywords":
+        if guide.get("stage_id") != "keywords":
+            raise ValueError("Keywords can only be confirmed after the inquiry frame is complete.")
+        workflow.update({"status": "active", "stage": "four_futures", "updated_at": utc_now()})
+        _set_workflow_progress(session, "keywords", "succeeded")
+        _set_workflow_progress(session, "four_futures", "active")
+        set_session_guide(session, "four_futures", workflow_instance_id=workflow_id, pending_field="")
+        append_conversation_message(
+            canvas,
+            session_id,
+            {
+                "role": "assistant",
+                "kind": "guide",
+                "scope_id": workflow.get("foundation_scope_id") or session.get("active_scope_id", "scope-global"),
+                "related_node_ids": [*workflow.get("source_node_ids", []), workflow.get("operation_node_id", "")],
+                "body": "Keywords are confirmed. The four What-if stage is ready; run the Guided Scenario node when you want to generate the four directions.",
+            },
+        )
+        record_graph_event(canvas, "conversation.guide.keywords_confirmed", {"session_id": session_id, "workflow_id": workflow_id})
+        write_canvas(project_id, canvas)
+        return {"workflow": workflow, "conversation": session}
+
+    field = str(guide.get("pending_field") or "")
+    if field not in {"research_focus", "assumptions", "stakeholders", "tensions"}:
+        raise ValueError("The guided frame is not waiting for an answer.")
+    body = str(payload.get("body") or "").strip()
+    if action == "answer" and not body:
+        raise ValueError("Write an answer or use Skip for this step.")
+
+    source_node = next((item for item in canvas.get("nodes", []) if item.get("id") == workflow.get("source_node_ids", [""])[0]), None)
+    keyword_node = next((item for item in canvas.get("nodes", []) if item.get("id") == workflow.get("keyword_node_id")), None)
+    if not source_node or not keyword_node:
+        raise ValueError("The canonical foundation nodes are missing; this workflow cannot continue.")
+    brief = source_node.get("payload", {}).get("workflow_brief")
+    if not isinstance(brief, dict):
+        raise ValueError("The research brief was changed outside the guided flow. Continue by editing nodes directly and restart this workflow when ready.")
+    if action == "answer":
+        if field in {"assumptions", "stakeholders", "tensions"}:
+            brief[field] = workflow_text_list(body)
+        else:
+            brief[field] = body[:1200]
+        append_conversation_message(
+            canvas,
+            session_id,
+            {
+                "role": "user",
+                "kind": "guide",
+                "scope_id": workflow.get("foundation_scope_id") or session.get("active_scope_id", "scope-global"),
+                "related_node_ids": [source_node["id"]],
+                "body": body,
+            },
+        )
+    else:
+        brief[field] = [] if field in {"assumptions", "stakeholders", "tensions"} else ""
+        append_activity_message(
+            canvas,
+            session_id,
+            f"Skipped {field.replace('_', ' ')} in the guided frame.",
+            scope_id=workflow.get("foundation_scope_id") or session.get("active_scope_id", "scope-global"),
+            related_node_ids=[source_node["id"]],
+            activity_type="conversation.guide.skipped",
+            workflow_id=workflow_id,
+            stage_id=str(guide.get("stage_id") or "frame"),
+        )
+
+    source_node.setdefault("payload", {})["workflow_brief"] = brief
+    source_node["payload"]["text"] = render_foundation_brief(brief)
+    keywords = foundation_keywords(brief)
+    keyword_node.setdefault("payload", {})["keywords"] = keywords
+    keyword_node["payload"]["text"] = render_keyword_scaffold(keywords)
+    next_step = GUIDE_FIELD_SEQUENCE.get(field)
+    scope_id = workflow.get("foundation_scope_id") or session.get("active_scope_id", "scope-global")
+    if next_step:
+        next_stage, next_field, prompt = next_step
+        set_session_guide(session, next_stage, workflow_instance_id=workflow_id, pending_field=next_field)
+        append_conversation_message(
+            canvas,
+            session_id,
+            {
+                "role": "assistant",
+                "kind": "guide",
+                "scope_id": scope_id,
+                "related_node_ids": [source_node["id"], keyword_node["id"]],
+                "body": prompt,
+            },
+        )
+    else:
+        workflow.update({"stage": "keywords", "status": "active", "updated_at": utc_now()})
+        _set_workflow_progress(session, "frame", "succeeded")
+        _set_workflow_progress(session, "keywords", "active")
+        set_session_guide(session, "keywords", workflow_instance_id=workflow_id, pending_field="")
+        append_conversation_message(
+            canvas,
+            session_id,
+            {
+                "role": "assistant",
+                "kind": "guide",
+                "scope_id": scope_id,
+                "related_node_ids": [source_node["id"], keyword_node["id"]],
+                "body": "The inquiry frame is complete. Review the editable keyword node, then confirm the keywords here to unlock the four What-if stage.",
+            },
+        )
+    record_graph_event(
+        canvas,
+        "conversation.guide.advanced",
+        {"session_id": session_id, "workflow_id": workflow_id, "field": field, "action": action},
+    )
+    write_canvas(project_id, canvas)
+    return {"workflow": workflow, "conversation": session, "source_node": source_node, "keyword_node": keyword_node}
+
+
+def _set_workflow_progress(session: dict, stage_id: str, status: str) -> None:
+    for step in session.get("progress", []):
+        if step.get("workflow_stage_id") == stage_id:
+            step["status"] = status
+            return
 
 
 def workflow_text_list(value) -> list[str]:
@@ -479,10 +712,65 @@ def foundation_keywords(brief: dict) -> list[str]:
     return keywords[:8]
 
 
+def direct_brief_keywords(text: str) -> list[str]:
+    """Derive an inspectable keyword scaffold from a directly edited brief.
+
+    A free-form node edit no longer has the guide's structured fields.  Keeping the
+    extraction deliberately shallow makes that loss explicit while ensuring the
+    Keyword node is still derived from the canonical Brief rather than an older copy.
+    """
+
+    candidates = []
+    for raw_part in re.split(r"[\n;；]+", str(text or "")):
+        part = raw_part.strip().lstrip("-• ").strip()
+        if not part:
+            continue
+        if ":" in part or "：" in part:
+            part = re.split(r"[:：]", part, maxsplit=1)[1].strip()
+        if part and part not in candidates:
+            candidates.append(part[:72])
+    return candidates[:8]
+
+
+def synchronize_keyword_scaffold_from_brief(canvas: dict, workflow: dict, source_node: dict, patch: dict) -> dict | None:
+    """Keep the editable keyword node derived from the current canonical Brief."""
+
+    keyword_node = next(
+        (item for item in canvas.get("nodes", []) if item.get("id") == workflow.get("keyword_node_id")),
+        None,
+    )
+    payload_patch = patch.get("payload") if isinstance(patch.get("payload"), dict) else {}
+    if not keyword_node or not ({"text", "workflow_brief"} & set(payload_patch)):
+        return None
+
+    source_payload = source_node.setdefault("payload", {})
+    structured_brief = source_payload.get("workflow_brief")
+    if "workflow_brief" in payload_patch and isinstance(structured_brief, dict):
+        source_payload["text"] = render_foundation_brief(structured_brief)
+        source_payload.pop("workflow_brief_status", None)
+        keywords = foundation_keywords(structured_brief)
+        source_kind = "deterministic scaffold from the structured research brief; no model call"
+    else:
+        # `payload.text` is now the source of truth.  Do not leave an older guided
+        # object beside it where it could later be mistaken for current research.
+        source_payload.pop("workflow_brief", None)
+        source_payload["workflow_brief_status"] = "superseded_by_direct_text"
+        keywords = direct_brief_keywords(source_payload.get("text", ""))
+        source_kind = "deterministic scaffold from the directly edited research brief; no model call"
+
+    keyword_payload = keyword_node.setdefault("payload", {})
+    keyword_payload["keywords"] = keywords
+    keyword_payload["text"] = render_keyword_scaffold(keywords)
+    keyword_payload["keyword_source"] = source_kind
+    keyword_node["status"] = "ready"
+    return keyword_node
+
+
 def render_foundation_brief(brief: dict) -> str:
+    start_mode = str(brief.get("start_mode") or "research")
     lines = [
-        f"Starting point: {'Real research / researcher-led' if brief['start_mode'] == 'research' else 'Design proposition / designer-led'}",
-        f"Topic: {brief['topic']}",
+        f"Starting point: {'Real research / researcher-led' if start_mode == 'research' else 'Design proposition / designer-led'}",
+        f"Topic: {str(brief.get('topic') or '').strip()}",
     ]
     if brief.get("research_focus"):
         lines.append(f"Research focus: {brief['research_focus']}")
@@ -516,18 +804,214 @@ def resolve_command_proposal(project_id: str, command_id: str, resolution: str, 
     return proposal
 
 
-def add_node(project_id: str, payload: dict, expected_revision=None) -> dict:
+def _workflow_for_node_id(canvas: dict, node_id: str) -> dict | None:
+    return next(
+        (
+            workflow
+            for workflow in canvas.get("workflow_instances", [])
+            if node_id in {
+                *workflow.get("source_node_ids", []),
+                workflow.get("operation_node_id", ""),
+                *workflow.get("branch_node_ids", []),
+            }
+        ),
+        None,
+    )
+
+
+def _activity_session(canvas: dict, *, requested_session_id: str = "", workflow: dict | None = None) -> dict | None:
+    if requested_session_id:
+        requested = next(
+            (item for item in canvas.get("conversation_sessions", []) if item.get("id") == requested_session_id),
+            None,
+        )
+        if requested:
+            return requested
+    if workflow and workflow.get("session_id"):
+        linked = next(
+            (item for item in canvas.get("conversation_sessions", []) if item.get("id") == workflow.get("session_id")),
+            None,
+        )
+        if linked:
+            return linked
+    active_sessions = [item for item in canvas.get("conversation_sessions", []) if item.get("status") == "active"]
+    # A mutation without an explicit conversation owner must not silently appear in
+    # an arbitrary thread once a canvas has multiple active discussions.
+    return active_sessions[0] if len(active_sessions) == 1 else None
+
+
+def _record_graph_activity(
+    canvas: dict,
+    body: str,
+    *,
+    requested_session_id: str = "",
+    workflow: dict | None = None,
+    related_node_ids: list[str] | None = None,
+    activity_type: str = "graph.changed",
+) -> None:
+    session = _activity_session(canvas, requested_session_id=requested_session_id, workflow=workflow)
+    if not session:
+        return
+    session_scope_id = str(session.get("active_scope_id") or "")
+    scope_id = session_scope_id if get_scope(canvas, session_scope_id) else (workflow or {}).get("foundation_scope_id") or "scope-global"
+    append_activity_message(
+        canvas,
+        session["id"],
+        body,
+        scope_id=scope_id,
+        related_node_ids=related_node_ids or [],
+        activity_type=activity_type,
+        workflow_id=(workflow or {}).get("id", ""),
+        stage_id=(workflow or {}).get("stage", ""),
+    )
+
+
+def _invalidate_workflow(
+    canvas: dict,
+    workflow: dict,
+    reason: str,
+    *,
+    related_node_ids: list[str] | None = None,
+    requested_session_id: str = "",
+) -> None:
+    """Make an invalid graph dependency visible instead of retaining a branch silently."""
+
+    workflow.update(
+        {
+            "status": "stale",
+            "stage": "stale",
+            "selected_branch_node_id": "",
+            "updated_at": utc_now(),
+        }
+    )
+    branch_ids = set(workflow.get("branch_node_ids", []))
+    for node in canvas.get("nodes", []):
+        if node.get("id") in branch_ids:
+            node["status"] = "stale"
+    session = _activity_session(canvas, requested_session_id=requested_session_id, workflow=workflow)
+    if session:
+        session["active_scope_id"] = "scope-global"
+        _set_workflow_progress(session, "four_futures", "stale")
+        _set_workflow_progress(session, "choose_future", "pending")
+        _set_workflow_progress(session, "discussion", "pending")
+        set_session_guide(session, "stale", workflow_instance_id=workflow["id"], pending_field="")
+    _record_graph_activity(
+        canvas,
+        reason,
+        requested_session_id=requested_session_id,
+        workflow=workflow,
+        related_node_ids=related_node_ids,
+        activity_type="workflow.invalidated",
+    )
+
+
+def _invalidate_workflows_for_edge(
+    canvas: dict,
+    edge: dict,
+    *,
+    reason: str,
+    requested_session_id: str = "",
+) -> list[str]:
+    if edge.get("edge_kind") != "data":
+        return []
+    invalidated = []
+    for workflow in canvas.get("workflow_instances", []):
+        if edge.get("target_node_id") != workflow.get("operation_node_id"):
+            continue
+        _invalidate_workflow(
+            canvas,
+            workflow,
+            reason,
+            related_node_ids=[edge.get("source_node_id", ""), workflow.get("operation_node_id", "")],
+            requested_session_id=requested_session_id,
+        )
+        invalidated.append(workflow["id"])
+    return invalidated
+
+
+def operation_input_port_map(operation: dict) -> dict[str, dict]:
+    definition = operation.get("config", {}).get("definition", {})
+    return {
+        str(port.get("id")): port
+        for port in definition.get("input_ports", [])
+        if isinstance(port, dict) and port.get("id")
+    }
+
+
+def validate_operation_data_edge(
+    canvas: dict,
+    source_node_id: str,
+    target_node: dict,
+    target_port: str,
+) -> None:
+    """Validate a direct graph edge against the target operation's manifest port."""
+
+    ports = operation_input_port_map(target_node)
+    if target_port not in ports:
+        raise ValueError(f"{target_node.get('title') or 'Operation'} does not expose a '{target_port}' data input port.")
+    port = ports[target_port]
+    source_modalities = set(input_modalities_for_nodes(canvas, [source_node_id]))
+    accepted_modalities = set(port.get("accepted_modalities") or ["text"])
+    if not source_modalities.issubset(accepted_modalities):
+        raise ValueError(
+            f"The '{target_port}' input accepts {', '.join(sorted(accepted_modalities))}, not {', '.join(sorted(source_modalities))}."
+        )
+    existing = [
+        edge
+        for edge in canvas.get("edges", [])
+        if edge.get("target_node_id") == target_node.get("id")
+        and edge.get("target_port") == target_port
+        and edge.get("edge_kind") == "data"
+    ]
+    if port.get("cardinality") == "one" and existing:
+        raise ValueError(f"The '{target_port}' input accepts only one direct data edge.")
+    if any(edge.get("source_node_id") == source_node_id for edge in existing):
+        raise ValueError("That direct data edge already exists.")
+
+
+def validated_operation_input_edges(canvas: dict, operation: dict) -> list[dict]:
+    """Return input edges only after enforcing the manifest's port contract."""
+
+    ports = operation_input_port_map(operation)
+    input_edges = ordered_data_input_edges(canvas, operation.get("id", ""))
+    seen_by_port: dict[str, int] = {}
+    for edge in input_edges:
+        target_port = str(edge.get("target_port") or "")
+        if target_port not in ports:
+            raise ValueError(f"{operation.get('title') or 'Operation'} has a data edge on an undeclared '{target_port}' port.")
+        port = ports[target_port]
+        source_modalities = set(input_modalities_for_nodes(canvas, [edge.get("source_node_id", "")]))
+        accepted_modalities = set(port.get("accepted_modalities") or ["text"])
+        if not source_modalities.issubset(accepted_modalities):
+            raise ValueError(f"Input on '{target_port}' has an unsupported modality.")
+        seen_by_port[target_port] = seen_by_port.get(target_port, 0) + 1
+        if port.get("cardinality") == "one" and seen_by_port[target_port] > 1:
+            raise ValueError(f"The '{target_port}' input accepts only one direct data edge.")
+    missing_required = [port_id for port_id, port in ports.items() if port.get("required") and not seen_by_port.get(port_id)]
+    if missing_required:
+        raise ValueError(f"{operation.get('title') or 'Operation'} is missing required input: {', '.join(missing_required)}.")
+    return input_edges
+
+
+def add_node(project_id: str, payload: dict, expected_revision=None, session_id: str = "") -> dict:
     canvas = read_canvas(project_id)
     assert_expected_revision(canvas, expected_revision)
     node = normalize_node(payload)
     canvas["nodes"].append(node)
     refresh_runtime_config(canvas)
+    _record_graph_activity(
+        canvas,
+        f"Added {node.get('title') or node.get('type', 'node')}.",
+        requested_session_id=session_id,
+        related_node_ids=[node["id"]],
+        activity_type="node.created",
+    )
     record_graph_event(canvas, "node.created", {"node_id": node["id"], "node_type": node["type"]})
     write_canvas(project_id, canvas)
     return node
 
 
-def update_node(project_id: str, node_id: str, patch: dict, expected_revision=None) -> dict:
+def update_node(project_id: str, node_id: str, patch: dict, expected_revision=None, session_id: str = "") -> dict:
     canvas = read_canvas(project_id)
     assert_expected_revision(canvas, expected_revision)
     for node in canvas["nodes"]:
@@ -538,15 +1022,62 @@ def update_node(project_id: str, node_id: str, patch: dict, expected_revision=No
             if "payload" in patch and isinstance(patch["payload"], dict):
                 node.setdefault("payload", {}).update(patch["payload"])
             refresh_runtime_config(canvas)
-            stale_workflows = mark_workflows_stale_for_source_node(canvas, node_id) if "payload" in patch else []
-            stale_branch_ids = {
-                branch_id
-                for workflow in stale_workflows
-                for branch_id in workflow.get("branch_node_ids", [])
-            }
-            for candidate in canvas.get("nodes", []):
-                if candidate.get("id") in stale_branch_ids:
-                    candidate["status"] = "stale"
+            workflow = _workflow_for_node_id(canvas, node_id)
+            stale_workflows = []
+            synchronized_keyword_node = None
+            if "payload" in patch and workflow and node_id in workflow.get("source_node_ids", []):
+                if node_id != workflow.get("keyword_node_id"):
+                    synchronized_keyword_node = synchronize_keyword_scaffold_from_brief(canvas, workflow, node, patch)
+                # A direct node edit is a valid route, but it invalidates any
+                # downstream comparison rather than leaving it deceptively live.
+                _invalidate_workflow(
+                    canvas,
+                    workflow,
+                    (
+                        "The canonical Research Brief was edited directly, and its keyword scaffold was synchronized. "
+                        "Existing What-if branches are now stale; regenerate before selecting a future."
+                        if synchronized_keyword_node
+                        else "The canonical workflow input was edited directly. Existing What-if branches are now stale; regenerate before selecting a future."
+                    ),
+                    related_node_ids=[
+                        node_id,
+                        *([synchronized_keyword_node["id"]] if synchronized_keyword_node else []),
+                        *workflow.get("branch_node_ids", []),
+                    ],
+                    requested_session_id=session_id,
+                )
+                stale_workflows = [workflow]
+            elif "payload" in patch and workflow and node_id in workflow.get("branch_node_ids", []):
+                _invalidate_workflow(
+                    canvas,
+                    workflow,
+                    "A What-if branch was edited directly. Re-run the comparison before using a selected branch.",
+                    related_node_ids=[node_id],
+                    requested_session_id=session_id,
+                )
+                stale_workflows = [workflow]
+            elif "payload" in patch:
+                stale_workflows = mark_workflows_stale_for_source_node(canvas, node_id)
+                for stale_workflow in stale_workflows:
+                    _record_graph_activity(
+                        canvas,
+                        "A workflow input changed. Its generated futures are now stale.",
+                        requested_session_id=session_id,
+                        workflow=stale_workflow,
+                        related_node_ids=[node_id, *stale_workflow.get("branch_node_ids", [])],
+                        activity_type="workflow.invalidated",
+                    )
+            # An invalidation already writes the meaningful conversational record for
+            # a semantic edit. Avoid following it with a generic duplicate update.
+            if set(patch) - {"position", "size"} and not stale_workflows:
+                _record_graph_activity(
+                    canvas,
+                    f"Updated {node.get('title') or node.get('type', 'node')}.",
+                    requested_session_id=session_id,
+                    workflow=workflow,
+                    related_node_ids=[node_id],
+                    activity_type="node.updated",
+                )
             record_graph_event(
                 canvas,
                 "node.updated",
@@ -561,12 +1092,22 @@ def update_node(project_id: str, node_id: str, patch: dict, expected_revision=No
     raise KeyError(f"Node not found: {node_id}")
 
 
-def delete_node(project_id: str, node_id: str, expected_revision=None) -> dict:
+def delete_node(project_id: str, node_id: str, expected_revision=None, session_id: str = "") -> dict:
     canvas = read_canvas(project_id)
     assert_expected_revision(canvas, expected_revision)
     node = next((item for item in canvas.get("nodes", []) if item.get("id") == node_id), None)
     if not node:
         raise KeyError(f"Node not found: {node_id}")
+
+    affected_workflows = [
+        workflow
+        for workflow in canvas.get("workflow_instances", [])
+        if node_id in {
+            *workflow.get("source_node_ids", []),
+            workflow.get("operation_node_id", ""),
+            *workflow.get("branch_node_ids", []),
+        }
+    ]
 
     removed_edge_ids = [
         edge["id"]
@@ -597,6 +1138,21 @@ def delete_node(project_id: str, node_id: str, expected_revision=None) -> dict:
         if item.get("produced_by_run_id") in removed_run_ids:
             item["status"] = "stale"
     refresh_runtime_config(canvas)
+    for workflow in affected_workflows:
+        _invalidate_workflow(
+            canvas,
+            workflow,
+            f"Deleted {node.get('title') or node.get('type', 'node')}. The connected Four Futures workflow is now stale and cannot retain a selected branch.",
+            related_node_ids=[*workflow.get("source_node_ids", []), *workflow.get("branch_node_ids", [])],
+            requested_session_id=session_id,
+        )
+    if not affected_workflows:
+        _record_graph_activity(
+            canvas,
+            f"Deleted {node.get('title') or node.get('type', 'node')}.",
+            requested_session_id=session_id,
+            activity_type="node.deleted",
+        )
     record_graph_event(canvas, "node.deleted", {"node_id": node_id, "preserved_run_ids": removed_run_ids})
     write_canvas(project_id, canvas)
     return {
@@ -606,7 +1162,7 @@ def delete_node(project_id: str, node_id: str, expected_revision=None) -> dict:
     }
 
 
-def add_edge(project_id: str, payload: dict, expected_revision=None) -> dict:
+def add_edge(project_id: str, payload: dict, expected_revision=None, session_id: str = "") -> dict:
     canvas = read_canvas(project_id)
     assert_expected_revision(canvas, expected_revision)
     node_ids = {node["id"] for node in canvas.get("nodes", [])}
@@ -619,23 +1175,42 @@ def add_edge(project_id: str, payload: dict, expected_revision=None) -> dict:
     edge_kind = payload.get("edge_kind", "data")
     if edge_kind not in EDGE_KINDS:
         raise ValueError(f"Unsupported edge kind: {edge_kind}")
+    target_node = next((node for node in canvas.get("nodes", []) if node.get("id") == target_node_id), None)
+    target_port = str(payload.get("target_port", "in"))
+    if edge_kind == "data" and target_node and target_node.get("type") == "operation":
+        validate_operation_data_edge(canvas, source_node_id, target_node, target_port)
     edge = {
         "id": payload.get("id") or f"edge-{uuid.uuid4().hex[:8]}",
         "source_node_id": source_node_id,
         "target_node_id": target_node_id,
         "source_port": payload.get("source_port", "out"),
-        "target_port": payload.get("target_port", "in"),
+        "target_port": target_port,
         "edge_kind": edge_kind,
         "created_at": utc_now(),
     }
     canvas["edges"].append(edge)
     refresh_runtime_config(canvas)
+    invalidated = _invalidate_workflows_for_edge(
+        canvas,
+        edge,
+        reason="A direct data edge changed the workflow inputs. Reconfirm the canonical inputs before generating futures.",
+        requested_session_id=session_id,
+    )
+    if not invalidated:
+        _record_graph_activity(
+            canvas,
+            "Connected two nodes.",
+            requested_session_id=session_id,
+            workflow=_workflow_for_node_id(canvas, source_node_id) or _workflow_for_node_id(canvas, target_node_id),
+            related_node_ids=[source_node_id, target_node_id],
+            activity_type="edge.created",
+        )
     record_graph_event(canvas, "edge.created", {"edge_id": edge["id"], "edge_kind": edge_kind})
     write_canvas(project_id, canvas)
     return edge
 
 
-def delete_edge(project_id: str, edge_id: str, expected_revision=None) -> dict:
+def delete_edge(project_id: str, edge_id: str, expected_revision=None, session_id: str = "") -> dict:
     canvas = read_canvas(project_id)
     assert_expected_revision(canvas, expected_revision)
     edge = next((item for item in canvas.get("edges", []) if item.get("id") == edge_id), None)
@@ -643,12 +1218,27 @@ def delete_edge(project_id: str, edge_id: str, expected_revision=None) -> dict:
         raise KeyError(f"Edge not found: {edge_id}")
     canvas["edges"] = [item for item in canvas.get("edges", []) if item.get("id") != edge_id]
     refresh_runtime_config(canvas)
+    invalidated = _invalidate_workflows_for_edge(
+        canvas,
+        edge,
+        reason="A workflow input edge was removed. The four-futures comparison is stale until its inputs are restored and regenerated.",
+        requested_session_id=session_id,
+    )
+    if not invalidated:
+        _record_graph_activity(
+            canvas,
+            "Removed a connection between two nodes.",
+            requested_session_id=session_id,
+            workflow=_workflow_for_node_id(canvas, edge.get("source_node_id", "")) or _workflow_for_node_id(canvas, edge.get("target_node_id", "")),
+            related_node_ids=[edge.get("source_node_id", ""), edge.get("target_node_id", "")],
+            activity_type="edge.deleted",
+        )
     record_graph_event(canvas, "edge.deleted", {"edge_id": edge_id})
     write_canvas(project_id, canvas)
     return {"edge": edge}
 
 
-def run_modify(project_id: str, node_id: str, api_key: str | None = None, expected_revision=None) -> dict:
+def run_modify(project_id: str, node_id: str, api_key: str | None = None, expected_revision=None, session_id: str = "") -> dict:
     canvas = read_canvas(project_id)
     assert_expected_revision(canvas, expected_revision)
     modify = next((node for node in canvas["nodes"] if node["id"] == node_id), None)
@@ -745,12 +1335,19 @@ def run_modify(project_id: str, node_id: str, api_key: str | None = None, expect
         "scope-global",
     )
     execution = record_execution_from_run(canvas, run, scope_id)
+    _record_graph_activity(
+        canvas,
+        f"Ran {modify.get('title') or 'Modify'} and added a new output node.",
+        requested_session_id=session_id,
+        related_node_ids=[node_id, output_node["id"]],
+        activity_type="execution.completed",
+    )
     record_graph_event(canvas, "execution.completed", {"execution_id": execution["id"], "run_id": run["id"], "status": run["status"]})
     write_canvas(project_id, canvas)
     return {"run": run, "execution": execution, "output_node": output_node, "edge": edge}
 
 
-def run_operation(project_id: str, node_id: str, api_key: str | None = None, expected_revision=None) -> dict:
+def run_operation(project_id: str, node_id: str, api_key: str | None = None, expected_revision=None, session_id: str = "") -> dict:
     """Run a manifest-defined operation without reusing Modify's generic executor."""
 
     canvas = read_canvas(project_id)
@@ -766,7 +1363,24 @@ def run_operation(project_id: str, node_id: str, api_key: str | None = None, exp
     if executor != "guided_scenario":
         raise ValueError("This operation definition does not yet have a runnable executor.")
 
-    upstream_ids = [edge["source_node_id"] for edge in ordered_data_input_edges(canvas, node_id)]
+    input_edges = validated_operation_input_edges(canvas, operation)
+    upstream_ids = [edge["source_node_id"] for edge in input_edges]
+    workflow = workflow_for_operation(canvas, node_id)
+    if workflow:
+        if workflow.get("stage") not in {"four_futures", "stale"}:
+            raise ValueError("Complete and confirm the inquiry frame before generating the four What-if futures.")
+        expected_sources = workflow.get("source_node_ids", [])
+        expected_edges = workflow.get("input_edge_ids", [])
+        if (
+            len(input_edges) != len(expected_edges)
+            or len(upstream_ids) != len(set(upstream_ids))
+            or set(upstream_ids) != set(expected_sources)
+        ):
+            raise ValueError("Guided Scenario inputs no longer match this workflow's canonical data edges. Restore or restart the workflow before running it.")
+        # Edge IDs are kept for provenance. If a user restores the same semantic
+        # direct inputs with a new edge object, a stale workflow may be rerun and
+        # records that repaired input identity on the new run.
+        workflow["input_edge_ids"] = [edge["id"] for edge in input_edges]
     if not upstream_ids:
         raise ValueError("Guided Scenario requires at least one direct data input node.")
     source_context = upstream_context(canvas, upstream_ids)
@@ -870,7 +1484,23 @@ def run_operation(project_id: str, node_id: str, api_key: str | None = None, exp
         for candidate in canvas.get("nodes", []):
             if candidate.get("id") in stale_branch_ids:
                 candidate["status"] = "stale"
+        _record_graph_activity(
+            canvas,
+            "Generated four What-if futures from the current canonical inputs.",
+            requested_session_id=session_id,
+            workflow=workflow_result.get("workflow"),
+            related_node_ids=[node_id, *run["output_node_ids"]],
+            activity_type="workflow.futures_generated",
+        )
     execution = record_execution_from_run(canvas, run, "scope-global")
+    if not workflow_result:
+        _record_graph_activity(
+            canvas,
+            f"Ran {operation.get('title') or 'Operation'} and added {len(output_nodes)} output nodes.",
+            requested_session_id=session_id,
+            related_node_ids=[node_id, *run["output_node_ids"]],
+            activity_type="execution.completed",
+        )
     record_graph_event(
         canvas,
         "operation.guided_scenario.completed",

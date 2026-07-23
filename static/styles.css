@@ -446,6 +446,29 @@ button:disabled:focus-visible {
   border-bottom: 1px solid var(--soft-line);
 }
 
+.conversation-guide-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 0;
+  border-bottom: 1px solid var(--soft-line);
+  padding: 8px 12px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.conversation-guide-actions:empty {
+  display: none;
+}
+
+.conversation-guide-actions button {
+  min-height: 25px;
+  padding: 0 9px;
+  font-size: 11px;
+}
+
 .progress-step {
   display: grid;
   grid-template-columns: 15px minmax(0, 1fr) auto;
@@ -522,6 +545,17 @@ button:disabled:focus-visible {
   font-size: 12px;
   line-height: 1.55;
   white-space: pre-wrap;
+}
+
+.conversation-message.activity {
+  border-left-style: dotted;
+}
+
+.message-node-refs {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 10px;
 }
 
 .conversation-form {

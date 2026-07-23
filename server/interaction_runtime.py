@@ -20,6 +20,19 @@ COMMAND_STATUSES = {"proposed", "approved", "rejected", "applied", "superseded"}
 EXECUTION_STATUSES = {"queued", "running", "awaiting_input", "succeeded", "failed", "cancelled"}
 PROGRESS_STATUSES = {"pending", "active", "succeeded", "failed", "stale"}
 WORKFLOW_STATUSES = {"active", "awaiting_selection", "discussion", "stale", "complete"}
+MESSAGE_KINDS = {"message", "guide", "activity"}
+GUIDE_STAGE_IDS = {
+    "start",
+    "frame_focus",
+    "frame_assumptions",
+    "frame_stakeholders",
+    "frame_tensions",
+    "keywords",
+    "four_futures",
+    "choose_future",
+    "discussion",
+    "stale",
+}
 
 
 class RevisionConflict(ValueError):
@@ -55,6 +68,10 @@ def ensure_interaction_data(canvas: dict, *, seed_demo: bool = False) -> None:
     else:
         canvas["conversation_sessions"] = [
             normalize_session(session, canvas) for session in canvas["conversation_sessions"] if isinstance(session, dict)
+        ]
+        canvas["conversation_sessions"] = [
+            default_session(canvas, seed_demo=True) if is_legacy_demo_entry_session(session) else session
+            for session in canvas["conversation_sessions"]
         ]
 
     canvas["workflow_instances"] = [
@@ -149,27 +166,34 @@ def default_session(canvas: dict, *, seed_demo: bool = False) -> dict:
             "title": "Research thread",
             "status": "active",
             "control_policy": "confirm",
-            "active_scope_id": "scope-current-inquiry",
+            "guide": default_guide(),
+            "active_scope_id": "scope-global",
             "progress": [
-                {"id": "step-material", "label": "Frame material", "scope_id": "scope-research-material", "status": "succeeded"},
-                {"id": "step-inquiry", "label": "Develop premise", "scope_id": "scope-current-inquiry", "status": "active"},
-                {"id": "step-artifact", "label": "Materialise branch", "scope_id": "scope-artifact-branch", "status": "pending"},
+                {
+                    "id": "step-start",
+                    "label": "Start inquiry",
+                    "scope_id": "scope-global",
+                    "status": "active",
+                    "workflow_stage_id": "start",
+                },
             ],
             "messages": [
                 {
                     "id": "message-system-scope",
                     "role": "system",
-                    "body": "This conversation is attached to a graph scope, not a copied canvas.",
-                    "scope_id": "scope-current-inquiry",
+                    "kind": "message",
+                    "body": "This conversation guides one canonical graph; it does not create a copied canvas.",
+                    "scope_id": "scope-global",
                     "related_node_ids": [],
                     "created_at": utc_now(),
                 },
                 {
                     "id": "message-assistant-focus",
                     "role": "assistant",
-                    "body": "当前正在形成研究前提。中间只显示这一步关联的节点；全局关系保留在右侧导航中。",
-                    "scope_id": "scope-current-inquiry",
-                    "related_node_ids": scope_node_ids(canvas, get_scope(canvas, "scope-current-inquiry") or global_scope()),
+                    "kind": "guide",
+                    "body": "Choose a starting point, then describe the topic you want to examine. The same information will appear in the editable Research Brief node.",
+                    "scope_id": "scope-global",
+                    "related_node_ids": [],
                     "created_at": utc_now(),
                 },
             ],
@@ -181,11 +205,84 @@ def default_session(canvas: dict, *, seed_demo: bool = False) -> dict:
         "title": "Working thread",
         "status": "active",
         "control_policy": "confirm",
+        "guide": default_guide(),
         "active_scope_id": "scope-global",
-        "progress": [{"id": new_id("step"), "label": "Start", "scope_id": "scope-global", "status": "active"}],
+        "progress": [
+            {
+                "id": new_id("step"),
+                "label": "Start inquiry",
+                "scope_id": "scope-global",
+                "status": "active",
+                "workflow_stage_id": "start",
+            }
+        ],
         "messages": [],
         "created_at": utc_now(),
         "updated_at": utc_now(),
+    }
+
+
+def is_legacy_demo_entry_session(session: dict) -> bool:
+    """Recognize only the old, untouched demo thread before replacing its phase labels.
+
+    A migrated demo used a three-step generic progress sequence while already carrying
+    the Four Futures guide.  Replacing that exact seed prevents contradictory feedback
+    without rewriting any user-authored conversation or workflow state.
+    """
+
+    if session.get("id") != "session-workbench":
+        return False
+    guide = session.get("guide") if isinstance(session.get("guide"), dict) else {}
+    if guide.get("workflow_instance_id") or guide.get("stage_id") != "start":
+        return False
+    progress_ids = {item.get("id") for item in session.get("progress", []) if isinstance(item, dict)}
+    message_ids = {item.get("id") for item in session.get("messages", []) if isinstance(item, dict)}
+    return progress_ids == {"step-material", "step-inquiry", "step-artifact"} and message_ids == {
+        "message-system-scope",
+        "message-assistant-focus",
+    }
+
+
+def default_guide() -> dict:
+    """State for the deterministic, conversation-first entry flow.
+
+    This deliberately holds only workflow navigation and never copies a brief, a
+    tool choice, or an executor configuration.  The graph remains canonical.
+    """
+
+    return {
+        "kind": "four_futures",
+        "status": "active",
+        "stage_id": "start",
+        "workflow_definition_id": "workflow.four-futures-foundation",
+        "workflow_instance_id": "",
+        "start_mode": "research",
+        "pending_field": "topic",
+    }
+
+
+def normalize_guide(value, *, workflow_instance_id: str = "") -> dict:
+    raw = value if isinstance(value, dict) else {}
+    stage_id = str(raw.get("stage_id") or ("discussion" if workflow_instance_id else "start"))
+    if stage_id not in GUIDE_STAGE_IDS:
+        stage_id = "start"
+    status = str(raw.get("status") or "active")
+    if status not in {"active", "idle"}:
+        status = "active"
+    start_mode = str(raw.get("start_mode") or "research")
+    if start_mode not in {"research", "design"}:
+        start_mode = "research"
+    pending_field = str(raw.get("pending_field") or "")
+    if pending_field not in {"topic", "research_focus", "assumptions", "stakeholders", "tensions", ""}:
+        pending_field = ""
+    return {
+        "kind": "four_futures",
+        "status": status,
+        "stage_id": stage_id,
+        "workflow_definition_id": "workflow.four-futures-foundation",
+        "workflow_instance_id": str(raw.get("workflow_instance_id") or workflow_instance_id or ""),
+        "start_mode": start_mode,
+        "pending_field": pending_field,
     }
 
 
@@ -251,10 +348,12 @@ def normalize_session(session: dict, canvas: dict) -> dict:
             {
                 "id": str(message.get("id") or new_id("message")),
                 "role": message.get("role") if message.get("role") in {"system", "user", "assistant"} else "system",
+                "kind": message.get("kind") if message.get("kind") in MESSAGE_KINDS else "message",
                 "body": str(message.get("body") or "")[:12000],
                 "scope_id": message.get("scope_id") if message.get("scope_id") in scope_ids else active_scope_id,
                 "related_node_ids": normalize_node_ids(message.get("related_node_ids"), canvas),
                 "execution_id": str(message.get("execution_id") or ""),
+                "activity": normalize_activity(message.get("activity")),
                 "created_at": message.get("created_at") or utc_now(),
             }
         )
@@ -264,6 +363,10 @@ def normalize_session(session: dict, canvas: dict) -> dict:
         "status": session.get("status") if session.get("status") in {"active", "paused", "closed"} else "active",
         "control_policy": session.get("control_policy") if session.get("control_policy") in CONTROL_POLICIES else "confirm",
         "workflow_instance_id": str(session.get("workflow_instance_id") or ""),
+        "guide": normalize_guide(
+            session.get("guide"),
+            workflow_instance_id=str(session.get("workflow_instance_id") or ""),
+        ),
         "active_scope_id": active_scope_id,
         "progress": progress,
         "messages": messages,
@@ -272,12 +375,25 @@ def normalize_session(session: dict, canvas: dict) -> dict:
     }
 
 
+def normalize_activity(value) -> dict:
+    value = value if isinstance(value, dict) else {}
+    return {
+        "type": str(value.get("type") or "")[:96],
+        "workflow_id": str(value.get("workflow_id") or "")[:128],
+        "stage_id": str(value.get("stage_id") or "")[:64],
+        "action_id": str(value.get("action_id") or "")[:96],
+    }
+
+
 def normalize_workflow(workflow: dict, canvas: dict) -> dict:
     """Normalize a workflow instance without copying graph nodes into workflow state."""
 
     known_node_ids = {node["id"] for node in canvas.get("nodes", [])}
-    node_ids = normalize_node_ids(workflow.get("source_node_ids"), canvas)
-    branch_node_ids = normalize_node_ids(workflow.get("branch_node_ids"), canvas)
+    # Workflow references deliberately remain visible even when a direct node or
+    # edge was deleted. Silently dropping them would make an incomplete workflow
+    # appear runnable after a reload. Runtime invalidation owns recovery instead.
+    node_ids = normalize_reference_ids(workflow.get("source_node_ids"))
+    branch_node_ids = normalize_reference_ids(workflow.get("branch_node_ids"))
     scope_ids = {scope["id"] for scope in canvas.get("scopes", [])}
     sessions = {session["id"] for session in canvas.get("conversation_sessions", [])}
     branch_scope_ids = {}
@@ -287,8 +403,21 @@ def normalize_workflow(workflow: dict, canvas: dict) -> dict:
         if scope_id in scope_ids:
             branch_scope_ids[branch_id] = scope_id
     selected_branch_node_id = workflow.get("selected_branch_node_id")
-    if selected_branch_node_id not in branch_node_ids:
+    if selected_branch_node_id not in branch_node_ids or selected_branch_node_id not in known_node_ids:
         selected_branch_node_id = ""
+    input_edge_ids = normalize_reference_ids(workflow.get("input_edge_ids"))
+    if not input_edge_ids:
+        # Additive migration for foundation instances created before explicit input
+        # edge provenance existed. Only the existing direct workflow sources qualify.
+        operation_node_id = str(workflow.get("operation_node_id") or "")
+        input_edge_ids = [
+            str(edge.get("id"))
+            for edge in canvas.get("edges", [])
+            if edge.get("edge_kind") == "data"
+            and edge.get("target_node_id") == operation_node_id
+            and edge.get("source_node_id") in node_ids
+            and edge.get("id")
+        ]
 
     return {
         "id": str(workflow.get("id") or new_id("workflow")),
@@ -303,8 +432,9 @@ def normalize_workflow(workflow: dict, canvas: dict) -> dict:
         "foundation_scope_id": workflow.get("foundation_scope_id") if workflow.get("foundation_scope_id") in scope_ids else "",
         "comparison_scope_id": workflow.get("comparison_scope_id") if workflow.get("comparison_scope_id") in scope_ids else "",
         "source_node_ids": node_ids,
-        "keyword_node_id": workflow.get("keyword_node_id") if workflow.get("keyword_node_id") in known_node_ids else "",
-        "operation_node_id": workflow.get("operation_node_id") if workflow.get("operation_node_id") in known_node_ids else "",
+        "keyword_node_id": str(workflow.get("keyword_node_id") or ""),
+        "operation_node_id": str(workflow.get("operation_node_id") or ""),
+        "input_edge_ids": input_edge_ids,
         "branch_node_ids": branch_node_ids,
         "branch_scope_ids": branch_scope_ids,
         "selected_branch_node_id": selected_branch_node_id,
@@ -351,6 +481,16 @@ def normalize_node_ids(value, canvas: dict) -> list[str]:
     for node_id in value if isinstance(value, list) else []:
         if isinstance(node_id, str) and node_id in node_ids and node_id not in result:
             result.append(node_id)
+    return result
+
+
+def normalize_reference_ids(value) -> list[str]:
+    """Keep stable workflow references without treating missing graph items as data."""
+
+    result = []
+    for item in value if isinstance(value, list) else []:
+        if isinstance(item, str) and item and item not in result:
+            result.append(item)
     return result
 
 
@@ -464,6 +604,7 @@ def create_conversation(canvas: dict, payload: dict) -> dict:
             "title": payload.get("title") or "Working thread",
             "control_policy": payload.get("control_policy") or "confirm",
             "workflow_instance_id": payload.get("workflow_instance_id") or "",
+            "guide": payload.get("guide") if isinstance(payload.get("guide"), dict) else default_guide(),
             "active_scope_id": payload.get("active_scope_id") or "scope-global",
             "messages": [],
             "progress": payload.get("progress") or [],
@@ -485,15 +626,68 @@ def append_message(canvas: dict, session_id: str, payload: dict) -> dict:
     message = {
         "id": new_id("message"),
         "role": role,
+        "kind": payload.get("kind") if payload.get("kind") in MESSAGE_KINDS else "message",
         "body": body[:12000],
         "scope_id": payload.get("scope_id") or session.get("active_scope_id") or "scope-global",
         "related_node_ids": normalize_node_ids(payload.get("related_node_ids"), canvas),
         "execution_id": str(payload.get("execution_id") or ""),
+        "activity": normalize_activity(payload.get("activity")),
         "created_at": utc_now(),
     }
     session.setdefault("messages", []).append(message)
     session["updated_at"] = utc_now()
     return deepcopy(message)
+
+
+def append_activity_message(
+    canvas: dict,
+    session_id: str,
+    body: str,
+    *,
+    scope_id: str = "",
+    related_node_ids: list[str] | None = None,
+    activity_type: str = "graph.changed",
+    workflow_id: str = "",
+    stage_id: str = "",
+    action_id: str = "",
+) -> dict:
+    """Record one canonical graph action in the conversation timeline."""
+
+    return append_message(
+        canvas,
+        session_id,
+        {
+            "role": "system",
+            "kind": "activity",
+            "body": body,
+            "scope_id": scope_id,
+            "related_node_ids": related_node_ids or [],
+            "activity": {
+                "type": activity_type,
+                "workflow_id": workflow_id,
+                "stage_id": stage_id,
+                "action_id": action_id,
+            },
+        },
+    )
+
+
+def set_session_guide(
+    session: dict,
+    stage_id: str,
+    *,
+    workflow_instance_id: str = "",
+    pending_field: str = "",
+    status: str = "active",
+) -> None:
+    guide = normalize_guide(session.get("guide"), workflow_instance_id=workflow_instance_id or session.get("workflow_instance_id", ""))
+    guide["stage_id"] = stage_id if stage_id in GUIDE_STAGE_IDS else guide["stage_id"]
+    guide["status"] = status if status in {"active", "idle"} else guide["status"]
+    if workflow_instance_id:
+        guide["workflow_instance_id"] = workflow_instance_id
+    guide["pending_field"] = pending_field
+    session["guide"] = guide
+    session["updated_at"] = utc_now()
 
 
 def get_workflow(canvas: dict, workflow_id: str) -> dict | None:
@@ -576,6 +770,12 @@ def record_workflow_futures(
         _set_progress(session, "four_futures", "succeeded", scope_id=comparison_scope["id"])
         _set_progress(session, "choose_future", "active", scope_id=comparison_scope["id"])
         _set_progress(session, "discussion", "pending", scope_id=comparison_scope["id"])
+        set_session_guide(
+            session,
+            "choose_future",
+            workflow_instance_id=workflow["id"],
+            pending_field="",
+        )
         append_message(
             canvas,
             session["id"],
@@ -626,6 +826,12 @@ def select_workflow_branch(canvas: dict, workflow_id: str, branch_node_id: str) 
         session["active_scope_id"] = scope_id
         _set_progress(session, "choose_future", "succeeded", scope_id=scope_id)
         _set_progress(session, "discussion", "active", scope_id=scope_id)
+        set_session_guide(
+            session,
+            "discussion",
+            workflow_instance_id=workflow["id"],
+            pending_field="",
+        )
         append_message(
             canvas,
             session["id"],
@@ -660,6 +866,12 @@ def mark_workflows_stale_for_source_node(canvas: dict, node_id: str) -> list[dic
             _set_progress(session, "four_futures", "stale")
             _set_progress(session, "choose_future", "pending")
             _set_progress(session, "discussion", "pending")
+            set_session_guide(
+                session,
+                "stale",
+                workflow_instance_id=workflow["id"],
+                pending_field="",
+            )
             session["updated_at"] = utc_now()
         changed.append(deepcopy(workflow))
     return changed

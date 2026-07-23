@@ -130,10 +130,17 @@ def test_four_futures_foundation_lifecycle_uses_scopes_without_copying_graphs():
             saved = read_canvas("project-a")
             workflow = next(item for item in saved["workflow_instances"] if item["id"] == workflow_id)
             branch_nodes = [node for node in saved["nodes"] if node["id"] in workflow["branch_node_ids"]]
+            source = next(node for node in saved["nodes"] if node["id"] == workflow["source_node_ids"][0])
+            keywords = next(node for node in saved["nodes"] if node["id"] == workflow["keyword_node_id"])
+            session = next(item for item in saved["conversation_sessions"] if item["id"] == workflow["session_id"])
 
             assert workflow["status"] == "stale"
             assert workflow["stage"] == "stale"
             assert all(node["status"] == "stale" for node in branch_nodes)
+            assert source["payload"]["workflow_brief_status"] == "superseded_by_direct_text"
+            assert keywords["payload"]["keywords"] == ["已更新的研究简报"]
+            assert session["active_scope_id"] == "scope-global"
+            assert session["guide"]["stage_id"] == "stale"
             try:
                 select_four_futures_branch(
                     "project-a",

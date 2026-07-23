@@ -24,6 +24,26 @@ def test_default_canvas_exposes_global_and_focused_scope_without_copying_nodes()
     assert all(node in canvas["nodes"] for node in focused_projection["nodes"])
 
 
+def test_default_demo_thread_uses_the_same_start_stage_as_the_conversation_guide():
+    canvas = default_canvas("guide-entry-test")
+    session = canvas["conversation_sessions"][0]
+
+    assert session["guide"]["kind"] == "four_futures"
+    assert session["guide"]["stage_id"] == "start"
+    assert session["active_scope_id"] == "scope-global"
+    assert session["progress"] == [
+        {
+            "id": "step-start",
+            "label": "Start inquiry",
+            "scope_id": "scope-global",
+            "status": "active",
+            "workflow_stage_id": "start",
+        }
+    ]
+    assert session["messages"][1]["kind"] == "guide"
+    assert "Research Brief" in session["messages"][1]["body"]
+
+
 def test_command_proposal_requires_resolution_before_future_application():
     canvas = default_canvas("command-test")
     node_ids_before = [node["id"] for node in canvas["nodes"]]
