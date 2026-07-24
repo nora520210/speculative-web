@@ -47,6 +47,7 @@ const conversationGuideActions = document.querySelector("#conversation-guide-act
 const conversationMessages = document.querySelector("#conversation-messages");
 const conversationForm = document.querySelector("#conversation-form");
 const conversationInput = document.querySelector("#conversation-input");
+const conversationDock = document.querySelector(".conversation-dock");
 const scopeViewTitle = document.querySelector("#scope-view-title");
 const scopeNodeCount = document.querySelector("#scope-node-count");
 const globalMap = document.querySelector("#global-map");
@@ -56,8 +57,6 @@ const navigatorRevision = document.querySelector("#navigator-revision");
 const toolSidebarList = document.querySelector("#tool-sidebar-list");
 const toolSidebarCount = document.querySelector("#tool-sidebar-count");
 const returnLocalScope = document.querySelector("#return-local-scope");
-const overviewPanel = document.querySelector("#overview-panel");
-const closeOverview = document.querySelector("#close-overview");
 const startFoundationWorkflow = document.querySelector("#start-foundation-workflow");
 const foundationWorkflowDialog = document.querySelector("#foundation-workflow-dialog");
 const foundationWorkflowForm = document.querySelector("#foundation-workflow-form");
@@ -767,9 +766,11 @@ function renderInteraction() {
   navigatorRevision.textContent = `r${interaction?.revision ?? activeCanvas?.revision ?? 0}`;
   const isGlobalScope = activeScopeId === "scope-global";
   returnLocalScope.classList.toggle("hidden", !isGlobalScope);
-  overviewPanel.classList.toggle("hidden", !isGlobalScope);
+  const isEntry = session?.guide?.stage_id === "start" && !session?.guide?.workflow_instance_id;
+  conversationDock?.classList.toggle("is-entry", Boolean(isEntry));
 
   const progress = session?.progress || [];
+  conversationProgress.hidden = Boolean(isEntry) || progress.length < 2;
   conversationProgress.innerHTML = progress.map((step) => `
     <button class="progress-step ${escapeHtml(step.status || "pending")}" type="button" data-progress-scope="${escapeHtml(step.scope_id)}">
       <span>${escapeHtml(step.label)}</span><span>${escapeHtml(statusLabel(step.status || "pending"))}</span>
@@ -784,11 +785,11 @@ function renderInteraction() {
     ? messages.map((message) => `
       <article class="conversation-message ${escapeHtml(message.role)} ${escapeHtml(message.kind || "message")}">
         <span class="message-role">${escapeHtml(t(`conversation.${message.role}`))}</span>
-        <p>${escapeHtml(message.body)}</p>
+        <p>${escapeHtml(message.role === "user" ? message.body : compactConversationText(message.body))}</p>
         ${(message.related_node_ids || []).length ? `<small class="message-node-refs">${escapeHtml((message.related_node_ids || []).map((nodeId) => findNode(nodeId)?.title || nodeId).join(" · "))}</small>` : ""}
       </article>
     `).join("")
-    : `<p class="empty-panel">${escapeHtml(t("conversation.none"))}</p>`;
+    : `<p class="empty-panel">${escapeHtml(isEntry ? (locale === "zh" ? "从一句研究问题开始。" : "Start with one research question.") : t("conversation.none"))}</p>`;
 
   renderConversationGuide(session);
 
@@ -818,17 +819,17 @@ function renderConversationGuide(session) {
   const stage = guide.stage_id || "start";
   const localized = locale === "zh";
   if (stage === "start") {
+    const alternateMode = guide.start_mode === "design" ? "research" : "design";
     conversationGuideActions.innerHTML = `
-      <span>${localized ? "从哪种起点开始？" : "Choose a starting point:"}</span>
-      <button type="button" data-guide-start-mode="research">${localized ? "真实研究" : "Research-led"}</button>
-      <button type="button" data-guide-start-mode="design">${localized ? "设计命题" : "Design-led"}</button>
+      <span>${localized ? "默认从研究问题开始。" : "Start from a research question by default."}</span>
+      <button class="quiet-guide-action" type="button" data-guide-start-mode="${alternateMode}">${localized ? (alternateMode === "design" ? "改为设计命题" : "改为真实研究") : (alternateMode === "design" ? "Use a design proposition" : "Use research-led mode")}</button>
     `;
   } else if (["frame_focus", "frame_assumptions", "frame_stakeholders", "frame_tensions"].includes(stage)) {
     conversationGuideActions.innerHTML = `<button type="button" data-guide-action="skip">${localized ? "跳过这一步" : "Skip this step"}</button>`;
   } else if (stage === "keywords") {
     conversationGuideActions.innerHTML = `<button type="button" data-guide-action="confirm_keywords">${localized ? "确认关键词，进入 What-if" : "Confirm keywords"}</button>`;
   } else if (stage === "four_futures") {
-    conversationGuideActions.innerHTML = `<span>${localized ? "下一步：在节点上运行 Guided Scenario，生成四条 What-if。" : "Next: run Guided Scenario on its node to generate the four What-if directions."}</span>`;
+    conversationGuideActions.innerHTML = `<span>${localized ? "下一步：在节点上运行 Guided Scenario，生成四条 What-if。" : "Next: run Guided Scenario on its node to generate four What-if directions."}</span>`;
   } else if (stage === "choose_future" && workflow?.branch_node_ids?.length) {
     conversationGuideActions.innerHTML = `
       <span>${localized ? "选择一个方向进入讨论：" : "Choose a direction to discuss:"}</span>
@@ -870,8 +871,9 @@ function renderToolSidebar() {
             type="button"
             data-sidebar-modify-id="${escapeHtml(node.id)}"
             data-sidebar-tool-id="${escapeHtml(tool.id)}"
+            data-card-kind="${escapeHtml(tool.presentation?.card_kind || "tool")}"
             title="${escapeHtml(tool.description || tool.label || tool.id)}"
-          ><span class="dot"></span><span>${escapeHtml(tool.label || tool.id)}</span></button>
+          ><span class="tool-card-mark" aria-hidden="true"></span><span>${escapeHtml(tool.label || tool.id)}</span></button>
         `).join("")}
       </section>
     `;
@@ -1167,15 +1169,18 @@ function renderNode(node) {
 }
 
 function renderPresentationToolNode(node) {
+  const presentation = node.payload?.presentation || {};
+  const cardKind = presentation.card_kind || "tool";
   const article = document.createElement("article");
-  article.className = "node tool-node ready";
+  article.className = `node tool-node ready card-kind-${String(cardKind).replace(/[^a-z0-9_-]/gi, "-")}`;
   article.dataset.nodeId = node.id;
+  article.dataset.cardKind = cardKind;
   article.style.left = `${node.position.x}px`;
   article.style.top = `${node.position.y}px`;
   article.style.width = `${node.size?.width || 194}px`;
   article.innerHTML = `
     <header>
-      <span>${escapeHtml(t("toolSidebar.nodeType"))}</span>
+      <span><i class="tool-card-mark" aria-hidden="true"></i>${escapeHtml(t("toolSidebar.nodeType"))}</span>
       <span>${escapeHtml(t("toolSidebar.selected"))}</span>
     </header>
     <p class="tool-node-label">${escapeHtml(node.title)}</p>
@@ -2434,6 +2439,12 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function compactConversationText(value, limit = 200) {
+  const body = String(value ?? "").trim();
+  if (body.length <= limit) return body;
+  return `${body.slice(0, Math.max(0, limit - 1)).trimEnd()}…`;
+}
+
 createForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const title = document.querySelector("#project-title").value;
@@ -2493,10 +2504,6 @@ globalMap.addEventListener("click", () => {
 });
 
 returnLocalScope.addEventListener("click", () => {
-  setActiveScope(defaultLocalScopeId());
-});
-
-closeOverview.addEventListener("click", () => {
   setActiveScope(defaultLocalScopeId());
 });
 

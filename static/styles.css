@@ -1932,3 +1932,413 @@ pre {
     border-left: 0;
   }
 }
+
+/* Guided workspace: one quiet control rail, two graph views, and one short conversation. */
+.workspace-layout {
+  grid-template-columns: minmax(208px, 238px) minmax(0, 1fr);
+  min-height: 0;
+  gap: 14px;
+}
+
+.workspace-sidebar {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.workspace-sidebar .canvas-tools {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 2px;
+  margin: 0;
+  border-bottom: 1px solid var(--soft-line);
+  padding: 10px;
+}
+
+.sidebar-section-label {
+  margin: 2px 3px 7px;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.workspace-sidebar .canvas-tools > button {
+  width: 100%;
+  min-height: 31px;
+  border: 0;
+  border-radius: 5px;
+  padding: 0 8px;
+  color: var(--ink);
+  font-size: 12px;
+  text-align: left;
+}
+
+.workspace-sidebar .canvas-tools > button:hover,
+.workspace-sidebar .canvas-tools > button:focus-visible {
+  background: var(--faint);
+  color: var(--ink);
+}
+
+.workspace-sidebar .canvas-tools > .workflow-start {
+  margin-top: 5px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+
+.workspace-sidebar .canvas-tools > .workflow-start:hover,
+.workspace-sidebar .canvas-tools > .workflow-start:focus-visible {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.zoom-controls {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 30px;
+  align-items: center;
+  gap: 3px;
+  margin-top: 7px;
+  padding-top: 8px;
+  border-top: 1px solid var(--soft-line);
+}
+
+.zoom-controls button {
+  min-height: 26px;
+  border-color: var(--soft-line);
+  border-radius: 5px;
+  padding: 0;
+}
+
+.zoom-level {
+  min-width: 0;
+}
+
+.workspace-sidebar .tool-sidebar {
+  min-height: 0;
+  flex: 1 1 auto;
+  border: 0;
+  border-radius: 0;
+}
+
+.workspace-sidebar .tool-sidebar .panel-header {
+  padding: 10px;
+}
+
+.workspace-main {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: minmax(270px, 1fr) clamp(212px, 29vh, 282px);
+  gap: 14px;
+}
+
+.workspace-top-grid {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1.7fr) minmax(230px, 0.78fr);
+  gap: 14px;
+}
+
+.graph-column {
+  display: grid;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.graph-column .scope-view-header {
+  width: 100%;
+  min-width: 0;
+  margin-bottom: 8px;
+}
+
+.graph-column .scope-view-header > div:first-child {
+  min-width: 0;
+}
+
+.graph-column .scope-view-actions {
+  min-width: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.graph-column .canvas-frame,
+.graph-column .workspace,
+.workspace-layout .workspace {
+  min-height: 0;
+  height: 100%;
+}
+
+.overview-panel {
+  position: static;
+  z-index: auto;
+  display: flex;
+  width: auto;
+  max-height: none;
+  min-height: 0;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+  overflow: auto;
+}
+
+.overview-panel.hidden {
+  display: flex;
+}
+
+.overview-panel .panel-header {
+  padding: 12px;
+}
+
+.overview-panel .global-map {
+  width: calc(100% - 24px);
+  min-height: 138px;
+  flex: 0 0 auto;
+  margin: 12px;
+}
+
+.minimap-revision {
+  align-self: flex-start;
+  padding-top: 2px;
+}
+
+.overview-panel .navigator-hint {
+  margin: -2px 12px 12px;
+}
+
+.overview-panel .navigator-section {
+  padding: 9px 12px 11px;
+}
+
+.overview-panel .command-proposals:empty,
+.overview-panel .command-proposals .empty-panel {
+  display: none;
+}
+
+.tool-sidebar-row {
+  grid-template-columns: 12px minmax(0, 1fr);
+}
+
+.tool-card-mark {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: transparent;
+}
+
+.tool-sidebar-row[data-card-kind="visual"] .tool-card-mark,
+.tool-node.card-kind-visual .tool-card-mark {
+  border-radius: 1px;
+}
+
+.tool-sidebar-row[data-card-kind="method"] .tool-card-mark,
+.tool-node.card-kind-method .tool-card-mark {
+  transform: rotate(45deg);
+}
+
+.tool-sidebar-row[data-card-kind="narrative"] .tool-card-mark,
+.tool-node.card-kind-narrative .tool-card-mark {
+  border-radius: 999px 999px 1px 1px;
+}
+
+.tool-sidebar-row.selected .tool-card-mark,
+.tool-node .tool-card-mark {
+  background: var(--ink);
+}
+
+.tool-node .tool-card-mark {
+  width: 8px;
+  height: 8px;
+  margin-right: 5px;
+  border-color: var(--node-ink);
+  vertical-align: 1px;
+}
+
+.conversation-dock {
+  display: grid;
+  min-height: 0;
+  margin-top: 0;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+}
+
+.conversation-dock .panel-header {
+  padding: 10px 12px;
+}
+
+.conversation-dock .conversation-progress {
+  min-height: 0;
+}
+
+.conversation-dock .conversation-progress[hidden] {
+  display: none;
+}
+
+.conversation-dock .progress-step {
+  min-width: 126px;
+  flex-basis: 126px;
+  min-height: 35px;
+  padding: 0 9px;
+  font-size: 11px;
+}
+
+.conversation-guide-actions {
+  gap: 7px;
+  min-height: 0;
+  padding: 7px 12px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.conversation-guide-actions:empty {
+  display: none;
+}
+
+.conversation-guide-actions button {
+  min-height: 25px;
+  border-color: var(--soft-line);
+  border-radius: 5px;
+  padding: 0 9px;
+  font-size: 11px;
+}
+
+.conversation-guide-actions .quiet-guide-action {
+  border: 0;
+  padding: 0 3px;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.conversation-guide-actions .quiet-guide-action:hover,
+.conversation-guide-actions .quiet-guide-action:focus-visible {
+  background: transparent;
+  color: var(--ink);
+}
+
+.conversation-dock-body {
+  display: grid;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.conversation-dock .conversation-messages {
+  max-height: none;
+  min-height: 0;
+  padding: 10px 12px 6px;
+}
+
+.conversation-dock .conversation-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+  border-top: 1px solid var(--soft-line);
+  border-left: 0;
+  padding: 8px 12px;
+}
+
+.conversation-dock .conversation-form textarea {
+  min-height: 42px;
+  max-height: 76px;
+  border-color: var(--soft-line);
+  border-radius: 6px;
+  padding: 9px;
+}
+
+.conversation-dock .conversation-form button {
+  min-height: 42px;
+  justify-self: stretch;
+}
+
+.conversation-dock.is-entry .conversation-messages {
+  display: none;
+}
+
+.conversation-dock.is-entry .conversation-dock-body {
+  display: flex;
+  align-items: end;
+}
+
+.conversation-dock.is-entry .conversation-form {
+  width: 100%;
+}
+
+@media (min-width: 761px) {
+  .canvas-shell.active {
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 14px;
+    padding: 16px 20px;
+  }
+
+  .canvas-shell.active .workspace-layout {
+    min-height: 0;
+    margin-top: 0;
+  }
+
+  .canvas-shell.active .workspace-sidebar,
+  .canvas-shell.active .workspace-main,
+  .canvas-shell.active .workspace-top-grid,
+  .canvas-shell.active .graph-column,
+  .canvas-shell.active .canvas-frame,
+  .canvas-shell.active .workspace-layout .workspace {
+    min-height: 0;
+    height: 100%;
+  }
+
+  .canvas-shell.active .inspector-grid {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .workspace-layout {
+    grid-template-columns: minmax(176px, 210px) minmax(0, 1fr);
+  }
+
+  .workspace-top-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .overview-panel {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .workspace-layout,
+  .workspace-top-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-sidebar {
+    min-height: 0;
+  }
+
+  .workspace-sidebar .canvas-tools {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .workspace-sidebar .canvas-tools .sidebar-section-label,
+  .workspace-sidebar .canvas-tools .workflow-start,
+  .workspace-sidebar .canvas-tools .zoom-controls {
+    grid-column: 1 / -1;
+  }
+
+  .workspace-main {
+    grid-template-rows: minmax(440px, auto) minmax(230px, auto);
+  }
+
+  .overview-panel {
+    display: flex;
+    min-height: 300px;
+  }
+}

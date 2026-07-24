@@ -72,7 +72,9 @@ Creates a conversation session with a title, `control_policy` (`manual`, `propos
 `POST /api/projects/{project_id}/conversations/{session_id}/messages`
 
 Appends a user, assistant, or system message. Messages store their Scope and optional
-node references; they do not mutate graph nodes.
+node references; they do not mutate graph nodes. System and assistant feedback is
+limited to 200 characters so it remains usable as an in-workspace status signal; user
+research input retains the normal storage limit.
 
 `POST /api/projects/{project_id}/conversations/{session_id}/guide-actions`
 

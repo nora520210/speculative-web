@@ -21,6 +21,7 @@ EXECUTION_STATUSES = {"queued", "running", "awaiting_input", "succeeded", "faile
 PROGRESS_STATUSES = {"pending", "active", "succeeded", "failed", "stale"}
 WORKFLOW_STATUSES = {"active", "awaiting_selection", "discussion", "stale", "complete"}
 MESSAGE_KINDS = {"message", "guide", "activity"}
+MAX_CONVERSATION_FEEDBACK_CHARS = 200
 GUIDE_STAGE_IDS = {
     "start",
     "frame_focus",
@@ -41,6 +42,15 @@ class RevisionConflict(ValueError):
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def compact_conversation_feedback(value: object) -> str:
+    """Keep system feedback scannable without limiting a user's research input."""
+
+    body = str(value or "").strip()
+    if len(body) <= MAX_CONVERSATION_FEEDBACK_CHARS:
+        return body
+    return f"{body[: MAX_CONVERSATION_FEEDBACK_CHARS - 1].rstrip()}…"
 
 
 def new_id(prefix: str) -> str:
@@ -344,12 +354,18 @@ def normalize_session(session: dict, canvas: dict) -> dict:
     for message in session.get("messages", []):
         if not isinstance(message, dict):
             continue
+        role = message.get("role") if message.get("role") in {"system", "user", "assistant"} else "system"
+        body = str(message.get("body") or "")
         messages.append(
             {
                 "id": str(message.get("id") or new_id("message")),
-                "role": message.get("role") if message.get("role") in {"system", "user", "assistant"} else "system",
+                "role": role,
                 "kind": message.get("kind") if message.get("kind") in MESSAGE_KINDS else "message",
-                "body": str(message.get("body") or "")[:12000],
+                "body": (
+                    body[:12000]
+                    if role == "user"
+                    else compact_conversation_feedback(body)
+                ),
                 "scope_id": message.get("scope_id") if message.get("scope_id") in scope_ids else active_scope_id,
                 "related_node_ids": normalize_node_ids(message.get("related_node_ids"), canvas),
                 "execution_id": str(message.get("execution_id") or ""),
@@ -576,7 +592,11 @@ def interaction_payload(canvas: dict) -> dict:
         "schema_version": canvas.get("schema_version", 2),
         "revision": canvas.get("revision", 0),
         "scopes": [with_scope_count(scope, canvas) for scope in canvas.get("scopes", [])],
-        "conversation_sessions": deepcopy(canvas.get("conversation_sessions", [])),
+        "conversation_sessions": [
+            normalize_session(deepcopy(session), canvas)
+            for session in canvas.get("conversation_sessions", [])
+            if isinstance(session, dict)
+        ],
         "workflow_instances": deepcopy(canvas.get("workflow_instances", [])),
         "command_proposals": deepcopy(canvas.get("command_proposals", [])),
         "executions": deepcopy(canvas.get("executions", [])),
@@ -627,7 +647,7 @@ def append_message(canvas: dict, session_id: str, payload: dict) -> dict:
         "id": new_id("message"),
         "role": role,
         "kind": payload.get("kind") if payload.get("kind") in MESSAGE_KINDS else "message",
-        "body": body[:12000],
+        "body": body[:12000] if role == "user" else compact_conversation_feedback(body),
         "scope_id": payload.get("scope_id") or session.get("active_scope_id") or "scope-global",
         "related_node_ids": normalize_node_ids(payload.get("related_node_ids"), canvas),
         "execution_id": str(payload.get("execution_id") or ""),

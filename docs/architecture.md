@@ -73,15 +73,26 @@ collaboration and worker execution need a transactional database plus object sto
 
 ### Focused Conversation Workspace
 
-The canvas interface is a three-part research workspace:
+The canvas interface is a quiet research workspace with four persistent regions:
 
-1. The left panel shows one conversation session and its progress steps.
-2. The center renders the active Scope projection, not the entire graph.
-3. The right panel is a global-map navigator. Double-clicking it opens the `scope-global`
-   projection; it never creates a duplicate canvas.
+1. A full-height left rail groups direct node creation, the Four Futures entry point,
+   zoom, and the tools selected by Modify nodes.
+2. The upper-left region renders the active Scope projection, not the entire graph.
+3. The upper-right region is a persistent global-map navigator. Selecting a Scope
+   changes the focused projection; it never creates or copies a second canvas.
+4. The lower region is the linked conversation session. Its entry state suppresses the
+   progress strip and message history: it shows one default-path hint, one optional
+   mode switch, and the input. Contextual prompts appear only when a guide stage needs
+   a decision.
 
-This keeps a conversation's current phase legible while preserving the whole graph as
-an available reference.
+System, guide, activity, and assistant messages are capped to 200 characters by the
+runtime before persistence and are capped again by the presentation layer for legacy
+data. User research input is not shortened (up to the normal message storage limit).
+This keeps feedback scannable without losing source material.
+
+The layout is only a projection of canonical Scope, graph, and conversation state.
+Selecting a Scope from the navigator changes the same active Scope used by the graph
+and conversation; visual cards do not introduce a second interaction state.
 
 ### Extensible Operation Nodes
 

@@ -60,65 +60,71 @@
           </div>
         </header>
 
-        <nav class="canvas-tools" data-i18n-aria-label="canvas.tools" aria-label="Canvas tools">
-          <button type="button" data-add-node="text" data-i18n="nodes.text">Text</button>
-          <button type="button" data-add-node="conversation" data-i18n="nodes.conversation">Conversation</button>
-          <button type="button" data-add-node="upload" data-i18n="nodes.upload">Upload</button>
-          <button type="button" data-add-node="image" data-i18n="nodes.image">Image</button>
-          <button type="button" data-add-node="modify" data-i18n="nodes.modify">Modify</button>
-          <button type="button" data-add-node="operation" data-i18n="nodes.operation">Operation</button>
-          <button type="button" data-add-operation-definition="operation.guided-scenario" data-i18n="nodes.guidedScenario">Guided Scenario</button>
-          <button id="start-foundation-workflow" type="button" data-i18n="workflow.start">Start Four Futures flow</button>
-          <span class="tool-spacer"></span>
-          <button id="zoom-out" type="button" data-i18n-aria-label="canvas.zoomOut" aria-label="Zoom out">-</button>
-          <span id="zoom-level" class="zoom-level">100%</span>
-          <button id="zoom-in" type="button" data-i18n-aria-label="canvas.zoomIn" aria-label="Zoom in">+</button>
-        </nav>
-
         <div class="workspace-layout">
-          <aside class="tool-sidebar" aria-labelledby="tool-sidebar-title">
-            <header class="panel-header">
-              <div>
-                <p class="eyebrow" data-i18n="toolSidebar.eyebrow">Tool nodes</p>
-                <h3 id="tool-sidebar-title" data-i18n="toolSidebar.title">Tools</h3>
+          <aside class="workspace-sidebar" aria-label="Workspace controls">
+            <nav class="canvas-tools" data-i18n-aria-label="canvas.tools" aria-label="Canvas tools">
+              <p class="sidebar-section-label" data-i18n="canvas.tools">Canvas tools</p>
+              <button type="button" data-add-node="text" data-i18n="nodes.text">Text</button>
+              <button type="button" data-add-node="conversation" data-i18n="nodes.conversation">Conversation</button>
+              <button type="button" data-add-node="upload" data-i18n="nodes.upload">Upload</button>
+              <button type="button" data-add-node="image" data-i18n="nodes.image">Image</button>
+              <button type="button" data-add-node="modify" data-i18n="nodes.modify">Modify</button>
+              <button type="button" data-add-node="operation" data-i18n="nodes.operation">Operation</button>
+              <button type="button" data-add-operation-definition="operation.guided-scenario" data-i18n="nodes.guidedScenario">Guided Scenario</button>
+              <button id="start-foundation-workflow" class="workflow-start" type="button" data-i18n="workflow.start">Start Four Futures flow</button>
+              <div class="zoom-controls" aria-label="Canvas zoom controls">
+                <button id="zoom-out" type="button" data-i18n-aria-label="canvas.zoomOut" aria-label="Zoom out">-</button>
+                <span id="zoom-level" class="zoom-level">100%</span>
+                <button id="zoom-in" type="button" data-i18n-aria-label="canvas.zoomIn" aria-label="Zoom in">+</button>
               </div>
-              <span id="tool-sidebar-count" class="panel-status">0</span>
-            </header>
-            <div id="tool-sidebar-list" class="tool-sidebar-list"></div>
+            </nav>
+
+            <section class="tool-sidebar" aria-labelledby="tool-sidebar-title">
+              <header class="panel-header">
+                <div>
+                  <p class="eyebrow" data-i18n="toolSidebar.eyebrow">Tool nodes</p>
+                  <h3 id="tool-sidebar-title" data-i18n="toolSidebar.title">Tools</h3>
+                </div>
+                <span id="tool-sidebar-count" class="panel-status">0</span>
+              </header>
+              <div id="tool-sidebar-list" class="tool-sidebar-list"></div>
+            </section>
           </aside>
 
-          <section class="graph-column" aria-labelledby="scope-view-title">
-            <header class="scope-view-header">
-              <div>
-                <p class="eyebrow" data-i18n="scope.eyebrow">Focused graph</p>
-                <h3 id="scope-view-title" data-i18n="scope.loading">Loading scope</h3>
-              </div>
-              <div class="scope-view-actions">
-                <span id="scope-node-count" class="panel-status">0</span>
-                <button id="return-local-scope" class="return-local-scope hidden" type="button" data-i18n="scope.returnLocal">Return to local</button>
-              </div>
-            </header>
-            <div class="canvas-frame">
-              <div class="workspace">
-                <div id="canvas-content" class="canvas-content">
-                  <div id="canvas-plane" class="canvas-plane">
-                    <svg id="edges" class="edges" aria-hidden="true"></svg>
-                    <div id="nodes" class="nodes-layer"></div>
+          <main class="workspace-main">
+            <div class="workspace-top-grid">
+              <section class="graph-column" aria-labelledby="scope-view-title">
+                <header class="scope-view-header">
+                  <div>
+                    <p class="eyebrow" data-i18n="scope.eyebrow">Focused graph</p>
+                    <h3 id="scope-view-title" data-i18n="scope.loading">Loading scope</h3>
+                  </div>
+                  <div class="scope-view-actions">
+                    <span id="scope-node-count" class="panel-status">0</span>
+                    <button id="return-local-scope" class="return-local-scope hidden" type="button" data-i18n="scope.returnLocal">Return to local</button>
+                  </div>
+                </header>
+                <div class="canvas-frame">
+                  <div class="workspace">
+                    <div id="canvas-content" class="canvas-content">
+                      <div id="canvas-plane" class="canvas-plane">
+                        <svg id="edges" class="edges" aria-hidden="true"></svg>
+                        <div id="nodes" class="nodes-layer"></div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div class="canvas-minimap">
-                <button id="global-map" class="global-map" type="button" data-i18n-aria-label="navigator.openGlobal" aria-label="Open global graph"></button>
-                <span id="navigator-revision" class="minimap-revision">r0</span>
-              </div>
-              <aside id="overview-panel" class="overview-panel hidden" aria-labelledby="navigator-title">
+              </section>
+
+              <aside id="overview-panel" class="overview-panel" aria-labelledby="navigator-title">
                 <header class="panel-header">
                   <div>
                     <p class="eyebrow" data-i18n="navigator.eyebrow">Global graph</p>
                     <h3 id="navigator-title" data-i18n="navigator.title">Navigator</h3>
                   </div>
-                  <button id="close-overview" class="overview-close" type="button" data-i18n="common.close">Close</button>
+                  <span id="navigator-revision" class="minimap-revision">r0</span>
                 </header>
+                <button id="global-map" class="global-map" type="button" data-i18n-aria-label="navigator.openGlobal" aria-label="Open global graph"></button>
                 <p class="navigator-hint" data-i18n="navigator.hint">Open the global graph, then select a local scope to return.</p>
                 <div class="navigator-section">
                   <p class="micro-label" data-i18n="navigator.scopes">Scopes</p>
@@ -130,28 +136,28 @@
                 </div>
               </aside>
             </div>
-          </section>
-        </div>
 
-        <section class="conversation-dock" aria-labelledby="conversation-title">
-          <header class="panel-header">
-            <div>
-              <p class="eyebrow" data-i18n="conversation.eyebrow">Conversation scope</p>
-              <h3 id="conversation-title" data-i18n="conversation.emptyTitle">Working thread</h3>
-            </div>
-            <span id="conversation-policy" class="panel-status">confirm</span>
-          </header>
-          <div id="conversation-progress" class="conversation-progress"></div>
-          <div id="conversation-guide-actions" class="conversation-guide-actions" aria-live="polite"></div>
-          <div class="conversation-dock-body">
-            <div id="conversation-messages" class="conversation-messages" aria-live="polite"></div>
-            <form id="conversation-form" class="conversation-form">
-              <label class="sr-only" for="conversation-input" data-i18n="conversation.inputLabel">Add to conversation</label>
-              <textarea id="conversation-input" rows="3" data-i18n-placeholder="conversation.placeholder" placeholder="Add a research instruction for this scope"></textarea>
-              <button type="submit" data-i18n="conversation.send">Add</button>
-            </form>
-          </div>
-        </section>
+            <section class="conversation-dock" aria-labelledby="conversation-title">
+              <header class="panel-header">
+                <div>
+                  <p class="eyebrow" data-i18n="conversation.eyebrow">Conversation scope</p>
+                  <h3 id="conversation-title" data-i18n="conversation.emptyTitle">Working thread</h3>
+                </div>
+                <span id="conversation-policy" class="panel-status">confirm</span>
+              </header>
+              <div id="conversation-progress" class="conversation-progress"></div>
+              <div id="conversation-guide-actions" class="conversation-guide-actions" aria-live="polite"></div>
+              <div class="conversation-dock-body">
+                <div id="conversation-messages" class="conversation-messages" aria-live="polite"></div>
+                <form id="conversation-form" class="conversation-form">
+                  <label class="sr-only" for="conversation-input" data-i18n="conversation.inputLabel">Add to conversation</label>
+                  <textarea id="conversation-input" rows="3" data-i18n-placeholder="conversation.placeholder" placeholder="Add a research instruction for this scope"></textarea>
+                  <button type="submit" data-i18n="conversation.send">Add</button>
+                </form>
+              </div>
+            </section>
+          </main>
+        </div>
 
         <aside class="inspector-grid">
           <section class="inspector">

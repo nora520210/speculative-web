@@ -1,6 +1,7 @@
 from server.graph_store import default_canvas, normalize_node
 from server.interaction_runtime import (
     RevisionConflict,
+    append_message,
     assert_expected_revision,
     create_command_proposal,
     interaction_payload,
@@ -42,6 +43,31 @@ def test_default_demo_thread_uses_the_same_start_stage_as_the_conversation_guide
     ]
     assert session["messages"][1]["kind"] == "guide"
     assert "Research Brief" in session["messages"][1]["body"]
+
+
+def test_system_and_assistant_feedback_is_capped_without_truncating_user_research_input():
+    canvas = default_canvas("feedback-cap-test")
+    session_id = canvas["conversation_sessions"][0]["id"]
+    long_feedback = "f" * 240
+    long_input = "u" * 240
+
+    feedback = append_message(canvas, session_id, {"role": "assistant", "body": long_feedback})
+    user_input = append_message(canvas, session_id, {"role": "user", "body": long_input})
+
+    assert len(feedback["body"]) == 200
+    assert feedback["body"].endswith("…")
+    assert user_input["body"] == long_input
+
+
+def test_interaction_payload_compacts_legacy_system_feedback():
+    canvas = default_canvas("legacy-feedback-cap-test")
+    canvas["conversation_sessions"][0]["messages"][1]["body"] = "s" * 240
+
+    interaction = interaction_payload(canvas)
+    message = interaction["conversation_sessions"][0]["messages"][1]
+
+    assert len(message["body"]) == 200
+    assert message["body"].endswith("…")
 
 
 def test_command_proposal_requires_resolution_before_future_application():
