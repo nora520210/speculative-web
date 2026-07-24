@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Speculative Web</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20260724-ui2" />
+    <link rel="stylesheet" href="/static/styles.css?v=20260724-ui7" />
   </head>
   <body>
     <main id="app-shell" class="app-shell">
@@ -63,34 +63,29 @@
         <div class="workspace-layout">
           <aside class="workspace-sidebar" aria-label="Workspace tools">
             <nav class="canvas-tools" data-i18n-aria-label="canvas.tools" aria-label="Canvas tools">
-              <button type="button" data-add-node="text" data-rail-code="T" data-i18n="nodes.text" title="Text">Text</button>
-              <button type="button" data-add-node="conversation" data-rail-code="C" data-i18n="nodes.conversation" title="Conversation">Conversation</button>
-              <button type="button" data-add-node="upload" data-rail-code="U" data-i18n="nodes.upload" title="Upload">Upload</button>
-              <button type="button" data-add-node="image" data-rail-code="I" data-i18n="nodes.image" title="Image">Image</button>
-              <button type="button" data-add-node="modify" data-rail-code="M" data-i18n="nodes.modify" title="Modify">Modify</button>
-              <button type="button" data-add-node="operation" data-rail-code="O" data-i18n="nodes.operation" title="Operation">Operation</button>
-              <button type="button" data-add-operation-definition="operation.guided-scenario" data-rail-code="4" data-i18n="nodes.guidedScenario" title="Guided Scenario">Guided Scenario</button>
-              <button id="start-foundation-workflow" class="workflow-start" data-rail-code="F" type="button" data-i18n="workflow.start" title="Start Four Futures flow">Start Four Futures flow</button>
-              <div class="zoom-controls" aria-label="Canvas zoom controls">
-                <button id="zoom-out" type="button" data-i18n-aria-label="canvas.zoomOut" aria-label="Zoom out">-</button>
-                <span id="zoom-level" class="zoom-level">100%</span>
-                <button id="zoom-in" type="button" data-i18n-aria-label="canvas.zoomIn" aria-label="Zoom in">+</button>
-              </div>
+              <p class="sidebar-section-label" data-i18n="sidebar.create">Create</p>
+              <button type="button" data-add-node="text" data-i18n="sidebar.textNode" title="Text node">Text node</button>
+              <button type="button" data-add-node="conversation" data-i18n="sidebar.conversationNode" title="Conversation node">Conversation node</button>
+              <button type="button" data-add-node="upload" data-i18n="sidebar.uploadSource" title="Upload source">Upload source</button>
+              <button type="button" data-add-node="image" data-i18n="sidebar.imageNode" title="Image node">Image node</button>
+              <button type="button" data-add-node="modify" data-i18n="sidebar.methodNode" title="Method node">Method node</button>
+              <button type="button" data-add-node="operation" data-i18n="sidebar.operationNode" title="Operation node">Operation node</button>
+              <button type="button" data-add-operation-definition="operation.guided-scenario" data-i18n="sidebar.scenarioNode" title="Guided scenario">Guided scenario</button>
+              <button id="start-foundation-workflow" class="workflow-start" type="button" data-i18n="sidebar.startFlow" title="Start guided flow">Start guided flow</button>
             </nav>
 
             <section class="tool-sidebar" aria-labelledby="tool-sidebar-title">
-              <h3 id="tool-sidebar-title" class="sr-only" data-i18n="toolSidebar.title">Tools</h3>
-              <span id="tool-sidebar-count" class="sr-only">0</span>
+              <h3 id="tool-sidebar-title" data-i18n="toolSidebar.title">Method tools</h3>
               <div id="tool-sidebar-list" class="tool-sidebar-list"></div>
             </section>
           </aside>
 
           <main class="workspace-main">
             <div class="workspace-top-grid">
-              <section class="graph-column" aria-labelledby="scope-view-title">
-                <header class="scope-view-header">
+              <section class="workflow-panel" aria-labelledby="scope-view-title">
+                <header class="workflow-panel-header">
                   <div>
-                    <p class="eyebrow" data-i18n="scope.eyebrow">Focused graph</p>
+                    <p class="eyebrow" data-i18n="workflowStrip.eyebrow">Guided process</p>
                     <h3 id="scope-view-title" data-i18n="scope.loading">Loading scope</h3>
                   </div>
                   <div class="scope-view-actions">
@@ -98,16 +93,7 @@
                     <button id="return-local-scope" class="return-local-scope hidden" type="button" data-i18n="scope.returnLocal">Return to local</button>
                   </div>
                 </header>
-                <div class="canvas-frame">
-                  <div class="workspace">
-                    <div id="canvas-content" class="canvas-content">
-                      <div id="canvas-plane" class="canvas-plane">
-                        <svg id="edges" class="edges" aria-hidden="true"></svg>
-                        <div id="nodes" class="nodes-layer"></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <div id="workflow-strip" class="workflow-strip" aria-live="polite"></div>
               </section>
 
               <aside id="overview-panel" class="overview-panel" aria-labelledby="navigator-title">
@@ -118,7 +104,13 @@
                   </div>
                   <span id="navigator-revision" class="minimap-revision">r0</span>
                 </header>
-                <button id="global-map" class="global-map" type="button" data-i18n-aria-label="navigator.openGlobal" aria-label="Open global graph"></button>
+                <div class="canvas-preview-shell">
+                  <div id="canvas-preview" class="canvas-preview" role="button" tabindex="0" data-i18n-aria-label="navigator.openCanvas" aria-label="Open canvas">
+                    <div id="canvas-preview-viewport" class="canvas-preview-viewport" aria-hidden="true">
+                      <div id="canvas-preview-plane" class="canvas-preview-plane" aria-hidden="true" inert></div>
+                    </div>
+                  </div>
+                </div>
                 <div class="navigator-section overview-scope-switcher">
                   <div id="scope-list" class="scope-list"></div>
                 </div>
@@ -129,9 +121,9 @@
             <section class="conversation-dock" aria-labelledby="conversation-title">
               <header class="panel-header">
                 <div>
-                  <p class="eyebrow" data-i18n="conversation.eyebrow">Conversation</p>
                   <h3 id="conversation-title" data-i18n="conversation.emptyTitle">Working thread</h3>
                 </div>
+                <span id="conversation-scope-indicator" class="conversation-scope-indicator"></span>
                 <span id="conversation-policy" class="panel-status">confirm</span>
               </header>
               <div id="conversation-progress" class="conversation-progress"></div>
@@ -147,6 +139,31 @@
             </section>
           </main>
         </div>
+
+        <section id="canvas-focus-layer" class="canvas-focus-layer" aria-hidden="true" aria-labelledby="canvas-focus-title">
+          <header class="canvas-focus-header">
+            <div>
+              <p class="eyebrow" data-i18n="canvasFocus.eyebrow">Node canvas</p>
+              <h3 id="canvas-focus-title">Canvas</h3>
+            </div>
+            <div class="canvas-focus-actions">
+              <div class="canvas-focus-zoom" aria-label="Canvas zoom controls">
+                <button id="zoom-out" type="button" data-i18n-aria-label="canvas.zoomOut" aria-label="Zoom out">-</button>
+                <span id="zoom-level" class="zoom-level">100%</span>
+                <button id="zoom-in" type="button" data-i18n-aria-label="canvas.zoomIn" aria-label="Zoom in">+</button>
+              </div>
+              <button id="close-canvas-focus" type="button" data-i18n="canvasFocus.close">Return to process</button>
+            </div>
+          </header>
+          <div class="workspace">
+            <div id="canvas-content" class="canvas-content">
+              <div id="canvas-plane" class="canvas-plane">
+                <svg id="edges" class="edges" aria-hidden="true"></svg>
+                <div id="nodes" class="nodes-layer"></div>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <aside class="inspector-grid">
           <section class="inspector">
@@ -286,6 +303,6 @@
           </form>
         </div>
     </section>
-    <script src="/static/app.js?v=20260724-ui2"></script>
+    <script src="/static/app.js?v=20260724-ui7"></script>
   </body>
 </html>

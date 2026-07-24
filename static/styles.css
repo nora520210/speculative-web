@@ -1557,6 +1557,759 @@ pre {
   }
 }
 
+/* Process workspace revision: readable navigation, a single workflow row, and a separate node canvas. */
+@media (min-width: 761px) {
+  .canvas-shell.active {
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 12px;
+    height: 100dvh;
+    overflow: hidden;
+    padding: 14px 20px;
+  }
+
+  .canvas-shell.active > .workspace-layout {
+    min-height: 0;
+    height: 100%;
+  }
+}
+
+.canvas-shell.active .inspector-grid {
+  display: none;
+}
+
+.workspace-layout {
+  grid-template-columns: 216px minmax(0, 1fr);
+  gap: 18px;
+  min-height: 0;
+}
+
+.workspace-sidebar {
+  width: 216px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 0;
+  border-right: 1px solid var(--soft-line);
+  border-radius: 0;
+  background: transparent;
+  overflow: hidden auto;
+  padding: 2px 14px 12px 0;
+}
+
+.workspace-sidebar .canvas-tools {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0 0 12px;
+  border-bottom: 1px solid var(--soft-line);
+}
+
+.workspace-sidebar .sidebar-section-label,
+.workspace-sidebar .tool-sidebar h3 {
+  display: block;
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.workspace-sidebar .sidebar-section-label {
+  padding: 0 10px 6px;
+}
+
+.workspace-sidebar .canvas-tools > button,
+.workspace-sidebar .tool-sidebar-row {
+  display: flex;
+  width: 100%;
+  min-height: 34px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 9px;
+  border: 0;
+  border-radius: 7px;
+  padding: 0 10px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 12px;
+  text-align: left;
+}
+
+.workspace-sidebar .canvas-tools > button::before {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border: 1px solid var(--muted);
+  border-radius: 2px;
+  content: "";
+}
+
+.workspace-sidebar .canvas-tools > button:hover,
+.workspace-sidebar .canvas-tools > button:focus-visible,
+.workspace-sidebar .tool-sidebar-row:hover,
+.workspace-sidebar .tool-sidebar-row:focus-visible {
+  background: var(--faint);
+  color: var(--ink);
+}
+
+.workspace-sidebar .canvas-tools > button:hover::before,
+.workspace-sidebar .canvas-tools > button:focus-visible::before {
+  border-color: var(--ink);
+  background: var(--ink);
+}
+
+.workspace-sidebar .canvas-tools > .workflow-start {
+  margin-top: 5px;
+  border: 1px solid var(--line);
+}
+
+.workspace-sidebar .canvas-tools > .workflow-start::before {
+  border-radius: 50%;
+}
+
+.workspace-sidebar .zoom-controls {
+  display: grid;
+  width: auto;
+  grid-template-columns: 34px 1fr 34px;
+  gap: 5px;
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--soft-line);
+}
+
+.workspace-sidebar .zoom-controls button {
+  min-height: 30px;
+  border-color: var(--soft-line);
+  border-radius: 6px;
+  padding: 0;
+}
+
+.workspace-sidebar .zoom-level {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.workspace-sidebar .tool-sidebar {
+  min-height: 0;
+  flex: 1 1 auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding-top: 14px;
+}
+
+.workspace-sidebar .tool-sidebar h3 {
+  display: inline-block;
+  padding: 0 10px 7px;
+}
+
+.workspace-sidebar .tool-sidebar-count {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.tool-sidebar-list {
+  display: grid;
+  gap: 2px;
+  overflow: visible;
+  padding: 0;
+}
+
+.tool-sidebar-group {
+  display: block;
+}
+
+.tool-sidebar-group-title {
+  display: none;
+}
+
+.workspace-sidebar .tool-sidebar-row {
+  position: relative;
+  min-height: 34px;
+}
+
+.workspace-sidebar .tool-sidebar-row::after {
+  display: none;
+}
+
+.workspace-sidebar .tool-sidebar-row > span:last-child {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-sidebar .tool-sidebar-row .tool-card-mark {
+  position: static;
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-color: var(--muted);
+}
+
+.workspace-sidebar .tool-sidebar-row.selected {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.workspace-main {
+  grid-template-rows: minmax(0, 1fr) clamp(170px, 23vh, 218px);
+  gap: 14px;
+}
+
+.workspace-main.is-entry {
+  grid-template-rows: minmax(0, 1fr) 156px;
+}
+
+.workspace-top-grid {
+  grid-template-columns: minmax(0, 1fr) clamp(340px, 27vw, 440px);
+  gap: 22px;
+  min-height: 0;
+}
+
+.workflow-panel {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.workflow-panel-header,
+.overview-panel .panel-header {
+  display: flex;
+  min-height: 50px;
+  align-items: start;
+  justify-content: space-between;
+  border: 0;
+  border-bottom: 1px solid var(--soft-line);
+  border-radius: 0;
+  padding: 0 0 10px;
+}
+
+.workflow-panel-header .eyebrow,
+.overview-panel .eyebrow {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.workflow-panel-header h3,
+.overview-panel .panel-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.workflow-panel .scope-view-actions {
+  gap: 7px;
+}
+
+.workflow-panel .return-local-scope {
+  min-height: 26px;
+  border-color: var(--soft-line);
+  border-radius: 6px;
+  padding: 0 8px;
+  font-size: 10px;
+}
+
+.workflow-strip {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(5, minmax(150px, 1fr));
+  align-items: center;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 16px 0;
+}
+
+.workflow-card {
+  display: grid;
+  min-width: 150px;
+  min-height: 108px;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-content: start;
+  gap: 12px;
+  border: 1px solid var(--soft-line);
+  border-radius: 8px;
+  padding: 14px;
+  background: var(--bg);
+  color: var(--ink);
+  text-align: left;
+}
+
+.workflow-card:hover,
+.workflow-card:focus-visible {
+  border-color: var(--line);
+  background: var(--faint);
+  color: var(--ink);
+}
+
+.workflow-card.in-scope,
+.workflow-card.active {
+  border-color: var(--line);
+}
+
+.workflow-card.active .workflow-card-index {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.workflow-card-index {
+  display: grid;
+  width: 26px;
+  height: 22px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.workflow-card-copy {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+}
+
+.workflow-card-copy strong {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-card-copy small {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.overview-panel {
+  display: grid;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  border: 0;
+  border-left: 1px solid var(--soft-line);
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
+  padding-left: 18px;
+}
+
+.canvas-preview-shell {
+  position: relative;
+  min-height: 0;
+  margin: 14px 0 12px;
+}
+
+.overview-panel .global-map,
+.canvas-preview-shell .global-map-hover-preview {
+  position: relative;
+  width: 100%;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.overview-panel .global-map {
+  margin: 0;
+}
+
+.canvas-preview-shell .global-map:hover,
+.canvas-preview-shell .global-map:focus-visible {
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.canvas-preview-shell .global-map::after {
+  position: absolute;
+  right: 10px;
+  bottom: 9px;
+  color: var(--muted);
+  content: "Open canvas";
+  font-size: 10px;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.canvas-preview-shell:hover .global-map::after,
+.canvas-preview-shell:focus-within .global-map::after {
+  opacity: 1;
+}
+
+.canvas-preview-shell .global-map-hover-preview {
+  position: fixed;
+  z-index: 60;
+  top: 84px;
+  right: 28px;
+  display: none;
+  width: min(940px, 72vw);
+  height: min(660px, 72vh);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.12);
+}
+
+.canvas-preview-shell:hover .global-map-hover-preview,
+.canvas-preview-shell:focus-within .global-map-hover-preview {
+  display: block;
+}
+
+.global-map-edge {
+  position: absolute;
+  z-index: 0;
+  height: 1px;
+  background: var(--soft-line);
+  pointer-events: none;
+  transform-origin: 0 50%;
+}
+
+.global-map-edge.in-scope {
+  background: var(--line);
+  opacity: 0.58;
+}
+
+.global-map-node {
+  position: absolute;
+  z-index: 1;
+  display: grid;
+  width: 13px;
+  height: 9px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: var(--bg);
+  transform: translate(-50%, -50%);
+}
+
+.global-map-node.in-scope {
+  background: var(--ink);
+}
+
+.global-map-node span {
+  display: none;
+}
+
+.global-map-hover-preview .global-map-node {
+  width: 100px;
+  height: 40px;
+  padding: 5px;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.global-map-hover-preview .global-map-node.in-scope {
+  border-width: 2px;
+}
+
+.global-map-hover-preview .global-map-node span {
+  display: block;
+  overflow: hidden;
+  max-width: 86px;
+  color: var(--muted);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overview-panel .overview-scope-switcher {
+  min-height: 0;
+  border-top: 1px solid var(--soft-line);
+  padding: 9px 0 0;
+}
+
+.overview-panel .scope-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.overview-panel .scope-row {
+  display: inline-flex;
+  width: auto;
+  min-height: 25px;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--soft-line);
+  border-radius: 5px;
+  padding: 0 7px;
+  font-size: 10px;
+}
+
+.overview-panel .scope-row.active {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.overview-panel .scope-row span:last-child,
+.overview-panel .navigator-hint,
+.overview-panel .command-proposals {
+  display: none;
+}
+
+.conversation-dock {
+  grid-template-rows: auto minmax(0, 1fr);
+  border: 1px solid var(--soft-line);
+  border-radius: 10px;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.conversation-dock .panel-header {
+  display: flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: space-between;
+  border: 0;
+  border-bottom: 1px solid var(--soft-line);
+  border-radius: 0;
+  padding: 0 14px;
+}
+
+.conversation-dock .panel-header h3 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.conversation-scope-indicator {
+  margin-left: auto;
+  padding-right: 8px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.conversation-dock .panel-status {
+  display: none;
+}
+
+.conversation-dock .conversation-progress {
+  display: none;
+}
+
+.conversation-dock-body {
+  display: grid;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.conversation-dock .conversation-messages {
+  min-height: 0;
+  overflow: auto;
+  padding: 10px 14px 4px;
+}
+
+.conversation-dock .conversation-message {
+  max-width: 720px;
+  padding: 0 0 8px 8px;
+}
+
+.conversation-dock .conversation-message p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.conversation-dock .conversation-message .message-role {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.conversation-dock .empty-panel {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.conversation-guide-actions {
+  display: flex;
+  min-height: 0;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  padding: 7px 14px 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.conversation-guide-actions:empty {
+  display: none;
+}
+
+.conversation-guide-actions button {
+  min-height: 24px;
+  border-color: var(--soft-line);
+  border-radius: 6px;
+  padding: 0 8px;
+  font-size: 10px;
+}
+
+.conversation-guide-actions .quiet-guide-action {
+  border: 0;
+  padding: 0 2px;
+  text-decoration: underline;
+}
+
+.conversation-dock .conversation-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  border: 0;
+  border-top: 1px solid var(--soft-line);
+  padding: 9px 12px;
+}
+
+.conversation-dock .conversation-form textarea {
+  min-height: 42px;
+  max-height: 64px;
+  border: 1px solid var(--soft-line);
+  border-radius: 8px;
+  padding: 10px 11px;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.conversation-dock .conversation-form button {
+  min-width: 58px;
+  min-height: 42px;
+  border-radius: 8px;
+  padding: 0 12px;
+  font-size: 11px;
+}
+
+.conversation-dock.is-entry .conversation-messages {
+  display: none;
+}
+
+.conversation-dock.is-entry .conversation-dock-body {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.conversation-dock.is-entry .conversation-form {
+  align-self: end;
+}
+
+.canvas-focus-layer {
+  position: fixed;
+  z-index: 80;
+  inset: 0;
+  display: none;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  padding: 18px 22px;
+  background: var(--bg);
+}
+
+.canvas-focus-layer.open {
+  display: grid;
+}
+
+.canvas-focus-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--soft-line);
+  padding-bottom: 10px;
+}
+
+.canvas-focus-header .eyebrow {
+  margin: 0 0 3px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.canvas-focus-header h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.canvas-focus-header button {
+  min-height: 32px;
+  border-radius: 7px;
+  font-size: 11px;
+}
+
+.canvas-focus-layer .workspace {
+  min-height: 0;
+  height: 100%;
+  border: 1px solid var(--soft-line);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.canvas-focus-layer .node {
+  width: 240px;
+  min-height: 124px;
+}
+
+@media (max-width: 1100px) {
+  .workspace-layout {
+    grid-template-columns: 188px minmax(0, 1fr);
+  }
+
+  .workspace-sidebar {
+    width: 188px;
+  }
+
+  .workspace-top-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+    gap: 16px;
+  }
+
+  .workflow-strip {
+    grid-template-columns: repeat(5, minmax(132px, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .workspace-layout,
+  .workspace-top-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-sidebar {
+    width: auto;
+    max-height: 220px;
+    border-right: 0;
+    border-bottom: 1px solid var(--soft-line);
+    padding-right: 0;
+  }
+
+  .workspace-sidebar .canvas-tools {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .workspace-sidebar .sidebar-section-label,
+  .workspace-sidebar .canvas-tools > .workflow-start,
+  .workspace-sidebar .zoom-controls {
+    grid-column: 1 / -1;
+  }
+
+  .workspace-main,
+  .workspace-main.is-entry {
+    grid-template-rows: minmax(360px, auto) minmax(170px, auto);
+  }
+
+  .overview-panel {
+    min-height: 260px;
+    border-top: 1px solid var(--soft-line);
+    border-left: 0;
+    padding: 16px 0 0;
+  }
+
+  .canvas-preview-shell .global-map-hover-preview {
+    display: none !important;
+  }
+}
+
 @media (min-width: 761px) and (max-width: 1120px) {
   .workspace-layout {
     grid-template-columns: minmax(190px, 0.72fr) minmax(0, 1.5fr);
@@ -2936,5 +3689,709 @@ pre {
     min-height: 260px;
     border-top: 1px solid var(--soft-line);
     border-left: 0;
+  }
+}
+
+/* Final priority layer for the process-first workspace. */
+@media (min-width: 761px) {
+  .canvas-shell.active .workspace-layout {
+    grid-template-columns: 196px minmax(0, 1fr);
+    gap: 18px;
+  }
+
+  .canvas-shell.active .workspace-sidebar {
+    width: 196px;
+    display: flex;
+    flex-direction: column;
+    border: 0;
+    border-right: 1px solid var(--soft-line);
+    border-radius: 0;
+    padding: 2px 14px 12px 0;
+    overflow: hidden auto;
+  }
+
+  .canvas-shell.active .workspace-sidebar .canvas-tools {
+    display: grid;
+    gap: 2px;
+    padding: 0 0 12px;
+    border-bottom: 1px solid var(--soft-line);
+  }
+
+  .canvas-shell.active .workspace-sidebar .sidebar-section-label,
+  .canvas-shell.active .workspace-sidebar .tool-sidebar h3 {
+    display: block;
+    margin: 0;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .canvas-shell.active .workspace-sidebar .sidebar-section-label {
+    padding: 0 10px 6px;
+  }
+
+  .canvas-shell.active .workspace-sidebar .canvas-tools > button,
+  .canvas-shell.active .workspace-sidebar .tool-sidebar-row {
+    display: flex;
+    width: 100%;
+    min-height: 34px;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 9px;
+    border: 0;
+    border-radius: 7px;
+    padding: 0 10px;
+    background: transparent;
+    color: var(--ink);
+    font-size: 12px;
+    text-align: left;
+  }
+
+  .canvas-shell.active .workspace-sidebar .canvas-tools > button::before {
+    width: 8px;
+    height: 8px;
+    flex: 0 0 8px;
+    border: 1px solid var(--muted);
+    border-radius: 2px;
+    content: "";
+  }
+
+  .canvas-shell.active .workspace-sidebar .canvas-tools > button::after,
+  .canvas-shell.active .workspace-sidebar .tool-sidebar-row::after {
+    display: none;
+  }
+
+  .canvas-shell.active .workspace-sidebar .canvas-tools > button:hover,
+  .canvas-shell.active .workspace-sidebar .canvas-tools > button:focus-visible,
+  .canvas-shell.active .workspace-sidebar .tool-sidebar-row:hover,
+  .canvas-shell.active .workspace-sidebar .tool-sidebar-row:focus-visible {
+    background: var(--faint);
+    color: var(--ink);
+  }
+
+  .canvas-shell.active .workspace-sidebar .canvas-tools > button:hover::before,
+  .canvas-shell.active .workspace-sidebar .canvas-tools > button:focus-visible::before {
+    border-color: var(--ink);
+    background: var(--ink);
+  }
+
+  .canvas-shell.active .workspace-sidebar .canvas-tools > .workflow-start {
+    margin-top: 5px;
+    border: 1px solid var(--line);
+  }
+
+  .canvas-shell.active .workspace-sidebar .canvas-tools > .workflow-start::before {
+    border-radius: 50%;
+  }
+
+  .canvas-shell.active .workspace-sidebar .zoom-controls {
+    display: grid;
+    width: auto;
+    grid-template-columns: 34px 1fr 34px;
+    gap: 5px;
+    margin-top: 8px;
+    padding-top: 10px;
+    border-top: 1px solid var(--soft-line);
+  }
+
+  .canvas-shell.active .workspace-sidebar .zoom-controls button {
+    min-height: 30px;
+    border-color: var(--soft-line);
+    border-radius: 6px;
+    padding: 0;
+  }
+
+  .canvas-shell.active .workspace-sidebar .zoom-level {
+    display: grid;
+    place-items: center;
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  .canvas-shell.active .workspace-sidebar .tool-sidebar {
+    min-height: 0;
+    flex: 1 1 auto;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    padding-top: 14px;
+  }
+
+  .canvas-shell.active .workspace-sidebar .tool-sidebar h3 {
+    display: inline-block;
+    padding: 0 10px 7px;
+  }
+
+  .canvas-shell.active .workspace-sidebar .tool-sidebar-count {
+    color: var(--muted);
+    font-size: 10px;
+  }
+
+  .canvas-shell.active .workspace-sidebar .tool-sidebar-list {
+    display: grid;
+    gap: 2px;
+    padding: 0;
+    overflow: visible;
+  }
+
+  .canvas-shell.active .workspace-sidebar .tool-sidebar-group {
+    display: block;
+  }
+
+  .canvas-shell.active .workspace-sidebar .tool-sidebar-group-title {
+    display: none;
+  }
+
+  .canvas-shell.active .workspace-sidebar .tool-sidebar-row > span:last-child {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .canvas-shell.active .workspace-sidebar .tool-sidebar-row .tool-card-mark {
+    position: static;
+    width: 8px;
+    height: 8px;
+    flex: 0 0 8px;
+    border-color: var(--muted);
+  }
+
+  .canvas-shell.active .workspace-sidebar .tool-sidebar-row.selected {
+    background: var(--ink);
+    color: var(--bg);
+  }
+
+  .canvas-shell.active .workspace-main {
+    grid-template-rows: minmax(0, 1fr) clamp(170px, 23vh, 218px);
+    gap: 14px;
+  }
+
+  .canvas-shell.active .workspace-main.is-entry {
+    grid-template-rows: minmax(0, 1fr) 156px;
+  }
+
+  .canvas-shell.active .workspace-top-grid {
+    grid-template-columns: minmax(0, 1fr) clamp(280px, 24vw, 360px);
+    gap: 22px;
+  }
+
+  .canvas-shell.active .workflow-panel {
+    display: grid;
+    min-width: 0;
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .canvas-shell.active .workflow-panel-header,
+  .canvas-shell.active .overview-panel .panel-header {
+    display: flex;
+    min-height: 50px;
+    align-items: start;
+    justify-content: space-between;
+    border: 0;
+    border-bottom: 1px solid var(--soft-line);
+    border-radius: 0;
+    padding: 0 0 10px;
+  }
+
+  .canvas-shell.active .workflow-panel-header .eyebrow,
+  .canvas-shell.active .overview-panel .eyebrow {
+    margin: 0 0 4px;
+    color: var(--muted);
+    font-size: 10px;
+  }
+
+  .canvas-shell.active .workflow-panel-header h3,
+  .canvas-shell.active .overview-panel .panel-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 500;
+  }
+
+  .canvas-shell.active .workflow-strip {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: repeat(5, minmax(128px, 1fr));
+    align-items: center;
+    gap: 10px;
+    overflow-x: auto;
+    padding: 16px 0;
+  }
+
+  .canvas-shell.active .workflow-card {
+    display: grid;
+    min-width: 128px;
+    min-height: 108px;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-content: start;
+    gap: 12px;
+    border: 1px solid var(--soft-line);
+    border-radius: 8px;
+    padding: 14px;
+    background: var(--bg);
+    color: var(--ink);
+    text-align: left;
+  }
+
+  .canvas-shell.active .workflow-card:hover,
+  .canvas-shell.active .workflow-card:focus-visible {
+    border-color: var(--line);
+    background: var(--faint);
+    color: var(--ink);
+  }
+
+  .canvas-shell.active .workflow-card.in-scope,
+  .canvas-shell.active .workflow-card.active {
+    border-color: var(--line);
+  }
+
+  .canvas-shell.active .workflow-card.active .workflow-card-index {
+    background: var(--ink);
+    color: var(--bg);
+  }
+
+  .canvas-shell.active .workflow-card-index {
+    display: grid;
+    width: 26px;
+    height: 22px;
+    place-items: center;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    color: var(--muted);
+    font-size: 10px;
+  }
+
+  .canvas-shell.active .workflow-card-copy {
+    display: grid;
+    min-width: 0;
+    gap: 8px;
+  }
+
+  .canvas-shell.active .workflow-card-copy strong {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.3;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .canvas-shell.active .canvas-preview-shell .global-map::after {
+    content: none;
+  }
+
+  .canvas-shell.active .workflow-card-copy small {
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.3;
+  }
+
+  .canvas-shell.active .overview-panel {
+    display: grid;
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    border: 0;
+    border-left: 1px solid var(--soft-line);
+    border-radius: 0;
+    background: transparent;
+    overflow: visible;
+    padding-left: 18px;
+  }
+
+  .canvas-shell.active .canvas-preview-shell {
+    position: relative;
+    min-height: 0;
+    margin: 14px 0 12px;
+  }
+
+  .canvas-shell.active .overview-panel .global-map,
+  .canvas-shell.active .canvas-preview-shell .global-map-hover-preview {
+    position: relative;
+    width: 100%;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 0;
+    background: var(--bg);
+  }
+
+  .canvas-shell.active .overview-panel .global-map {
+    margin: 0;
+  }
+
+  .canvas-shell.active .canvas-preview-shell .global-map-hover-preview {
+    position: fixed;
+    z-index: 60;
+    top: 84px;
+    right: 28px;
+    display: none;
+    width: min(940px, 72vw);
+    height: min(660px, 72vh);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.12);
+  }
+
+  .canvas-shell.active .canvas-preview-shell:hover .global-map-hover-preview,
+  .canvas-shell.active .canvas-preview-shell:focus-within .global-map-hover-preview {
+    display: block;
+  }
+
+  .canvas-shell.active .global-map-node {
+    position: absolute;
+    z-index: 1;
+    display: grid;
+    width: 13px;
+    height: 9px;
+    place-items: center;
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    background: var(--bg);
+    transform: translate(-50%, -50%);
+  }
+
+  .canvas-shell.active .global-map-node.in-scope {
+    background: var(--ink);
+  }
+
+  .canvas-shell.active .global-map-node span {
+    display: none;
+  }
+
+  .canvas-shell.active .global-map-hover-preview .global-map-node {
+    width: 100px;
+    height: 40px;
+    padding: 5px;
+    background: var(--bg);
+    color: var(--ink);
+  }
+
+  .canvas-shell.active .global-map-hover-preview .global-map-node span {
+    display: block;
+    overflow: hidden;
+    max-width: 86px;
+    color: var(--muted);
+    font-size: 9px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .canvas-shell.active .overview-panel .overview-scope-switcher {
+    min-height: 0;
+    border-top: 1px solid var(--soft-line);
+    padding: 9px 0 0;
+  }
+
+  .canvas-shell.active .overview-panel .scope-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .canvas-shell.active .overview-panel .scope-row {
+    display: inline-flex;
+    width: auto;
+    min-height: 25px;
+    align-items: center;
+    gap: 5px;
+    border: 1px solid var(--soft-line);
+    border-radius: 5px;
+    padding: 0 7px;
+    font-size: 10px;
+  }
+
+  .canvas-shell.active .overview-panel .scope-row.active {
+    background: var(--ink);
+    color: var(--bg);
+  }
+
+  .canvas-shell.active .overview-panel .scope-row span:last-child,
+  .canvas-shell.active .overview-panel .navigator-hint,
+  .canvas-shell.active .overview-panel .command-proposals {
+    display: none;
+  }
+
+  .canvas-shell.active .conversation-dock {
+    grid-template-rows: auto minmax(0, 1fr);
+    border: 1px solid var(--soft-line);
+    border-radius: 10px;
+    background: var(--bg);
+    overflow: hidden;
+  }
+
+  .canvas-shell.active .conversation-dock .panel-header {
+    display: flex;
+    min-height: 36px;
+    align-items: center;
+    justify-content: space-between;
+    border: 0;
+    border-bottom: 1px solid var(--soft-line);
+    border-radius: 0;
+    padding: 0 14px;
+  }
+
+  .canvas-shell.active .conversation-dock .panel-header h3 {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .canvas-shell.active .conversation-scope-indicator {
+    display: block;
+    margin-left: auto;
+    padding-right: 8px;
+    color: var(--muted);
+    font-size: 10px;
+  }
+
+  .canvas-shell.active .conversation-dock .panel-status,
+  .canvas-shell.active .conversation-dock .conversation-progress {
+    display: none;
+  }
+
+  .canvas-shell.active .conversation-dock-body {
+    display: grid;
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  .canvas-shell.active .conversation-dock .conversation-messages {
+    min-height: 0;
+    overflow: auto;
+    padding: 10px 14px 4px;
+  }
+
+  .canvas-shell.active .conversation-dock .conversation-message {
+    max-width: 720px;
+    padding: 0 0 8px 8px;
+  }
+
+  .canvas-shell.active .conversation-dock .conversation-message p {
+    margin: 2px 0 0;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .canvas-shell.active .conversation-guide-actions {
+    display: flex;
+    min-height: 0;
+    align-items: center;
+    gap: 7px;
+    border: 0;
+    padding: 7px 14px 0;
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  .canvas-shell.active .conversation-guide-actions:empty {
+    display: none;
+  }
+
+  .canvas-shell.active .conversation-guide-actions button {
+    min-height: 24px;
+    border-color: var(--soft-line);
+    border-radius: 6px;
+    padding: 0 8px;
+    font-size: 10px;
+  }
+
+  .canvas-shell.active .conversation-dock .conversation-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    border: 0;
+    border-top: 1px solid var(--soft-line);
+    padding: 9px 12px;
+  }
+
+  .canvas-shell.active .conversation-dock .conversation-form textarea {
+    min-height: 42px;
+    max-height: 64px;
+    border: 1px solid var(--soft-line);
+    border-radius: 8px;
+    padding: 10px 11px;
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .canvas-shell.active .conversation-dock .conversation-form button {
+    min-width: 58px;
+    min-height: 42px;
+    border-radius: 8px;
+    padding: 0 12px;
+    font-size: 11px;
+  }
+
+  .canvas-shell.active .conversation-dock.is-entry .conversation-messages {
+    display: none;
+  }
+
+  .canvas-shell.active .canvas-focus-layer {
+    position: fixed;
+    z-index: 80;
+    inset: 0;
+    display: none;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 12px;
+    padding: 18px 22px;
+    background: var(--bg);
+  }
+
+  .canvas-shell.active .canvas-focus-layer.open {
+    display: grid;
+  }
+
+  .canvas-shell.active .canvas-focus-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--soft-line);
+    padding-bottom: 10px;
+  }
+
+  .canvas-shell.active .canvas-focus-header .eyebrow {
+    margin: 0 0 3px;
+    color: var(--muted);
+    font-size: 10px;
+  }
+
+  .canvas-shell.active .canvas-focus-header h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 500;
+  }
+
+  .canvas-shell.active .canvas-focus-header button {
+    min-height: 32px;
+    border-radius: 7px;
+    font-size: 11px;
+  }
+
+  .canvas-shell.active .canvas-focus-layer .workspace {
+    min-height: 0;
+    height: 100%;
+    border: 1px solid var(--soft-line);
+    border-radius: 8px;
+    background: var(--bg);
+  }
+
+  .canvas-shell.active .canvas-focus-layer .node {
+    width: 240px;
+    min-height: 124px;
+  }
+}
+
+/* Current workspace refinements: the sidebar is a readable navigator, and the
+   preview is the real canvas rendered at a smaller scale. */
+@media (min-width: 761px) {
+  .canvas-shell.active .workspace-sidebar .canvas-tools > button {
+    gap: 0;
+    padding: 0 10px;
+  }
+
+  .canvas-shell.active .workspace-sidebar .canvas-tools > button::before {
+    display: none;
+  }
+
+  .canvas-shell.active .workspace-sidebar .tool-sidebar-row {
+    box-shadow: none;
+  }
+
+  .canvas-shell.active .workspace-sidebar .tool-sidebar-group-title {
+    display: block;
+    overflow: hidden;
+    margin: 7px 0 2px;
+    padding: 0 10px;
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .canvas-shell.active .workspace-sidebar .tool-sidebar-row.selected {
+    background: var(--faint);
+    color: var(--ink);
+  }
+
+  .canvas-shell.active .workspace-sidebar .tool-sidebar-row.selected .tool-card-mark {
+    border-color: var(--ink);
+    background: var(--ink);
+  }
+
+  .canvas-shell.active .workflow-panel-header .scope-view-actions .panel-status,
+  .canvas-shell.active .overview-panel .minimap-revision {
+    display: none;
+  }
+
+  .canvas-shell.active .canvas-preview {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--bg);
+    cursor: zoom-in;
+  }
+
+  .canvas-shell.active .canvas-preview:hover,
+  .canvas-shell.active .canvas-preview:focus-visible {
+    border-width: 2px;
+    outline: 0;
+  }
+
+  .canvas-shell.active .canvas-preview-viewport {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .canvas-shell.active .canvas-preview-plane {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform-origin: 0 0;
+    pointer-events: none;
+  }
+
+  .canvas-shell.active .canvas-preview-plane .nodes-layer,
+  .canvas-shell.active .canvas-preview-plane .node,
+  .canvas-shell.active .canvas-preview-plane .edges,
+  .canvas-shell.active .canvas-preview-plane .edge-hit {
+    pointer-events: none;
+  }
+
+  .canvas-shell.active .canvas-focus-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .canvas-shell.active .canvas-focus-zoom {
+    display: grid;
+    grid-template-columns: 32px minmax(42px, auto) 32px;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .canvas-shell.active .canvas-focus-zoom button {
+    min-height: 32px;
+    padding: 0;
+  }
+
+  .canvas-shell.active .canvas-focus-zoom .zoom-level {
+    display: grid;
+    min-height: 32px;
+    place-items: center;
+    color: var(--muted);
+    font-size: 11px;
   }
 }

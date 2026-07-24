@@ -49,19 +49,25 @@ const conversationMessages = document.querySelector("#conversation-messages");
 const conversationForm = document.querySelector("#conversation-form");
 const conversationInput = document.querySelector("#conversation-input");
 const conversationDock = document.querySelector(".conversation-dock");
+const conversationScopeIndicator = document.querySelector("#conversation-scope-indicator");
 const scopeViewTitle = document.querySelector("#scope-view-title");
 const scopeNodeCount = document.querySelector("#scope-node-count");
-const globalMap = document.querySelector("#global-map");
+const workflowStrip = document.querySelector("#workflow-strip");
+const canvasPreview = document.querySelector("#canvas-preview");
+const canvasPreviewViewport = document.querySelector("#canvas-preview-viewport");
+const canvasPreviewPlane = document.querySelector("#canvas-preview-plane");
 const scopeList = document.querySelector("#scope-list");
 const commandProposals = document.querySelector("#command-proposals");
 const navigatorRevision = document.querySelector("#navigator-revision");
 const toolSidebarList = document.querySelector("#tool-sidebar-list");
-const toolSidebarCount = document.querySelector("#tool-sidebar-count");
 const returnLocalScope = document.querySelector("#return-local-scope");
 const startFoundationWorkflow = document.querySelector("#start-foundation-workflow");
 const foundationWorkflowDialog = document.querySelector("#foundation-workflow-dialog");
 const foundationWorkflowForm = document.querySelector("#foundation-workflow-form");
 const closeFoundationWorkflow = document.querySelector("#close-foundation-workflow");
+const canvasFocusLayer = document.querySelector("#canvas-focus-layer");
+const canvasFocusTitle = document.querySelector("#canvas-focus-title");
+const closeCanvasFocusButton = document.querySelector("#close-canvas-focus");
 
 let activeProject = null;
 let activeCanvas = null;
@@ -122,6 +128,15 @@ const translations = {
     "nodes.tool": "Tool",
     "nodes.operation": "Operation",
     "nodes.guidedScenario": "Guided Scenario",
+    "sidebar.create": "Create nodes",
+    "sidebar.textNode": "Text note",
+    "sidebar.conversationNode": "Conversation",
+    "sidebar.uploadSource": "Upload source",
+    "sidebar.imageNode": "Image node",
+    "sidebar.methodNode": "Method node",
+    "sidebar.operationNode": "Operation node",
+    "sidebar.scenarioNode": "Guided scenario",
+    "sidebar.startFlow": "Start guided flow",
     "workflow.start": "Start Four Futures flow",
     "workflow.eyebrow": "Guided foundation",
     "workflow.dialogTitle": "Frame a research inquiry",
@@ -224,7 +239,8 @@ const translations = {
     "conversation.emptyTitle": "Working thread",
     "conversation.inputLabel": "Add to conversation",
     "conversation.placeholder": "Add a research instruction for this scope",
-    "conversation.send": "Add",
+    "conversation.send": "Send",
+    "conversation.scope": "Scope",
     "conversation.none": "No messages in this scope yet.",
     "conversation.user": "researcher",
     "conversation.assistant": "assistant",
@@ -236,6 +252,7 @@ const translations = {
     "navigator.eyebrow": "Canvas preview",
     "navigator.title": "Overview",
     "navigator.openGlobal": "Open global graph",
+    "navigator.openCanvas": "Open node canvas",
     "navigator.hint": "Select a local scope to return to its focused graph.",
     "navigator.scopes": "Scopes",
     "navigator.proposals": "Command proposals",
@@ -248,6 +265,18 @@ const translations = {
     "toolSidebar.remove": "Remove",
     "toolSidebar.toModify": "to Modify",
     "modify.toolsInSidebar": "{count} tool nodes in sidebar",
+    "workflowStrip.eyebrow": "Guided process",
+    "workflowStrip.brief": "Research brief",
+    "workflowStrip.keywords": "Keywords",
+    "workflowStrip.whatIf": "What-if directions",
+    "workflowStrip.methods": "Methods & tools",
+    "workflowStrip.outcomes": "Scenario output",
+    "workflowStrip.ready": "Ready",
+    "workflowStrip.active": "In progress",
+    "workflowStrip.awaiting": "Awaiting input",
+    "workflowStrip.empty": "No process stages are available yet.",
+    "canvasFocus.eyebrow": "Node canvas",
+    "canvasFocus.close": "Return to process",
     "command.approve": "Approve",
     "command.reject": "Reject",
     "command.proposed": "proposed",
@@ -295,6 +324,15 @@ const translations = {
     "nodes.tool": "工具",
     "nodes.operation": "操作",
     "nodes.guidedScenario": "引导情境",
+    "sidebar.create": "创建节点",
+    "sidebar.textNode": "文本内容",
+    "sidebar.conversationNode": "对话内容",
+    "sidebar.uploadSource": "上传素材",
+    "sidebar.imageNode": "图像节点",
+    "sidebar.methodNode": "方法节点",
+    "sidebar.operationNode": "操作节点",
+    "sidebar.scenarioNode": "引导情景",
+    "sidebar.startFlow": "开始引导流程",
     "workflow.start": "开始四种未来流程",
     "workflow.eyebrow": "引导式基础流程",
     "workflow.dialogTitle": "确立研究议题",
@@ -397,7 +435,8 @@ const translations = {
     "conversation.emptyTitle": "工作线程",
     "conversation.inputLabel": "添加对话内容",
     "conversation.placeholder": "为当前范围补充研究指令",
-    "conversation.send": "添加",
+    "conversation.send": "发送",
+    "conversation.scope": "当前范围",
     "conversation.none": "当前范围暂无消息。",
     "conversation.user": "研究者",
     "conversation.assistant": "助手",
@@ -409,6 +448,7 @@ const translations = {
     "navigator.eyebrow": "总画布预览",
     "navigator.title": "总览",
     "navigator.openGlobal": "打开全局图谱",
+    "navigator.openCanvas": "打开节点画布",
     "navigator.hint": "选择局部范围即可回到对应的局部图谱。",
     "navigator.scopes": "范围",
     "navigator.proposals": "命令提案",
@@ -421,6 +461,18 @@ const translations = {
     "toolSidebar.remove": "移除",
     "toolSidebar.toModify": "关联推演",
     "modify.toolsInSidebar": "{count} 个工具节点在侧栏",
+    "workflowStrip.eyebrow": "引导流程",
+    "workflowStrip.brief": "研究简报",
+    "workflowStrip.keywords": "关键词",
+    "workflowStrip.whatIf": "What-if 方向",
+    "workflowStrip.methods": "方法与工具",
+    "workflowStrip.outcomes": "情景结果",
+    "workflowStrip.ready": "就绪",
+    "workflowStrip.active": "进行中",
+    "workflowStrip.awaiting": "等待输入",
+    "workflowStrip.empty": "当前没有可显示的流程阶段。",
+    "canvasFocus.eyebrow": "节点画布",
+    "canvasFocus.close": "返回流程",
     "command.approve": "批准",
     "command.reject": "拒绝",
     "command.proposed": "待审核",
@@ -472,6 +524,7 @@ function applyLocale(nextLocale) {
   applyTheme(document.documentElement.dataset.theme || "light");
   if (activeProject) {
     updateCanvasTitle(activeProject.title);
+    renderInteraction();
     renderCanvas();
   }
   loadProjects().catch((error) => {
@@ -712,7 +765,10 @@ function renderCanvas() {
   for (const node of graph.nodes || []) {
     nodesLayer.append(renderNode(node));
   }
-  requestAnimationFrame(renderPlane);
+  requestAnimationFrame(() => {
+    renderPlane();
+    renderCanvasPreview();
+  });
 }
 
 function renderInteraction() {
@@ -722,6 +778,8 @@ function renderInteraction() {
   conversationTitle.textContent = session?.title || t("conversation.emptyTitle");
   conversationPolicy.textContent = session?.control_policy || "confirm";
   scopeViewTitle.textContent = scope?.label || t("scope.loading");
+  conversationScopeIndicator.textContent = scope?.label ? `${t("conversation.scope")}: ${scope.label}` : "";
+  canvasFocusTitle.textContent = scope?.label || t("scope.loading");
   scopeNodeCount.textContent = `${scope?.node_count ?? activeProjection?.nodes?.length ?? 0}`;
   navigatorRevision.textContent = `r${interaction?.revision ?? activeCanvas?.revision ?? 0}`;
   const isGlobalScope = activeScopeId === "scope-global";
@@ -766,9 +824,66 @@ function renderInteraction() {
     button.addEventListener("click", () => setActiveScope(button.dataset.scopeId));
   });
 
-  renderGlobalMap();
+  renderWorkflowStrip(session);
   renderCommandProposals();
   renderToolSidebar();
+}
+
+function renderWorkflowStrip(session) {
+  if (!workflowStrip) return;
+  const nodes = activeCanvas?.nodes || [];
+  const workflow = activeWorkflow();
+  const guideStage = session?.guide?.stage_id || "start";
+  const localScopeId = session?.active_scope_id || activeScopeId || "scope-global";
+  const artifactScopeId = (activeInteraction?.scopes || []).find((scope) =>
+    /artifact|branch|结果|分支/i.test(scope.id || "") || /artifact|branch|结果|分支/i.test(scope.label || ""),
+  )?.id || localScopeId;
+  const toolCount = nodes
+    .filter((node) => node.type === "modify")
+    .reduce((count, node) => count + (node.config?.tools || []).filter((tool) => tool.selected).length, 0);
+  const outputCount = nodes.filter((node) => ["generated", "ready"].includes(node.status) && ["image", "multimodal"].includes(node.type)).length;
+  const framingStages = new Set(["frame_focus", "frame_assumptions", "frame_stakeholders", "frame_tensions", "keywords"]);
+  const stages = [
+    {
+      label: t("workflowStrip.brief"),
+      state: guideStage === "start" ? t("workflowStrip.awaiting") : t("workflowStrip.ready"),
+      scopeId: localScopeId,
+      active: guideStage === "start",
+    },
+    {
+      label: t("workflowStrip.keywords"),
+      state: framingStages.has(guideStage) ? t("workflowStrip.active") : (guideStage === "start" ? t("workflowStrip.awaiting") : t("workflowStrip.ready")),
+      scopeId: localScopeId,
+      active: framingStages.has(guideStage),
+    },
+    {
+      label: t("workflowStrip.whatIf"),
+      state: ["four_futures", "choose_future"].includes(guideStage) ? t("workflowStrip.active") : (workflow ? t("workflowStrip.ready") : t("workflowStrip.awaiting")),
+      scopeId: workflow?.foundation_scope_id || localScopeId,
+      active: ["four_futures", "choose_future"].includes(guideStage),
+    },
+    {
+      label: t("workflowStrip.methods"),
+      state: toolCount ? `${toolCount} · ${t("workflowStrip.ready")}` : t("workflowStrip.awaiting"),
+      scopeId: localScopeId,
+      active: guideStage === "discussion",
+    },
+    {
+      label: t("workflowStrip.outcomes"),
+      state: outputCount ? `${outputCount} · ${t("workflowStrip.ready")}` : t("workflowStrip.awaiting"),
+      scopeId: artifactScopeId,
+      active: guideStage === "discussion",
+    },
+  ];
+  workflowStrip.innerHTML = stages.map((stage, index) => `
+    <button class="workflow-card ${stage.active ? "active" : ""} ${stage.scopeId === activeScopeId ? "in-scope" : ""}" type="button" data-workflow-scope="${escapeHtml(stage.scopeId)}">
+      <span class="workflow-card-index">${String(index + 1).padStart(2, "0")}</span>
+      <span class="workflow-card-copy"><strong>${escapeHtml(stage.label)}</strong><small>${escapeHtml(stage.state)}</small></span>
+    </button>
+  `).join("");
+  workflowStrip.querySelectorAll("[data-workflow-scope]").forEach((button) => {
+    button.addEventListener("click", () => setActiveScope(button.dataset.workflowScope));
+  });
 }
 
 function renderConversationGuide(session) {
@@ -817,8 +932,6 @@ function renderConversationGuide(session) {
 function renderToolSidebar() {
   const nodes = activeProjection?.nodes || [];
   const modifyNodes = nodes.filter((node) => node.type === "modify");
-  const toolCount = modifyNodes.reduce((count, node) => count + (node.config?.tools || []).length, 0);
-  toolSidebarCount.textContent = String(toolCount);
   if (!modifyNodes.length) {
     toolSidebarList.innerHTML = `<p class="empty-panel">${escapeHtml(t("toolSidebar.none"))}</p>`;
     return;
@@ -862,41 +975,28 @@ function toolRailCode(tool) {
   return (parts[0] || "T").slice(0, 2).toUpperCase();
 }
 
-function renderGlobalMap() {
-  if (!globalMap) return;
-  globalMap.innerHTML = "";
-  const nodes = activeCanvas?.nodes || [];
-  if (!nodes.length) return;
-  const activeIds = new Set((activeProjection?.nodes || []).map((node) => node.id));
-  const maxX = Math.max(...nodes.map((node) => Number(node.position?.x || 0)), 1);
-  const maxY = Math.max(...nodes.map((node) => Number(node.position?.y || 0)), 1);
-  const positions = new Map(nodes.map((node) => [node.id, {
-    x: 7 + (Number(node.position?.x || 0) / maxX) * 84,
-    y: 10 + (Number(node.position?.y || 0) / maxY) * 76,
-  }]));
-  for (const edge of activeCanvas?.edges || []) {
-    const source = positions.get(edge.source_node_id);
-    const target = positions.get(edge.target_node_id);
-    if (!source || !target) continue;
-    const deltaX = target.x - source.x;
-    const deltaY = target.y - source.y;
-    const line = document.createElement("i");
-    line.className = `global-map-edge ${activeIds.has(edge.source_node_id) && activeIds.has(edge.target_node_id) ? "in-scope" : ""}`;
-    line.style.left = `${source.x}%`;
-    line.style.top = `${source.y}%`;
-    line.style.width = `${Math.hypot(deltaX, deltaY)}%`;
-    line.style.transform = `rotate(${Math.atan2(deltaY, deltaX)}rad)`;
-    globalMap.append(line);
-  }
-  for (const node of nodes) {
-    const position = positions.get(node.id);
-    const marker = document.createElement("span");
-    marker.className = `global-map-node ${activeIds.has(node.id) ? "in-scope" : ""}`;
-    marker.style.left = `${position.x}%`;
-    marker.style.top = `${position.y}%`;
-    marker.title = node.title || node.id;
-    globalMap.append(marker);
-  }
+function renderCanvasPreview() {
+  if (!canvasPreviewViewport || !canvasPreviewPlane) return;
+  const viewportWidth = canvasPreviewViewport.clientWidth;
+  const viewportHeight = canvasPreviewViewport.clientHeight;
+  if (!viewportWidth || !viewportHeight) return;
+
+  const size = canvasBaseSize();
+  const padding = 14;
+  const scale = Math.min(
+    Math.max(0.01, (viewportWidth - padding * 2) / size.width),
+    Math.max(0.01, (viewportHeight - padding * 2) / size.height),
+  );
+  const rendered = [...canvasPlane.children].map((child) => child.cloneNode(true));
+  rendered.forEach((child) => {
+    if (!(child instanceof Element)) return;
+    child.removeAttribute("id");
+    child.querySelectorAll("[id]").forEach((element) => element.removeAttribute("id"));
+  });
+  canvasPreviewPlane.replaceChildren(...rendered);
+  canvasPreviewPlane.style.width = `${size.width}px`;
+  canvasPreviewPlane.style.height = `${size.height}px`;
+  canvasPreviewPlane.style.transform = `translate(${Math.max(padding, (viewportWidth - size.width * scale) / 2)}px, ${Math.max(padding, (viewportHeight - size.height * scale) / 2)}px) scale(${scale})`;
 }
 
 function renderCommandProposals() {
@@ -940,6 +1040,24 @@ async function setActiveScope(scopeId) {
     setStatus(canvasStatus, "error");
     canvasOutput.textContent = error.message;
   }
+}
+
+function openCanvasFocus() {
+  if (!canvasFocusLayer) return;
+  canvasFocusLayer.classList.add("open");
+  canvasFocusLayer.setAttribute("aria-hidden", "false");
+  canvas.classList.add("canvas-focus-open");
+  requestAnimationFrame(() => {
+    zoom = fittedScopeZoom(activeProjection);
+    renderCanvas();
+  });
+}
+
+function closeCanvasFocus() {
+  if (!canvasFocusLayer) return;
+  canvasFocusLayer.classList.remove("open");
+  canvasFocusLayer.setAttribute("aria-hidden", "true");
+  canvas.classList.remove("canvas-focus-open");
 }
 
 async function submitConversationMessage(event) {
@@ -2386,6 +2504,7 @@ document.addEventListener("keydown", (event) => {
     closeNodeMenu();
     closeTextReader();
     closeImageViewer();
+    closeCanvasFocus();
   }
 });
 document.addEventListener("keyup", (event) => {
@@ -2465,9 +2584,13 @@ conversationForm.addEventListener("submit", (event) => {
   });
 });
 
-globalMap.addEventListener("click", () => {
-  setActiveScope("scope-global");
+canvasPreview.addEventListener("click", openCanvasFocus);
+canvasPreview.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  event.preventDefault();
+  openCanvasFocus();
 });
+closeCanvasFocusButton.addEventListener("click", closeCanvasFocus);
 
 returnLocalScope.addEventListener("click", () => {
   setActiveScope(defaultLocalScopeId());
