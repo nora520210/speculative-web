@@ -52,6 +52,7 @@ const conversationDock = document.querySelector(".conversation-dock");
 const conversationScopeIndicator = document.querySelector("#conversation-scope-indicator");
 const scopeViewTitle = document.querySelector("#scope-view-title");
 const scopeNodeCount = document.querySelector("#scope-node-count");
+const stagePresentation = document.querySelector("#stage-presentation");
 const workflowStrip = document.querySelector("#workflow-strip");
 const canvasPreview = document.querySelector("#canvas-preview");
 const canvasPreviewViewport = document.querySelector("#canvas-preview-viewport");
@@ -275,6 +276,12 @@ const translations = {
     "workflowStrip.active": "In progress",
     "workflowStrip.awaiting": "Awaiting input",
     "workflowStrip.empty": "No process stages are available yet.",
+    "stagePresentation.current": "Current stage",
+    "stagePresentation.scope": "Attached scope",
+    "stagePresentation.methods": "Selected methods",
+    "stagePresentation.outputs": "Ready outputs",
+    "stagePresentation.noMethods": "Choose a method when this stage needs one.",
+    "stagePresentation.moreMethods": "+{count} more",
     "canvasFocus.eyebrow": "Node canvas",
     "canvasFocus.close": "Return to process",
     "command.approve": "Approve",
@@ -471,6 +478,12 @@ const translations = {
     "workflowStrip.active": "进行中",
     "workflowStrip.awaiting": "等待输入",
     "workflowStrip.empty": "当前没有可显示的流程阶段。",
+    "stagePresentation.current": "当前环节",
+    "stagePresentation.scope": "关联范围",
+    "stagePresentation.methods": "已选方法",
+    "stagePresentation.outputs": "已就绪结果",
+    "stagePresentation.noMethods": "需要时，再从左侧选择方法。",
+    "stagePresentation.moreMethods": "另有 {count} 项",
     "canvasFocus.eyebrow": "节点画布",
     "canvasFocus.close": "返回流程",
     "command.approve": "批准",
@@ -830,7 +843,22 @@ function renderInteraction() {
 }
 
 function renderWorkflowStrip(session) {
+  if (!workflowStrip && !stagePresentation) return;
+  const stages = workflowStages(session);
+  renderStagePresentation(stages);
   if (!workflowStrip) return;
+  workflowStrip.innerHTML = stages.map((stage, index) => `
+    <button class="workflow-card ${stage.active ? "active" : ""} ${stage.scopeId === activeScopeId ? "in-scope" : ""}" type="button" data-workflow-scope="${escapeHtml(stage.scopeId)}">
+      <span class="workflow-card-index">${String(index + 1).padStart(2, "0")}</span>
+      <span class="workflow-card-copy"><strong>${escapeHtml(stage.label)}</strong><small>${escapeHtml(stage.state)}</small></span>
+    </button>
+  `).join("");
+  workflowStrip.querySelectorAll("[data-workflow-scope]").forEach((button) => {
+    button.addEventListener("click", () => setActiveScope(button.dataset.workflowScope));
+  });
+}
+
+function workflowStages(session) {
   const nodes = activeCanvas?.nodes || [];
   const workflow = activeWorkflow();
   const guideStage = session?.guide?.stage_id || "start";
@@ -875,15 +903,77 @@ function renderWorkflowStrip(session) {
       active: guideStage === "discussion",
     },
   ];
-  workflowStrip.innerHTML = stages.map((stage, index) => `
-    <button class="workflow-card ${stage.active ? "active" : ""} ${stage.scopeId === activeScopeId ? "in-scope" : ""}" type="button" data-workflow-scope="${escapeHtml(stage.scopeId)}">
-      <span class="workflow-card-index">${String(index + 1).padStart(2, "0")}</span>
-      <span class="workflow-card-copy"><strong>${escapeHtml(stage.label)}</strong><small>${escapeHtml(stage.state)}</small></span>
-    </button>
-  `).join("");
-  workflowStrip.querySelectorAll("[data-workflow-scope]").forEach((button) => {
-    button.addEventListener("click", () => setActiveScope(button.dataset.workflowScope));
+  return stages;
+}
+
+function activeStageTools() {
+  const scopedNodes = activeProjection?.nodes || [];
+  const scopedModifyNodes = scopedNodes.filter((node) => node.type === "modify");
+  const sourceNodes = scopedModifyNodes.length
+    ? scopedModifyNodes
+    : (activeCanvas?.nodes || []).filter((node) => node.type === "modify");
+  const uniqueTools = new Map();
+  sourceNodes.forEach((node) => {
+    (node.config?.tools || []).filter((tool) => tool.selected).forEach((tool) => {
+      const key = tool.id || tool.label;
+      if (!key || uniqueTools.has(key)) return;
+      uniqueTools.set(key, tool);
+    });
   });
+  return [...uniqueTools.values()];
+}
+
+function renderStagePresentation(stages) {
+  if (!stagePresentation) return;
+  const activeStage = stages.find((stage) => stage.active)
+    || stages.find((stage) => stage.scopeId === activeScopeId)
+    || stages[0];
+  if (!activeStage) {
+    stagePresentation.innerHTML = "";
+    return;
+  }
+  const activeIndex = Math.max(0, stages.indexOf(activeStage));
+  const tools = activeStageTools();
+  const readyOutputs = (activeCanvas?.nodes || []).filter((node) =>
+    ["generated", "ready"].includes(node.status) && ["image", "multimodal"].includes(node.type),
+  ).length;
+  const visibleTools = tools.slice(0, 3);
+  const scope = activeProjection?.scope || (activeInteraction?.scopes || []).find((item) => item.id === activeScopeId);
+  const methodCards = visibleTools.length
+    ? visibleTools.map((tool) => {
+      const presentation = tool.presentation || {};
+      return `
+        <article class="stage-tool-card" data-card-kind="${escapeHtml(presentation.card_kind || "tool")}" data-icon-token="${escapeHtml(presentation.icon_token || tool.id || "tool")}" data-accent-token="${escapeHtml(presentation.accent_token || "neutral")}">
+          <span class="stage-tool-glyph" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="stage-tool-copy"><strong>${escapeHtml(tool.label || tool.id)}</strong><small>${escapeHtml(presentation.card_kind || t("stagePresentation.methods"))}</small></span>
+        </article>
+      `;
+    }).join("")
+    : `<p class="stage-empty-state">${escapeHtml(t("stagePresentation.noMethods"))}</p>`;
+  const remainingTools = tools.length - visibleTools.length;
+  stagePresentation.innerHTML = `
+    <article class="stage-focus-card ${activeStage.active ? "is-active" : ""}">
+      <div class="stage-focus-topline">
+        <span class="stage-index">${String(activeIndex + 1).padStart(2, "0")}</span>
+        <span>${escapeHtml(t("stagePresentation.current"))}</span>
+      </div>
+      <h4>${escapeHtml(activeStage.label)}</h4>
+      <p>${escapeHtml(activeStage.state)}</p>
+      <div class="stage-focus-meta">
+        <span>${escapeHtml(t("stagePresentation.scope"))}</span>
+        <strong>${escapeHtml(scope?.label || activeStage.label)}</strong>
+      </div>
+    </article>
+    <section class="stage-methods-card" aria-label="${escapeHtml(t("stagePresentation.methods"))}">
+      <header>
+        <span>${escapeHtml(t("stagePresentation.methods"))}</span>
+        <span>${tools.length}</span>
+      </header>
+      <div class="stage-tool-grid">${methodCards}</div>
+      ${remainingTools > 0 ? `<span class="stage-more-tools">${escapeHtml(t("stagePresentation.moreMethods", { count: remainingTools }))}</span>` : ""}
+      <footer><span>${escapeHtml(t("stagePresentation.outputs"))}</span><strong>${readyOutputs}</strong></footer>
+    </section>
+  `;
 }
 
 function renderConversationGuide(session) {
@@ -973,11 +1063,13 @@ function renderCanvasPreview() {
   if (!viewportWidth || !viewportHeight) return;
 
   const size = canvasBaseSize();
-  const padding = 14;
-  const scale = Math.min(
-    Math.max(0.01, (viewportWidth - padding * 2) / size.width),
-    Math.max(0.01, (viewportHeight - padding * 2) / size.height),
+  const fitScale = Math.min(
+    Math.max(0.01, viewportWidth / size.width),
+    Math.max(0.01, viewportHeight / size.height),
   );
+  // The preview intentionally keeps the real canvas enlarged and cropped. It is
+  // a local context window, not a second miniature graph with different state.
+  const scale = Math.min(0.8, Math.max(0.18, fitScale * 2.6));
   const rendered = [...canvasPlane.children].map((child) => child.cloneNode(true));
   rendered.forEach((child) => {
     if (!(child instanceof Element)) return;
@@ -987,7 +1079,23 @@ function renderCanvasPreview() {
   canvasPreviewPlane.replaceChildren(...rendered);
   canvasPreviewPlane.style.width = `${size.width}px`;
   canvasPreviewPlane.style.height = `${size.height}px`;
-  canvasPreviewPlane.style.transform = `translate(${Math.max(padding, (viewportWidth - size.width * scale) / 2)}px, ${Math.max(padding, (viewportHeight - size.height * scale) / 2)}px) scale(${scale})`;
+  const graphNodes = displayGraph()?.nodes || [];
+  const workflow = activeWorkflow();
+  const focusIds = activeScopeId === "scope-global" && workflow
+    ? new Set([...(workflow.source_node_ids || []), workflow.keyword_node_id, workflow.operation_node_id, workflow.selected_branch_node_id].filter(Boolean))
+    : new Set((activeProjection?.nodes || []).map((node) => node.id));
+  const focusNodes = graphNodes.filter((node) => focusIds.has(node.id));
+  const nodesForFocus = focusNodes.length ? focusNodes : graphNodes.slice(0, 3);
+  const focus = nodesForFocus.length
+    ? nodesForFocus.reduce((point, node) => ({
+      x: point.x + Number(node.position?.x || 0) + Number(node.size?.width || 240) / 2,
+      y: point.y + Number(node.position?.y || 0) + Number(node.size?.height || 170) / 2,
+    }), { x: 0, y: 0 })
+    : { x: size.width / 2, y: size.height / 2 };
+  const divisor = Math.max(1, nodesForFocus.length);
+  const focusX = focus.x / divisor;
+  const focusY = focus.y / divisor;
+  canvasPreviewPlane.style.transform = `translate(${viewportWidth / 2 - focusX * scale}px, ${viewportHeight / 2 - focusY * scale}px) scale(${scale})`;
 }
 
 function renderCommandProposals() {
