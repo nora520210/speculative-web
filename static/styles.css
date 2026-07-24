@@ -4299,29 +4299,42 @@ pre {
   }
 
   .canvas-shell.active .workspace-sidebar .tool-sidebar-row {
+    box-sizing: border-box;
+    max-width: 100%;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
     box-shadow: none;
   }
 
   .canvas-shell.active .workspace-sidebar .tool-sidebar-group-title {
-    display: block;
-    overflow: hidden;
-    margin: 7px 0 2px;
-    padding: 0 10px;
-    color: var(--muted);
-    font-size: 10px;
-    line-height: 1.3;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    display: none;
   }
 
   .canvas-shell.active .workspace-sidebar .tool-sidebar-row.selected {
-    background: var(--faint);
-    color: var(--ink);
+    border-radius: 7px;
+    background: var(--ink);
+    color: var(--bg);
   }
 
   .canvas-shell.active .workspace-sidebar .tool-sidebar-row.selected .tool-card-mark {
-    border-color: var(--ink);
+    border-color: var(--bg);
+    background: var(--bg);
+  }
+
+  .canvas-shell.active .workspace-sidebar .tool-sidebar-row:hover {
+    background: transparent;
+    color: var(--ink);
+  }
+
+  .canvas-shell.active .workspace-sidebar .tool-sidebar-row.selected:hover {
     background: var(--ink);
+    color: var(--bg);
+  }
+
+  .canvas-shell.active .workspace-sidebar .tool-sidebar-row:focus-visible {
+    outline: 1px solid var(--line);
+    outline-offset: -1px;
   }
 
   .canvas-shell.active .workflow-panel-header .scope-view-actions .panel-status,

@@ -940,7 +940,6 @@ function renderToolSidebar() {
     const tools = node.config?.tools || [];
     return `
       <section class="tool-sidebar-group">
-        <span class="tool-sidebar-group-title">${escapeHtml(node.title)}</span>
         ${tools.map((tool) => `
           <button
             class="tool-sidebar-row ${tool.selected ? "selected" : ""}"
@@ -948,7 +947,6 @@ function renderToolSidebar() {
             data-sidebar-modify-id="${escapeHtml(node.id)}"
             data-sidebar-tool-id="${escapeHtml(tool.id)}"
             data-card-kind="${escapeHtml(tool.presentation?.card_kind || "tool")}"
-            data-rail-code="${escapeHtml(toolRailCode(tool))}"
             title="${escapeHtml(tool.description || tool.label || tool.id)}"
           ><span class="tool-card-mark" aria-hidden="true"></span><span>${escapeHtml(tool.label || tool.id)}</span></button>
         `).join("")}
@@ -966,13 +964,6 @@ function renderToolSidebar() {
       });
     });
   });
-}
-
-function toolRailCode(tool) {
-  const source = String(tool.presentation?.icon_token || tool.id || tool.label || "tool");
-  const parts = source.match(/[a-z0-9]+/gi) || [];
-  if (parts.length > 1) return parts.slice(0, 2).map((part) => part[0]).join("").toUpperCase();
-  return (parts[0] || "T").slice(0, 2).toUpperCase();
 }
 
 function renderCanvasPreview() {
