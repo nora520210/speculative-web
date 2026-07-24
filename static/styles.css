@@ -4408,3 +4408,387 @@ pre {
     font-size: 11px;
   }
 }
+
+/* Visual chrome tokens are kept independent from graph/node tokens so the
+   workspace can switch light/dark without changing graph semantics. */
+:root {
+  --chrome-bg: #fafaf9;
+  --chrome-sidebar: #f5f5f4;
+  --chrome-surface: #ffffff;
+  --chrome-hover: #ececea;
+  --chrome-selected: #1d1d1b;
+  --chrome-selected-ink: #ffffff;
+  --chrome-border: #e3e3df;
+  --chrome-input: #ffffff;
+  --chrome-focus: #555550;
+  --font: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+:root[data-theme="dark"] {
+  --chrome-bg: #1e1e1e;
+  --chrome-sidebar: #252525;
+  --chrome-surface: #202020;
+  --chrome-hover: #303030;
+  --chrome-selected: #ededeb;
+  --chrome-selected-ink: #181818;
+  --chrome-border: #393939;
+  --chrome-input: #2a2a2a;
+  --chrome-focus: #c8c8c2;
+}
+
+/* Final cascade: Codex-inspired workspace chrome, kept after legacy layout
+   rules so the navigation and conversation hierarchy stay deterministic. */
+body {
+  background: var(--chrome-bg);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+button,
+input[type="text"],
+.file-control {
+  border-color: var(--chrome-border);
+  border-radius: 9px;
+  background: var(--chrome-surface);
+}
+
+button:hover,
+button:focus-visible,
+.file-control:hover,
+.file-control:focus-within {
+  background: var(--chrome-hover);
+  color: var(--ink);
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--chrome-focus);
+  outline-offset: 2px;
+}
+
+.home,
+.canvas-shell,
+.canvas-shell.active {
+  background: var(--chrome-bg);
+}
+
+.topline,
+.canvas-bar {
+  border-bottom-color: var(--chrome-border);
+}
+
+@media (min-width: 761px) {
+  .canvas-shell.active {
+    gap: 0;
+    padding: 0;
+  }
+
+  .canvas-shell.active .canvas-bar {
+    min-height: 60px;
+    align-items: center;
+    border-bottom-color: var(--chrome-border);
+    padding: 10px 18px;
+  }
+
+  .canvas-shell.active .canvas-bar > div:first-of-type {
+    display: grid;
+    gap: 2px;
+  }
+
+  .canvas-shell.active .canvas-bar .eyebrow {
+    margin: 0;
+    font-size: 11px;
+  }
+
+  .canvas-shell.active #canvas-title {
+    font-size: 17px;
+    font-weight: 600;
+  }
+
+  .canvas-shell.active #back-home,
+  .canvas-shell.active .canvas-delete,
+  .canvas-shell.active .top-actions > button,
+  .canvas-shell.active .document-form button,
+  .canvas-shell.active .file-control {
+    min-height: 32px;
+    border-color: transparent;
+    border-radius: 8px;
+    padding-inline: 10px;
+    font-size: 12px;
+  }
+
+  .canvas-shell.active .workspace-layout {
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .canvas-shell.active .workspace-sidebar {
+    width: 240px;
+    border-right-color: var(--chrome-border);
+    background: var(--chrome-sidebar);
+    padding: 14px 10px;
+  }
+
+  .canvas-shell.active .workspace-sidebar .canvas-tools,
+  .canvas-shell.active .workspace-sidebar .tool-sidebar-list {
+    width: 100%;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+  }
+
+  .canvas-shell.active .workspace-sidebar .canvas-tools {
+    border-bottom-color: var(--chrome-border);
+    padding-bottom: 14px;
+  }
+
+  .canvas-shell.active .workspace-sidebar .sidebar-section-label,
+  .canvas-shell.active .workspace-sidebar .tool-sidebar h3 {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 4px 12px 7px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  .canvas-shell.active .workspace-sidebar .tool-sidebar {
+    padding-top: 14px;
+  }
+
+  .canvas-shell.active .workspace-sidebar .tool-sidebar-group {
+    display: contents;
+    margin: 0;
+    padding: 0;
+  }
+
+  .canvas-shell.active .workspace-sidebar .canvas-tools > button,
+  .canvas-shell.active .workspace-sidebar .tool-sidebar-row {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 36px;
+    margin: 0;
+    border: 0;
+    border-radius: 9px;
+    padding: 0 12px;
+    background: transparent;
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 450;
+    line-height: 1.25;
+  }
+
+  .canvas-shell.active .workspace-sidebar .canvas-tools > button::before {
+    display: none;
+  }
+
+  .canvas-shell.active .workspace-sidebar .canvas-tools > button:hover,
+  .canvas-shell.active .workspace-sidebar .canvas-tools > button:focus-visible,
+  .canvas-shell.active .workspace-sidebar .tool-sidebar-row:hover,
+  .canvas-shell.active .workspace-sidebar .tool-sidebar-row:focus-visible {
+    background: var(--chrome-hover);
+    color: var(--ink);
+  }
+
+  .canvas-shell.active .workspace-sidebar .tool-sidebar-row.selected,
+  .canvas-shell.active .workspace-sidebar .tool-sidebar-row.selected:hover {
+    border-radius: 9px;
+    background: var(--chrome-selected);
+    color: var(--chrome-selected-ink);
+  }
+
+  .canvas-shell.active .workspace-sidebar .tool-sidebar-row .tool-card-mark,
+  .canvas-shell.active .workspace-sidebar .tool-sidebar-row.selected .tool-card-mark {
+    width: 8px;
+    height: 8px;
+    flex: 0 0 8px;
+    border-color: currentColor;
+    background: transparent;
+  }
+
+  .canvas-shell.active .workspace-sidebar .tool-sidebar-row.selected .tool-card-mark {
+    background: currentColor;
+  }
+
+  .canvas-shell.active .workspace-main {
+    gap: 16px;
+    padding: 16px 20px 20px;
+  }
+
+  .canvas-shell.active .workspace-top-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 0.44fr);
+    gap: 16px;
+  }
+
+  .canvas-shell.active .workflow-panel,
+  .canvas-shell.active .overview-panel,
+  .canvas-shell.active .conversation-dock {
+    border: 1px solid var(--chrome-border);
+    border-radius: 14px;
+    background: var(--chrome-surface);
+  }
+
+  .canvas-shell.active .workflow-panel,
+  .canvas-shell.active .overview-panel {
+    padding: 14px;
+  }
+
+  .canvas-shell.active .workflow-panel-header,
+  .canvas-shell.active .overview-panel .panel-header,
+  .canvas-shell.active .conversation-dock .panel-header {
+    min-height: 34px;
+    border-bottom-color: var(--chrome-border);
+  }
+
+  .canvas-shell.active .workflow-panel-header h3,
+  .canvas-shell.active .overview-panel .panel-header h3,
+  .canvas-shell.active .conversation-dock .panel-header h3 {
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .canvas-shell.active .workflow-strip {
+    grid-template-columns: repeat(5, minmax(130px, 1fr));
+    gap: 0;
+    padding: 12px 0 0;
+    overflow: hidden auto;
+  }
+
+  .canvas-shell.active .workflow-card {
+    min-width: 130px;
+    min-height: 78px;
+    gap: 8px;
+    border: 0;
+    border-right: 1px solid var(--chrome-border);
+    border-radius: 0;
+    padding: 10px;
+    background: transparent;
+  }
+
+  .canvas-shell.active .workflow-card:first-child {
+    border-radius: 9px 0 0 9px;
+  }
+
+  .canvas-shell.active .workflow-card:last-child {
+    border-right: 0;
+    border-radius: 0 9px 9px 0;
+  }
+
+  .canvas-shell.active .workflow-card:hover,
+  .canvas-shell.active .workflow-card:focus-visible,
+  .canvas-shell.active .workflow-card.active {
+    background: var(--chrome-hover);
+    color: var(--ink);
+  }
+
+  .canvas-shell.active .workflow-card-index {
+    width: 20px;
+    height: 20px;
+    border-color: var(--chrome-border);
+    border-radius: 6px;
+    font-size: 10px;
+  }
+
+  .canvas-shell.active .workflow-card.active .workflow-card-index {
+    background: var(--chrome-selected);
+    color: var(--chrome-selected-ink);
+  }
+
+  .canvas-shell.active .overview-panel {
+    border-left: 1px solid var(--chrome-border);
+  }
+
+  .canvas-shell.active .canvas-preview {
+    border-color: var(--chrome-border);
+    border-radius: 10px;
+    background: var(--chrome-input);
+  }
+
+  .canvas-shell.active .canvas-preview:hover,
+  .canvas-shell.active .canvas-preview:focus-visible {
+    border-color: var(--chrome-focus);
+    border-width: 1px;
+  }
+
+  .canvas-shell.active .conversation-dock {
+    overflow: hidden;
+  }
+
+  .canvas-shell.active .conversation-dock .panel-header {
+    padding: 10px 14px;
+  }
+
+  .canvas-shell.active .conversation-guide-actions {
+    padding: 7px 14px;
+    border-bottom-color: var(--chrome-border);
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  .canvas-shell.active .conversation-dock .conversation-messages {
+    padding: 10px 14px 4px;
+  }
+
+  .canvas-shell.active .conversation-dock .conversation-message {
+    max-width: 760px;
+    border-left: 0;
+    padding: 6px 0;
+  }
+
+  .canvas-shell.active .conversation-dock .conversation-message.assistant {
+    padding-left: 11px;
+    border-left: 2px solid var(--chrome-border);
+  }
+
+  .canvas-shell.active .conversation-dock .conversation-message p {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .canvas-shell.active .conversation-dock .conversation-form {
+    gap: 8px;
+    border-top-color: var(--chrome-border);
+    padding: 10px 14px;
+  }
+
+  .canvas-shell.active .conversation-dock .conversation-form textarea {
+    min-height: 42px;
+    border-color: var(--chrome-border);
+    border-radius: 10px;
+    background: var(--chrome-input);
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+
+  .canvas-shell.active .conversation-dock .conversation-form button {
+    min-width: 54px;
+    min-height: 42px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--chrome-selected);
+    color: var(--chrome-selected-ink);
+    padding: 0 12px;
+  }
+
+  .canvas-shell.active .conversation-dock .conversation-form button:hover,
+  .canvas-shell.active .conversation-dock .conversation-form button:focus-visible {
+    filter: brightness(0.9);
+  }
+}
+
+@media (max-width: 760px) {
+  .canvas-shell.active .workspace-sidebar {
+    background: var(--chrome-sidebar);
+  }
+
+  .canvas-shell.active .conversation-dock,
+  .canvas-shell.active .workflow-panel,
+  .canvas-shell.active .overview-panel {
+    border-color: var(--chrome-border);
+    background: var(--chrome-surface);
+  }
+}
