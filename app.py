@@ -683,6 +683,14 @@ class AppHandler(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def end_headers(self) -> None:
+        # The workspace shell is served through this Python handler (including
+        # Vercel's catch-all rewrite).  Do not let a browser retain an older
+        # HTML shell that still points to a previous versioned app bundle.
+        # Static assets remain versioned by their query string in index.html.
+        request_path = urlparse(self.path).path
+        is_document_request = not request_path.startswith(("/api/", "/static/", "/generated/", "/uploads/"))
+        if is_document_request:
+            self.send_header("Cache-Control", "no-store, max-age=0, must-revalidate")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "same-origin")
         self.send_header("X-Frame-Options", "DENY")
