@@ -14,6 +14,7 @@ const canvasStatus = document.querySelector("#canvas-status");
 const canvasOutput = document.querySelector("#canvas-output");
 const modelStatus = document.querySelector("#model-status");
 const modelOutput = document.querySelector("#model-output");
+const workspaceMain = document.querySelector(".workspace-main");
 const workspace = document.querySelector(".workspace");
 const canvasContent = document.querySelector("#canvas-content");
 const canvasPlane = document.querySelector("#canvas-plane");
@@ -219,7 +220,7 @@ const translations = {
     "access.invalid": "Enter a valid API key to continue.",
     "access.required": "Enter your API key before running a model operation.",
     "access.active": "A personal API key is active for this tab. It is never saved by this site.",
-    "conversation.eyebrow": "Conversation scope",
+    "conversation.eyebrow": "Conversation",
     "conversation.emptyTitle": "Working thread",
     "conversation.inputLabel": "Add to conversation",
     "conversation.placeholder": "Add a research instruction for this scope",
@@ -228,12 +229,12 @@ const translations = {
     "conversation.user": "researcher",
     "conversation.assistant": "assistant",
     "conversation.system": "system",
-    "scope.eyebrow": "Focused graph",
+    "scope.eyebrow": "Current nodes",
     "scope.loading": "Loading scope",
     "scope.global": "Global graph",
     "scope.returnLocal": "Return to local",
-    "navigator.eyebrow": "Global graph",
-    "navigator.title": "Navigator",
+    "navigator.eyebrow": "Canvas preview",
+    "navigator.title": "Overview",
     "navigator.openGlobal": "Open global graph",
     "navigator.hint": "Select a local scope to return to its focused graph.",
     "navigator.scopes": "Scopes",
@@ -392,7 +393,7 @@ const translations = {
     "access.invalid": "请输入有效的 API Key 后继续。",
     "access.required": "运行模型操作前，请先输入你的 API Key。",
     "access.active": "当前标签页已启用个人 API Key；网站不会保存该 Key。",
-    "conversation.eyebrow": "对话范围",
+    "conversation.eyebrow": "对话",
     "conversation.emptyTitle": "工作线程",
     "conversation.inputLabel": "添加对话内容",
     "conversation.placeholder": "为当前范围补充研究指令",
@@ -401,12 +402,12 @@ const translations = {
     "conversation.user": "研究者",
     "conversation.assistant": "助手",
     "conversation.system": "系统",
-    "scope.eyebrow": "局部图谱",
+    "scope.eyebrow": "当前节点",
     "scope.loading": "正在载入范围",
     "scope.global": "全局图谱",
     "scope.returnLocal": "返回局部",
-    "navigator.eyebrow": "全局图谱",
-    "navigator.title": "导航",
+    "navigator.eyebrow": "总画布预览",
+    "navigator.title": "总览",
     "navigator.openGlobal": "打开全局图谱",
     "navigator.hint": "选择局部范围即可回到对应的局部图谱。",
     "navigator.scopes": "范围",
@@ -651,8 +652,7 @@ function fittedScopeZoom(projection) {
 }
 
 function displayGraph() {
-  const graph = activeProjection || activeCanvas || { nodes: [], edges: [] };
-  return graphWithPresentationTools(graph);
+  return activeProjection || activeCanvas || { nodes: [], edges: [] };
 }
 
 function activeSession() {
@@ -677,46 +677,6 @@ function defaultLocalScopeId() {
   const sessionScopeId = activeSession()?.active_scope_id;
   if (sessionScopeId && sessionScopeId !== "scope-global") return sessionScopeId;
   return (activeInteraction?.scopes || []).find((scope) => scope.id !== "scope-global")?.id || "scope-global";
-}
-
-function graphWithPresentationTools(graph) {
-  const toolNodes = [];
-  const toolEdges = [];
-  for (const node of graph.nodes || []) {
-    if (node.type !== "modify") continue;
-    const selectedTools = (node.config?.tools || []).filter((tool) => tool.selected);
-    selectedTools.forEach((tool, index) => {
-      const toolNodeId = `presentation-tool:${node.id}:${tool.id}`;
-      toolNodes.push({
-        id: toolNodeId,
-        type: "tool",
-        presentation_kind: "tool",
-        parent_modify_id: node.id,
-        tool_id: tool.id,
-        title: tool.label || tool.id,
-        status: "ready",
-        position: {
-          x: Math.max(0, Number(node.position?.x || 0) - 218),
-          y: Number(node.position?.y || 0) + index * 122,
-        },
-        size: { width: 194, height: 104 },
-        payload: { description: tool.description || "", presentation: tool.presentation || {} },
-        config: { tool },
-      });
-      toolEdges.push({
-        id: `presentation-edge:${node.id}:${tool.id}`,
-        source_node_id: toolNodeId,
-        target_node_id: node.id,
-        edge_kind: "configuration-reference",
-        presentation_only: true,
-      });
-    });
-  }
-  return {
-    ...graph,
-    nodes: [...(graph.nodes || []), ...toolNodes],
-    edges: [...(graph.edges || []), ...toolEdges],
-  };
 }
 
 function captureCanvasView() {
@@ -765,9 +725,10 @@ function renderInteraction() {
   scopeNodeCount.textContent = `${scope?.node_count ?? activeProjection?.nodes?.length ?? 0}`;
   navigatorRevision.textContent = `r${interaction?.revision ?? activeCanvas?.revision ?? 0}`;
   const isGlobalScope = activeScopeId === "scope-global";
-  returnLocalScope.classList.toggle("hidden", !isGlobalScope);
   const isEntry = session?.guide?.stage_id === "start" && !session?.guide?.workflow_instance_id;
+  returnLocalScope.classList.toggle("hidden", !isGlobalScope || Boolean(isEntry));
   conversationDock?.classList.toggle("is-entry", Boolean(isEntry));
+  workspaceMain?.classList.toggle("is-entry", Boolean(isEntry));
 
   const progress = session?.progress || [];
   conversationProgress.hidden = Boolean(isEntry) || progress.length < 2;
@@ -780,7 +741,9 @@ function renderInteraction() {
     button.addEventListener("click", () => setActiveScope(button.dataset.progressScope));
   });
 
-  const messages = session?.messages || [];
+  const messages = (session?.messages || []).filter((message) =>
+    !(message.role === "system" && message.kind !== "activity"),
+  );
   conversationMessages.innerHTML = messages.length
     ? messages.map((message) => `
       <article class="conversation-message ${escapeHtml(message.role)} ${escapeHtml(message.kind || "message")}">
@@ -872,6 +835,7 @@ function renderToolSidebar() {
             data-sidebar-modify-id="${escapeHtml(node.id)}"
             data-sidebar-tool-id="${escapeHtml(tool.id)}"
             data-card-kind="${escapeHtml(tool.presentation?.card_kind || "tool")}"
+            data-rail-code="${escapeHtml(toolRailCode(tool))}"
             title="${escapeHtml(tool.description || tool.label || tool.id)}"
           ><span class="tool-card-mark" aria-hidden="true"></span><span>${escapeHtml(tool.label || tool.id)}</span></button>
         `).join("")}
@@ -891,6 +855,13 @@ function renderToolSidebar() {
   });
 }
 
+function toolRailCode(tool) {
+  const source = String(tool.presentation?.icon_token || tool.id || tool.label || "tool");
+  const parts = source.match(/[a-z0-9]+/gi) || [];
+  if (parts.length > 1) return parts.slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+  return (parts[0] || "T").slice(0, 2).toUpperCase();
+}
+
 function renderGlobalMap() {
   if (!globalMap) return;
   globalMap.innerHTML = "";
@@ -899,11 +870,30 @@ function renderGlobalMap() {
   const activeIds = new Set((activeProjection?.nodes || []).map((node) => node.id));
   const maxX = Math.max(...nodes.map((node) => Number(node.position?.x || 0)), 1);
   const maxY = Math.max(...nodes.map((node) => Number(node.position?.y || 0)), 1);
+  const positions = new Map(nodes.map((node) => [node.id, {
+    x: 7 + (Number(node.position?.x || 0) / maxX) * 84,
+    y: 10 + (Number(node.position?.y || 0) / maxY) * 76,
+  }]));
+  for (const edge of activeCanvas?.edges || []) {
+    const source = positions.get(edge.source_node_id);
+    const target = positions.get(edge.target_node_id);
+    if (!source || !target) continue;
+    const deltaX = target.x - source.x;
+    const deltaY = target.y - source.y;
+    const line = document.createElement("i");
+    line.className = `global-map-edge ${activeIds.has(edge.source_node_id) && activeIds.has(edge.target_node_id) ? "in-scope" : ""}`;
+    line.style.left = `${source.x}%`;
+    line.style.top = `${source.y}%`;
+    line.style.width = `${Math.hypot(deltaX, deltaY)}%`;
+    line.style.transform = `rotate(${Math.atan2(deltaY, deltaX)}rad)`;
+    globalMap.append(line);
+  }
   for (const node of nodes) {
+    const position = positions.get(node.id);
     const marker = document.createElement("span");
     marker.className = `global-map-node ${activeIds.has(node.id) ? "in-scope" : ""}`;
-    marker.style.left = `${7 + (Number(node.position?.x || 0) / maxX) * 84}%`;
-    marker.style.top = `${10 + (Number(node.position?.y || 0) / maxY) * 76}%`;
+    marker.style.left = `${position.x}%`;
+    marker.style.top = `${position.y}%`;
     marker.title = node.title || node.id;
     globalMap.append(marker);
   }
@@ -931,9 +921,21 @@ function renderCommandProposals() {
 }
 
 async function setActiveScope(scopeId) {
-  if (!scopeId || scopeId === activeScopeId) return;
+  const session = activeSession();
+  if (!scopeId || !activeProject || !session) return;
+  if (scopeId === activeScopeId && session.active_scope_id === scopeId) return;
   try {
-    await loadScopeProjection(scopeId);
+    if (session.active_scope_id !== scopeId) {
+      await requestJson(`/api/projects/${activeProject.id}/conversations/${session.id}`, {
+        method: "PATCH",
+        body: JSON.stringify(withExpectedRevision({ active_scope_id: scopeId })),
+      });
+    }
+    // Keep the next canvas refresh on the same canonical Scope while also updating
+    // its revision. A navigator selection is therefore a session selection, not a
+    // temporary client-side filter.
+    activeScopeId = scopeId;
+    await loadCanvas();
   } catch (error) {
     setStatus(canvasStatus, "error");
     canvasOutput.textContent = error.message;
@@ -1087,7 +1089,6 @@ function nodeBox(element) {
 }
 
 function renderNode(node) {
-  if (node.presentation_kind === "tool") return renderPresentationToolNode(node);
   const article = document.createElement("article");
   article.className = `node ${node.type}-node ${node.status || ""}`;
   article.dataset.nodeId = node.id;
@@ -1165,41 +1166,6 @@ function renderNode(node) {
     textarea.addEventListener("blur", () => updateNodePayload(node, { text: textarea.value }));
     textarea.addEventListener("pointerdown", (event) => event.stopPropagation());
   }
-  return article;
-}
-
-function renderPresentationToolNode(node) {
-  const presentation = node.payload?.presentation || {};
-  const cardKind = presentation.card_kind || "tool";
-  const article = document.createElement("article");
-  article.className = `node tool-node ready card-kind-${String(cardKind).replace(/[^a-z0-9_-]/gi, "-")}`;
-  article.dataset.nodeId = node.id;
-  article.dataset.cardKind = cardKind;
-  article.style.left = `${node.position.x}px`;
-  article.style.top = `${node.position.y}px`;
-  article.style.width = `${node.size?.width || 194}px`;
-  article.innerHTML = `
-    <header>
-      <span><i class="tool-card-mark" aria-hidden="true"></i>${escapeHtml(t("toolSidebar.nodeType"))}</span>
-      <span>${escapeHtml(t("toolSidebar.selected"))}</span>
-    </header>
-    <p class="tool-node-label">${escapeHtml(node.title)}</p>
-    <p class="tool-node-description">${escapeHtml(node.payload?.description || "")}</p>
-    <button class="tool-node-action" type="button" data-remove-presentation-tool>${t("toolSidebar.remove")}</button>
-    <footer>
-      <span>${escapeHtml(t("toolSidebar.toModify"))}</span>
-      <span>${escapeHtml(node.parent_modify_id || "")}</span>
-    </footer>
-  `;
-  article.querySelector("[data-remove-presentation-tool]").addEventListener("click", (event) => {
-    event.stopPropagation();
-    const modifyNode = activeCanvas?.nodes.find((item) => item.id === node.parent_modify_id);
-    if (!modifyNode) return;
-    setToolSelection(modifyNode, node.tool_id, false).catch((error) => {
-      setStatus(canvasStatus, "error");
-      canvasOutput.textContent = error.message;
-    });
-  });
   return article;
 }
 

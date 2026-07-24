@@ -61,17 +61,16 @@
         </header>
 
         <div class="workspace-layout">
-          <aside class="workspace-sidebar" aria-label="Workspace controls">
+          <aside class="workspace-sidebar" aria-label="Workspace tools">
             <nav class="canvas-tools" data-i18n-aria-label="canvas.tools" aria-label="Canvas tools">
-              <p class="sidebar-section-label" data-i18n="canvas.tools">Canvas tools</p>
-              <button type="button" data-add-node="text" data-i18n="nodes.text">Text</button>
-              <button type="button" data-add-node="conversation" data-i18n="nodes.conversation">Conversation</button>
-              <button type="button" data-add-node="upload" data-i18n="nodes.upload">Upload</button>
-              <button type="button" data-add-node="image" data-i18n="nodes.image">Image</button>
-              <button type="button" data-add-node="modify" data-i18n="nodes.modify">Modify</button>
-              <button type="button" data-add-node="operation" data-i18n="nodes.operation">Operation</button>
-              <button type="button" data-add-operation-definition="operation.guided-scenario" data-i18n="nodes.guidedScenario">Guided Scenario</button>
-              <button id="start-foundation-workflow" class="workflow-start" type="button" data-i18n="workflow.start">Start Four Futures flow</button>
+              <button type="button" data-add-node="text" data-rail-code="T" data-i18n="nodes.text" title="Text">Text</button>
+              <button type="button" data-add-node="conversation" data-rail-code="C" data-i18n="nodes.conversation" title="Conversation">Conversation</button>
+              <button type="button" data-add-node="upload" data-rail-code="U" data-i18n="nodes.upload" title="Upload">Upload</button>
+              <button type="button" data-add-node="image" data-rail-code="I" data-i18n="nodes.image" title="Image">Image</button>
+              <button type="button" data-add-node="modify" data-rail-code="M" data-i18n="nodes.modify" title="Modify">Modify</button>
+              <button type="button" data-add-node="operation" data-rail-code="O" data-i18n="nodes.operation" title="Operation">Operation</button>
+              <button type="button" data-add-operation-definition="operation.guided-scenario" data-rail-code="4" data-i18n="nodes.guidedScenario" title="Guided Scenario">Guided Scenario</button>
+              <button id="start-foundation-workflow" class="workflow-start" data-rail-code="F" type="button" data-i18n="workflow.start" title="Start Four Futures flow">Start Four Futures flow</button>
               <div class="zoom-controls" aria-label="Canvas zoom controls">
                 <button id="zoom-out" type="button" data-i18n-aria-label="canvas.zoomOut" aria-label="Zoom out">-</button>
                 <span id="zoom-level" class="zoom-level">100%</span>
@@ -80,13 +79,8 @@
             </nav>
 
             <section class="tool-sidebar" aria-labelledby="tool-sidebar-title">
-              <header class="panel-header">
-                <div>
-                  <p class="eyebrow" data-i18n="toolSidebar.eyebrow">Tool nodes</p>
-                  <h3 id="tool-sidebar-title" data-i18n="toolSidebar.title">Tools</h3>
-                </div>
-                <span id="tool-sidebar-count" class="panel-status">0</span>
-              </header>
+              <h3 id="tool-sidebar-title" class="sr-only" data-i18n="toolSidebar.title">Tools</h3>
+              <span id="tool-sidebar-count" class="sr-only">0</span>
               <div id="tool-sidebar-list" class="tool-sidebar-list"></div>
             </section>
           </aside>
@@ -119,28 +113,23 @@
               <aside id="overview-panel" class="overview-panel" aria-labelledby="navigator-title">
                 <header class="panel-header">
                   <div>
-                    <p class="eyebrow" data-i18n="navigator.eyebrow">Global graph</p>
-                    <h3 id="navigator-title" data-i18n="navigator.title">Navigator</h3>
+                    <p class="eyebrow" data-i18n="navigator.eyebrow">Canvas preview</p>
+                    <h3 id="navigator-title" data-i18n="navigator.title">Overview</h3>
                   </div>
                   <span id="navigator-revision" class="minimap-revision">r0</span>
                 </header>
                 <button id="global-map" class="global-map" type="button" data-i18n-aria-label="navigator.openGlobal" aria-label="Open global graph"></button>
-                <p class="navigator-hint" data-i18n="navigator.hint">Open the global graph, then select a local scope to return.</p>
-                <div class="navigator-section">
-                  <p class="micro-label" data-i18n="navigator.scopes">Scopes</p>
+                <div class="navigator-section overview-scope-switcher">
                   <div id="scope-list" class="scope-list"></div>
                 </div>
-                <div class="navigator-section">
-                  <p class="micro-label" data-i18n="navigator.proposals">Command proposals</p>
-                  <div id="command-proposals" class="command-proposals"></div>
-                </div>
+                <div id="command-proposals" class="command-proposals" hidden></div>
               </aside>
             </div>
 
             <section class="conversation-dock" aria-labelledby="conversation-title">
               <header class="panel-header">
                 <div>
-                  <p class="eyebrow" data-i18n="conversation.eyebrow">Conversation scope</p>
+                  <p class="eyebrow" data-i18n="conversation.eyebrow">Conversation</p>
                   <h3 id="conversation-title" data-i18n="conversation.emptyTitle">Working thread</h3>
                 </div>
                 <span id="conversation-policy" class="panel-status">confirm</span>

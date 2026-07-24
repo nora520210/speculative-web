@@ -44,6 +44,7 @@ from server.graph_store import (
     run_operation,
     resolve_command_proposal,
     select_four_futures_branch,
+    set_conversation_scope,
     start_four_futures_workflow,
     update_node,
     update_project,
@@ -407,6 +408,30 @@ class AppHandler(SimpleHTTPRequestHandler):
                 self.send_json({"error": str(exc)}, status=HTTPStatus.CONFLICT)
                 return
             self.send_json({"node": node})
+            return
+        if route and len(route) == 3 and route[1] == "conversations":
+            project_id, _, session_id = route
+            if not get_project(project_id):
+                self.send_json({"error": "Project not found."}, status=HTTPStatus.NOT_FOUND)
+                return
+            try:
+                payload = self.read_json_body()
+                scope_id = str(payload.get("active_scope_id") or "")
+                if not scope_id:
+                    raise ValueError("active_scope_id is required.")
+                session = set_conversation_scope(
+                    project_id,
+                    session_id,
+                    scope_id,
+                    expected_revision=self.expected_revision(payload),
+                )
+            except KeyError as exc:
+                self.send_json({"error": str(exc)}, status=HTTPStatus.NOT_FOUND)
+                return
+            except ValueError as exc:
+                self.send_json({"error": str(exc)}, status=HTTPStatus.CONFLICT)
+                return
+            self.send_json({"conversation": session})
             return
         self.send_error(HTTPStatus.NOT_FOUND, "Unknown endpoint")
 

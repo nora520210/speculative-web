@@ -76,6 +76,13 @@ node references; they do not mutate graph nodes. System and assistant feedback i
 limited to 200 characters so it remains usable as an in-workspace status signal; user
 research input retains the normal storage limit.
 
+`PATCH /api/projects/{project_id}/conversations/{session_id}`
+
+Changes that session's `active_scope_id`. The request must include the current
+`expected_revision`; the Scope must exist. The server records the change and advances
+the canvas revision, so the node projection and conversation cannot silently point to
+different Scopes.
+
 `POST /api/projects/{project_id}/conversations/{session_id}/guide-actions`
 
 Advances the default deterministic Four Futures entry guide. `begin` accepts the

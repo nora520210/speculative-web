@@ -4,10 +4,12 @@ from server.interaction_runtime import (
     append_message,
     assert_expected_revision,
     create_command_proposal,
+    ensure_interaction_data,
     interaction_payload,
     record_graph_event,
     resolve_command_proposal,
     scope_projection,
+    set_conversation_scope,
 )
 from server.operation_registry import list_operation_definitions
 
@@ -31,18 +33,41 @@ def test_default_demo_thread_uses_the_same_start_stage_as_the_conversation_guide
 
     assert session["guide"]["kind"] == "four_futures"
     assert session["guide"]["stage_id"] == "start"
-    assert session["active_scope_id"] == "scope-global"
+    assert session["active_scope_id"] == "scope-current-inquiry"
     assert session["progress"] == [
         {
             "id": "step-start",
             "label": "Start inquiry",
-            "scope_id": "scope-global",
+            "scope_id": "scope-current-inquiry",
             "status": "active",
             "workflow_stage_id": "start",
         }
     ]
-    assert session["messages"][1]["kind"] == "guide"
-    assert "Research Brief" in session["messages"][1]["body"]
+    assert session["messages"] == []
+
+
+def test_scope_selection_moves_the_linked_conversation_to_the_same_canonical_scope():
+    canvas = default_canvas("scope-sync-test")
+    session = canvas["conversation_sessions"][0]
+
+    updated = set_conversation_scope(canvas, session["id"], "scope-artifact-branch")
+
+    assert updated["active_scope_id"] == "scope-artifact-branch"
+    assert canvas["conversation_sessions"][0]["active_scope_id"] == "scope-artifact-branch"
+
+
+def test_untouched_intermediate_global_demo_entry_migrates_to_the_current_local_scope():
+    canvas = default_canvas("legacy-global-entry-test")
+    session = canvas["conversation_sessions"][0]
+    session["active_scope_id"] = "scope-global"
+    session["progress"][0]["scope_id"] = "scope-global"
+
+    ensure_interaction_data(canvas, seed_demo=True)
+
+    migrated = canvas["conversation_sessions"][0]
+    assert migrated["active_scope_id"] == "scope-current-inquiry"
+    assert migrated["progress"][0]["scope_id"] == "scope-current-inquiry"
+    assert migrated["messages"] == []
 
 
 def test_system_and_assistant_feedback_is_capped_without_truncating_user_research_input():
@@ -61,10 +86,12 @@ def test_system_and_assistant_feedback_is_capped_without_truncating_user_researc
 
 def test_interaction_payload_compacts_legacy_system_feedback():
     canvas = default_canvas("legacy-feedback-cap-test")
-    canvas["conversation_sessions"][0]["messages"][1]["body"] = "s" * 240
+    canvas["conversation_sessions"][0]["messages"].append(
+        {"role": "system", "kind": "guide", "body": "s" * 240}
+    )
 
     interaction = interaction_payload(canvas)
-    message = interaction["conversation_sessions"][0]["messages"][1]
+    message = interaction["conversation_sessions"][0]["messages"][0]
 
     assert len(message["body"]) == 200
     assert message["body"].endswith("…")

@@ -170,6 +170,11 @@ def demo_scopes(canvas: dict) -> list[dict]:
 
 
 def default_session(canvas: dict, *, seed_demo: bool = False) -> dict:
+    # Start the guided thread inside the local inquiry when that Scope exists.
+    # The global graph remains available as a navigator, but it should not be the
+    # default amount of information a new participant has to parse.
+    scope_ids = {scope.get("id") for scope in canvas.get("scopes", []) if isinstance(scope, dict)}
+    default_scope_id = "scope-current-inquiry" if "scope-current-inquiry" in scope_ids else "scope-global"
     if seed_demo and canvas.get("nodes"):
         return {
             "id": "session-workbench",
@@ -177,36 +182,17 @@ def default_session(canvas: dict, *, seed_demo: bool = False) -> dict:
             "status": "active",
             "control_policy": "confirm",
             "guide": default_guide(),
-            "active_scope_id": "scope-global",
+            "active_scope_id": default_scope_id,
             "progress": [
                 {
                     "id": "step-start",
                     "label": "Start inquiry",
-                    "scope_id": "scope-global",
+                    "scope_id": default_scope_id,
                     "status": "active",
                     "workflow_stage_id": "start",
                 },
             ],
-            "messages": [
-                {
-                    "id": "message-system-scope",
-                    "role": "system",
-                    "kind": "message",
-                    "body": "This conversation guides one canonical graph; it does not create a copied canvas.",
-                    "scope_id": "scope-global",
-                    "related_node_ids": [],
-                    "created_at": utc_now(),
-                },
-                {
-                    "id": "message-assistant-focus",
-                    "role": "assistant",
-                    "kind": "guide",
-                    "body": "Choose a starting point, then describe the topic you want to examine. The same information will appear in the editable Research Brief node.",
-                    "scope_id": "scope-global",
-                    "related_node_ids": [],
-                    "created_at": utc_now(),
-                },
-            ],
+            "messages": [],
             "created_at": utc_now(),
             "updated_at": utc_now(),
         }
@@ -216,12 +202,12 @@ def default_session(canvas: dict, *, seed_demo: bool = False) -> dict:
         "status": "active",
         "control_policy": "confirm",
         "guide": default_guide(),
-        "active_scope_id": "scope-global",
+        "active_scope_id": default_scope_id,
         "progress": [
             {
                 "id": new_id("step"),
                 "label": "Start inquiry",
-                "scope_id": "scope-global",
+                "scope_id": default_scope_id,
                 "status": "active",
                 "workflow_stage_id": "start",
             }
@@ -233,11 +219,11 @@ def default_session(canvas: dict, *, seed_demo: bool = False) -> dict:
 
 
 def is_legacy_demo_entry_session(session: dict) -> bool:
-    """Recognize only the old, untouched demo thread before replacing its phase labels.
+    """Recognize untouched demo entry records before applying the current clean seed.
 
-    A migrated demo used a three-step generic progress sequence while already carrying
-    the Four Futures guide.  Replacing that exact seed prevents contradictory feedback
-    without rewriting any user-authored conversation or workflow state.
+    Both historical demo forms are safe to replace: the original three-step narrative
+    and the brief intermediate one-step, global-Scope seed. Neither has user messages
+    or a workflow instance, so this migration cannot overwrite authored work.
     """
 
     if session.get("id") != "session-workbench":
@@ -245,12 +231,22 @@ def is_legacy_demo_entry_session(session: dict) -> bool:
     guide = session.get("guide") if isinstance(session.get("guide"), dict) else {}
     if guide.get("workflow_instance_id") or guide.get("stage_id") != "start":
         return False
-    progress_ids = {item.get("id") for item in session.get("progress", []) if isinstance(item, dict)}
+    progress = [item for item in session.get("progress", []) if isinstance(item, dict)]
+    progress_ids = {item.get("id") for item in progress}
     message_ids = {item.get("id") for item in session.get("messages", []) if isinstance(item, dict)}
-    return progress_ids == {"step-material", "step-inquiry", "step-artifact"} and message_ids == {
+    original_three_step_seed = progress_ids == {"step-material", "step-inquiry", "step-artifact"} and message_ids == {
         "message-system-scope",
         "message-assistant-focus",
     }
+    intermediate_global_seed = (
+        session.get("active_scope_id") == "scope-global"
+        and not message_ids
+        and len(progress) == 1
+        and progress[0].get("id") == "step-start"
+        and progress[0].get("scope_id") == "scope-global"
+        and progress[0].get("workflow_stage_id") == "start"
+    )
+    return original_three_step_seed or intermediate_global_seed
 
 
 def default_guide() -> dict:
@@ -632,6 +628,19 @@ def create_conversation(canvas: dict, payload: dict) -> dict:
         canvas,
     )
     canvas["conversation_sessions"].append(session)
+    return deepcopy(session)
+
+
+def set_conversation_scope(canvas: dict, session_id: str, scope_id: str) -> dict:
+    """Move one conversation and its graph projection to the same canonical Scope."""
+
+    session = next((item for item in canvas.get("conversation_sessions", []) if item.get("id") == session_id), None)
+    if not session:
+        raise KeyError(f"Conversation session not found: {session_id}")
+    if not get_scope(canvas, scope_id):
+        raise ValueError("Conversation scope does not exist.")
+    session["active_scope_id"] = scope_id
+    session["updated_at"] = utc_now()
     return deepcopy(session)
 
 

@@ -75,9 +75,13 @@ collaboration and worker execution need a transactional database plus object sto
 
 The canvas interface is a quiet research workspace with four persistent regions:
 
-1. A full-height left rail groups direct node creation, the Four Futures entry point,
-   zoom, and the tools selected by Modify nodes.
-2. The upper-left region renders the active Scope projection, not the entire graph.
+1. A 72px full-height left rail exposes direct node creation, the Four Futures entry
+   point, zoom, and the tools selected by Modify nodes as compact symbols. It is a
+   launcher, not a second content panel.
+2. The upper-left region renders the active Scope projection, not the entire graph;
+   a new guided thread begins in `scope-current-inquiry` when that local Scope exists.
+   Untouched historical demo sessions with the former global entry are migrated to this
+   same local start without changing authored conversations or workflows.
 3. The upper-right region is a persistent global-map navigator. Selecting a Scope
    changes the focused projection; it never creates or copies a second canvas.
 4. The lower region is the linked conversation session. Its entry state suppresses the
@@ -91,8 +95,10 @@ data. User research input is not shortened (up to the normal message storage lim
 This keeps feedback scannable without losing source material.
 
 The layout is only a projection of canonical Scope, graph, and conversation state.
-Selecting a Scope from the navigator changes the same active Scope used by the graph
-and conversation; visual cards do not introduce a second interaction state.
+Selecting a Scope from the navigator performs a revision-checked update of the linked
+conversation session before reloading the graph projection. The graph and conversation
+therefore share one active Scope; visual cards do not introduce a second interaction
+state.
 
 ### Extensible Operation Nodes
 

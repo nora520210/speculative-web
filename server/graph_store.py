@@ -41,6 +41,7 @@ from server.interaction_runtime import (
     record_graph_event,
     record_workflow_futures,
     resolve_command_proposal as resolve_command_proposal_record,
+    set_conversation_scope as set_conversation_scope_record,
     select_workflow_branch as select_workflow_branch_record,
     set_session_guide,
     scope_node_ids,
@@ -214,6 +215,21 @@ def add_conversation(project_id: str, payload: dict, expected_revision=None) -> 
     assert_expected_revision(canvas, expected_revision)
     session = create_conversation_record(canvas, payload)
     record_graph_event(canvas, "conversation.created", {"session_id": session["id"]})
+    write_canvas(project_id, canvas)
+    return session
+
+
+def set_conversation_scope(project_id: str, session_id: str, scope_id: str, expected_revision=None) -> dict:
+    """Persist a Scope change so conversation and projection cannot drift apart."""
+
+    canvas = read_canvas(project_id)
+    assert_expected_revision(canvas, expected_revision)
+    session = set_conversation_scope_record(canvas, session_id, scope_id)
+    record_graph_event(
+        canvas,
+        "conversation.scope_changed",
+        {"session_id": session_id, "scope_id": scope_id},
+    )
     write_canvas(project_id, canvas)
     return session
 
