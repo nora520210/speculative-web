@@ -559,6 +559,13 @@ function localizedReferenceTitle(title) {
     "Keywords to confirm": "待确认关键词",
     "Guided Scenario": "引导情境",
     "Discussion tools": "讨论工具",
+    "Growth scenario": "增长情境",
+    "Collapse scenario": "崩塌情境",
+    "Discipline scenario": "约束情境",
+    "Transformation scenario": "转型情境",
+    "Text Output": "文本输出",
+    "Image Output": "图像输出",
+    "Text+Image Output": "文本与图像输出",
   };
   return labels[title] || title;
 }
@@ -575,8 +582,21 @@ function localizedConversationBody(body) {
     "Start from a real research inquiry.": "从一个真实研究问题开始。",
     "Start from a design proposition.": "从一个设计命题开始。",
     "This conversation writes to the canonical research nodes. You can also edit those nodes directly; both routes update the same workflow record.": "这段对话会写入规范研究节点。你也可以直接编辑节点；两种方式都会更新同一条流程记录。",
+    "Four What-if futures are ready. Compare their assumptions and tensions, then choose one branch before beginning discussion.": "四条假设情境已生成。请比较它们的默认假设与张力，再选择一个方向开始讨论。",
+    "Generated four What-if futures from the current canonical inputs.": "已根据当前规范输入生成四条假设情境。",
+    "Selected a What-if branch and prepared its discussion tools.": "已选择一条假设情境方向，并准备好相应的讨论工具。",
+    "Ran Discussion tools and added a new output node.": "已运行讨论工具，并新增一个输出节点。",
+    "A What-if branch was edited directly. Re-run the comparison before using a selected branch.": "一条假设情境已被直接修改。使用已选方向前，请重新运行比较。",
+    "A workflow input changed. Its generated futures are now stale.": "流程输入已改变；此前生成的未来方向现已失效。",
+    "Connected two nodes.": "已连接两个节点。",
+    "Removed a connection between two nodes.": "已移除两个节点之间的连接。",
   };
-  return copy[body] || body;
+  if (copy[body]) return copy[body];
+  const selectedMethods = body.match(/^Updated discussion tools: (\d+) method\(s\) selected\.$/);
+  if (selectedMethods) return `讨论工具已更新：已选择 ${selectedMethods[1]} 个方法。`;
+  const operationOutput = body.match(/^Ran (.+) and added (\d+) output nodes\.$/);
+  if (operationOutput) return `已运行${localizedReferenceTitle(operationOutput[1])}，并新增 ${operationOutput[2]} 个输出节点。`;
+  return body;
 }
 
 function applyLocale(nextLocale) {
