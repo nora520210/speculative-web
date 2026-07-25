@@ -3,6 +3,12 @@
   "version": "0.2.0",
   "label": "Experiential Futures Ladder",
   "description": "Steps from broad future context to scenario, situation, and tangible stuff, clearly turning abstract foresight into embodied artifacts or scenes.",
+  "locales": {
+    "zh": {
+      "label": "体验式未来阶梯",
+      "description": "从宏观未来语境逐步进入情境、处境与具体物件，把抽象前瞻转化为可体验的实体或场景。"
+    }
+  },
   "layer": "tool",
   "family": "experiential futures / design research",
   "compatible_nodes": [

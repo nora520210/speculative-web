@@ -3,6 +3,12 @@
   "version": "0.3.0",
   "label": "Three Horizons",
   "description": "Separates current systems, transition practices, and emerging futures, linking long term visions back to near term actions, tensions, and priorities.",
+  "locales": {
+    "zh": {
+      "label": "三重地平线",
+      "description": "区分现有系统、过渡实践与新兴未来，把长期愿景重新连接到近期行动、张力与优先事项。"
+    }
+  },
   "layer": "tool",
   "family": "futures studies / transition design",
   "compatible_nodes": [

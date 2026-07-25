@@ -3,6 +3,12 @@
   "version": "0.6.0",
   "label": "Counterfactuals",
   "description": "Changes one historical or current condition to build a parallel reality, exposing contingency in technologies, institutions, values, artifacts, and behavior.",
+  "locales": {
+    "zh": {
+      "label": "反事实推演",
+      "description": "改变一个历史或当下条件，构建平行现实，揭示技术、制度、价值、物件与行为原本可以不同的可能性。"
+    }
+  },
   "layer": "tool",
   "family": "critical/speculative design",
   "compatible_nodes": [

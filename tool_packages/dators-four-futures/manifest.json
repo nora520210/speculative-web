@@ -3,6 +3,12 @@
   "version": "0.3.0",
   "label": "Dator's Four Futures",
   "description": "Generates four structurally different futures - growth, collapse, discipline, and transformation - to clearly challenge single path thinking and compare branch points.",
+  "locales": {
+    "zh": {
+      "label": "达托四种未来",
+      "description": "生成增长、崩塌、约束与转型四类结构不同的未来，用于打破单一路径思维并比较关键分叉点。"
+    }
+  },
   "layer": "tool",
   "family": "futures studies / design research",
   "compatible_nodes": [

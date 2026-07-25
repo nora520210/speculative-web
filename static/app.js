@@ -537,6 +537,48 @@ function nodeTypeLabel(type) {
   return translations[locale]?.[`nodes.${type}`] ? t(`nodes.${type}`) : type;
 }
 
+function localizedToolCopy(tool, field) {
+  const localCopy = locale === "zh" ? tool?.locales?.zh : null;
+  const localized = localCopy?.[field];
+  if (localized) return String(localized);
+  return String(tool?.[field] || tool?.id || "");
+}
+
+function toolById(toolId) {
+  for (const node of activeCanvas?.nodes || []) {
+    const tool = (node.config?.tools || []).find((item) => item.id === toolId);
+    if (tool) return tool;
+  }
+  return null;
+}
+
+function localizedReferenceTitle(title) {
+  if (locale !== "zh") return title;
+  const labels = {
+    "Research brief": "研究简报",
+    "Keywords to confirm": "待确认关键词",
+    "Guided Scenario": "引导情境",
+    "Discussion tools": "讨论工具",
+  };
+  return labels[title] || title;
+}
+
+function localizedConversationBody(body) {
+  if (locale !== "zh") return body;
+  const copy = {
+    "What should this inquiry focus on? You can write a short answer, skip it, or edit the Research brief node directly.": "这项研究应聚焦什么？你可以简短回答、跳过，或直接编辑“研究简报”节点。",
+    "The research brief and keyword scaffold are ready. Review either node if needed, then run Guided Scenario to compare four What-if futures.": "研究简报和关键词框架已就绪。需要时可检查这两个节点，然后运行“引导情境”来比较四条假设情境。",
+    "What assumptions currently shape this topic? Add one per line or sentence; you can also skip.": "目前有哪些默认假设正在塑造这个议题？每行或每句写一项，也可以跳过。",
+    "Who is affected, involved, or able to act? Add stakeholders or skip.": "谁会受到影响、参与其中或有能力行动？请补充利益相关者，也可以跳过。",
+    "What is the central tension or trade-off? Add one or more, or skip.": "核心张力或权衡是什么？请补充一项或多项，也可以跳过。",
+    "Keywords are confirmed. The four What-if stage is ready; run the Guided Scenario node when you want to generate the four directions.": "关键词已确认。现在可以运行“引导情境”节点，生成四条假设情境方向。",
+    "Start from a real research inquiry.": "从一个真实研究问题开始。",
+    "Start from a design proposition.": "从一个设计命题开始。",
+    "This conversation writes to the canonical research nodes. You can also edit those nodes directly; both routes update the same workflow record.": "这段对话会写入规范研究节点。你也可以直接编辑节点；两种方式都会更新同一条流程记录。",
+  };
+  return copy[body] || body;
+}
+
 function applyLocale(nextLocale) {
   locale = nextLocale === "zh" ? "zh" : "en";
   document.documentElement.lang = locale === "zh" ? "zh-CN" : "en";
@@ -943,9 +985,9 @@ function renderConversationMessage(message) {
   return `
     <article class="conversation-message ${escapeHtml(message.role)} ${escapeHtml(message.kind || "message")} is-${messageState}">
       <span class="message-role">${escapeHtml(t(`conversation.${message.role}`))}</span>
-      <p>${escapeHtml(message.role === "user" ? message.body : compactConversationText(message.body))}</p>
+      <p>${escapeHtml(message.role === "user" ? message.body : compactConversationText(localizedConversationBody(message.body)))}</p>
       ${meta ? `<small class="message-activity-state">${escapeHtml(meta)}</small>` : ""}
-      ${refs.length ? `<small class="message-node-refs">${escapeHtml(refs.map((ref) => ref.title || ref.id).join(" · "))}</small>` : ""}
+      ${refs.length ? `<small class="message-node-refs">${escapeHtml(refs.map((ref) => localizedReferenceTitle(ref.title || ref.id)).join(" · "))}</small>` : ""}
     </article>
   `;
 }
@@ -1064,7 +1106,7 @@ function renderStagePresentation(stages) {
       return `
         <article class="stage-tool-card" data-card-kind="${escapeHtml(presentation.card_kind || "tool")}" data-icon-token="${escapeHtml(presentation.icon_token || tool.id || "tool")}" data-accent-token="${escapeHtml(presentation.accent_token || "neutral")}">
           <span class="stage-tool-glyph" aria-hidden="true"><i></i><i></i><i></i></span>
-          <span class="stage-tool-copy"><strong>${escapeHtml(tool.label || tool.id)}</strong><small>${escapeHtml(presentation.card_kind || t("stagePresentation.methods"))}</small></span>
+          <span class="stage-tool-copy"><strong>${escapeHtml(localizedToolCopy(tool, "label"))}</strong><small>${escapeHtml(presentation.card_kind || t("stagePresentation.methods"))}</small></span>
         </article>
       `;
     }).join("")
@@ -1161,8 +1203,8 @@ function renderToolSidebar() {
             data-sidebar-modify-id="${escapeHtml(node.id)}"
             data-sidebar-tool-id="${escapeHtml(tool.id)}"
             data-card-kind="${escapeHtml(tool.presentation?.card_kind || "tool")}"
-            title="${escapeHtml(tool.description || tool.label || tool.id)}"
-          ><span class="tool-card-mark" aria-hidden="true"></span><span>${escapeHtml(tool.label || tool.id)}</span>${recommendedIds.has(tool.id) ? `<small>${escapeHtml(t("toolSidebar.recommended"))}</small>` : ""}</button>
+            title="${escapeHtml(localizedToolCopy(tool, "description"))}"
+          ><span class="tool-card-mark" aria-hidden="true"></span><span>${escapeHtml(localizedToolCopy(tool, "label"))}</span>${recommendedIds.has(tool.id) ? `<small>${escapeHtml(t("toolSidebar.recommended"))}</small>` : ""}</button>
         `).join("")}
       </section>
     `;
@@ -1770,7 +1812,7 @@ function renderRecommendation(recommendation) {
     .map(
       (item) => `
         <li class="recommendation-item" tabindex="0">
-          <span class="recommendation-tool">${escapeHtml(item.label)}</span>
+          <span class="recommendation-tool">${escapeHtml(localizedToolCopy(toolById(item.tool_id) || item, "label"))}</span>
           <strong>${escapeHtml(outputLabel(item.type))}</strong>
           ${item.reason ? `<span class="tool-tooltip recommendation-tooltip" role="tooltip">${escapeHtml(item.reason)}</span>` : ""}
         </li>

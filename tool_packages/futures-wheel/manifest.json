@@ -3,6 +3,12 @@
   "version": "0.4.0",
   "label": "Futures Wheel",
   "description": "Expands one change into first, second, and third order impacts, helping trace indirect consequences, risks, opportunities, and affected stakeholders for discussion.",
+  "locales": {
+    "zh": {
+      "label": "未来轮",
+      "description": "将一个变化展开为一阶、二阶与三阶影响，追踪间接后果、风险、机会及受影响的利益相关者。"
+    }
+  },
   "layer": "tool",
   "family": "futures studies / design research",
   "compatible_nodes": [

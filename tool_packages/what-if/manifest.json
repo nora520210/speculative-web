@@ -3,6 +3,12 @@
   "version": "0.4.0",
   "label": "What-If Scenarios",
   "description": "Turns broad research into a sharp what if condition, revealing everyday consequences, affected groups, risks, values, and discussable speculative scenarios.",
+  "locales": {
+    "zh": {
+      "label": "假设情境",
+      "description": "把宽泛议题转成清晰的“如果……会怎样”条件，呈现日常后果、受影响群体、风险、价值冲突与可讨论的思辨情境。"
+    }
+  },
   "layer": "tool",
   "family": "speculative design",
   "compatible_nodes": [

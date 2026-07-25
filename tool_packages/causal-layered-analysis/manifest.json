@@ -3,6 +3,12 @@
   "version": "0.5.0",
   "label": "Causal Layered Analysis",
   "description": "Moves from surface events into systems, worldviews, and deep metaphors, critically revealing hidden assumptions and reframing the design question underneath.",
+  "locales": {
+    "zh": {
+      "label": "因果层次分析",
+      "description": "从表层事件进入系统、世界观与深层隐喻，揭示隐含假设，并重新界定其下的设计问题。"
+    }
+  },
   "layer": "tool",
   "family": "futures studies / design research",
   "compatible_nodes": [

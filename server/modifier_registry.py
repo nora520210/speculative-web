@@ -174,6 +174,7 @@ def normalize_registry_tool(tool: dict) -> dict:
         "version": str(tool.get("version") or "0.1.0"),
         "label": str(tool["label"]),
         "description": str(tool.get("description") or ui.get("short_description") or ""),
+        "locales": normalize_tool_locales(tool.get("locales")),
         "layer": str(tool.get("layer") or "tool"),
         "family": str(tool.get("family") or "speculative design"),
         "compatible_nodes": tool.get("compatible_nodes") or ["modify"],
@@ -200,6 +201,29 @@ def normalize_registry_tool(tool: dict) -> dict:
         if key in tool:
             normalized[key] = deepcopy(tool[key])
     return normalized
+
+
+def normalize_tool_locales(value: object) -> dict:
+    """Expose package-owned display copy without coupling it to the frontend.
+
+    Labels and short descriptions are deliberately the only localized fields at
+    this layer; theory, contracts, and execution remain canonical package data.
+    """
+
+    if not isinstance(value, dict):
+        return {}
+    locales = {}
+    for language, copy in value.items():
+        if not isinstance(copy, dict):
+            continue
+        label = str(copy.get("label") or "").strip()
+        description = str(copy.get("description") or "").strip()
+        if label or description:
+            locales[str(language)] = {
+                "label": label[:120],
+                "description": description[:420],
+            }
+    return locales
 
 
 def normalize_tool_presentation(value, tool: dict) -> dict:
@@ -271,6 +295,7 @@ def default_modifier_tools() -> list[dict]:
             "label": tool["label"],
             "version": tool["version"],
             "description": tool.get("description", ""),
+            "locales": deepcopy(tool.get("locales", {})),
             "selected": tool["selected"],
         }
         for tool in _registry_tools()
@@ -284,6 +309,7 @@ def public_modifier_tools() -> list[dict]:
             "label": tool["label"],
             "version": tool["version"],
             "description": tool.get("description", ""),
+            "locales": deepcopy(tool.get("locales", {})),
             "layer": tool.get("layer", "tool"),
             "family": tool.get("family", "speculative design"),
             "compatible_nodes": deepcopy(tool.get("compatible_nodes", ["modify"])),
@@ -312,6 +338,7 @@ def normalize_modifier_tools(configured_tools: list[dict] | None) -> list[dict]:
                 "label": registry_tool["label"],
                 "version": registry_tool["version"],
                 "description": registry_tool.get("description", ""),
+                "locales": deepcopy(registry_tool.get("locales", {})),
                 "layer": registry_tool.get("layer", "tool"),
                 "family": registry_tool.get("family", "speculative design"),
                 "compatible_nodes": deepcopy(registry_tool.get("compatible_nodes", ["modify"])),
@@ -339,6 +366,7 @@ def tool_snapshot(tool_ids: list[str]) -> list[dict]:
             "version": by_id.get(tool_id, {}).get("version", "unknown"),
             "label": by_id.get(tool_id, {}).get("label", tool_id),
             "description": by_id.get(tool_id, {}).get("description", ""),
+            "locales": deepcopy(by_id.get(tool_id, {}).get("locales", {})),
             "layer": by_id.get(tool_id, {}).get("layer", "tool"),
             "family": by_id.get(tool_id, {}).get("family", "speculative design"),
             "compatible_nodes": deepcopy(by_id.get(tool_id, {}).get("compatible_nodes", ["modify"])),

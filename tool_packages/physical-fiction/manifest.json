@@ -3,6 +3,12 @@
   "version": "0.2.0",
   "label": "Physical Fiction",
   "description": "Materializes a speculative world as an inspectable object, prototype, prop, or exhibit that lets viewers infer systems, users, and rules.",
+  "locales": {
+    "zh": {
+      "label": "实体化虚构",
+      "description": "把思辨世界落实为可检视的物件、原型、道具或展陈，让观者从中推断系统、使用者与规则。"
+    }
+  },
   "layer": "tool",
   "family": "design fiction",
   "compatible_nodes": [

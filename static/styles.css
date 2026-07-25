@@ -5264,14 +5264,45 @@ textarea:focus-visible {
   padding: 14px 18px 24px;
 }
 
-.conversation-history-dialog-messages .conversation-message {
+.conversation-history-dialog-messages .conversation-message,
+.conversation-history-dialog-messages .conversation-message.assistant {
   max-width: 680px;
+  border-left: 0;
   padding: 9px 0;
 }
 
-.conversation-history-dialog-messages .conversation-message.assistant {
-  border-left: 2px solid var(--chrome-border);
-  padding-left: 11px;
+/* Remove contextual repetition and free-standing rules from the active product
+   surface. Boundaries remain only where they frame an actionable object. */
+.canvas-shell.active .workflow-context-hidden,
+.canvas-shell.active .conversation-scope-indicator {
+  display: none !important;
+}
+
+.canvas-shell.active .canvas-bar {
+  align-items: center;
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.canvas-shell.active .canvas-identity {
+  min-width: 0;
+}
+
+.canvas-shell.active .workspace-sidebar,
+.canvas-shell.active .workspace-sidebar .canvas-tools,
+.canvas-shell.active .workflow-panel-header,
+.canvas-shell.active .overview-panel .panel-header,
+.canvas-shell.active .conversation-dock .panel-header,
+.canvas-shell.active .conversation-guide-actions {
+  border-color: transparent;
+}
+
+.canvas-shell.active .workspace-sidebar .canvas-tools {
+  border-bottom: 0;
+}
+
+.canvas-shell.active .workflow-panel {
+  grid-template-rows: minmax(0, 1fr);
 }
 
 @media (max-width: 760px) {

@@ -3,6 +3,12 @@
   "version": "0.3.0",
   "label": "Envisioning Cards",
   "description": "Creates prompt cards that test stakeholders, time scales, values, and diffusion, helping teams critically review long term ethical effects early.",
+  "locales": {
+    "zh": {
+      "label": "愿景卡片",
+      "description": "以提示卡检验利益相关者、时间尺度、价值与扩散路径，帮助团队及早审视长期伦理影响。"
+    }
+  },
   "layer": "tool",
   "family": "design ethics / design research",
   "compatible_nodes": [

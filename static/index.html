@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Speculative Web</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20260725-conversation-history" />
+    <link rel="stylesheet" href="/static/styles.css?v=20260725-tool-locales" />
   </head>
   <body>
     <main id="app-shell" class="app-shell">
@@ -42,12 +42,12 @@
 
       <section class="canvas-shell" data-i18n-aria-label="canvas.workspace" aria-label="Canvas workspace">
         <header class="canvas-bar">
-          <button id="back-home" type="button" data-i18n="common.index">Index</button>
-          <div>
+          <div class="canvas-identity">
             <p class="eyebrow" data-i18n="canvas.active">Active Canvas</p>
             <h2 id="canvas-title">Speculative Canvas</h2>
           </div>
           <div class="top-actions">
+            <button id="back-home" type="button" data-i18n="common.index">Index</button>
             <button id="delete-active-project" class="canvas-delete" type="button" data-i18n="canvas.delete">Delete Canvas</button>
             <button class="language-toggle" type="button" data-language-toggle>中文</button>
             <button class="theme-toggle" type="button" data-theme-toggle>Dark</button>
@@ -83,7 +83,7 @@
           <main class="workspace-main">
             <div class="workspace-top-grid">
               <section class="workflow-panel" aria-labelledby="scope-view-title">
-                <header class="workflow-panel-header">
+                <header class="workflow-panel-header workflow-context-hidden" aria-hidden="true">
                   <div>
                     <p class="eyebrow" data-i18n="workflowStrip.eyebrow">Guided process</p>
                     <h3 id="scope-view-title" data-i18n="scope.loading">Loading scope</h3>
@@ -315,6 +315,6 @@
           </form>
         </div>
     </section>
-    <script src="/static/app.js?v=20260725-conversation-history"></script>
+    <script src="/static/app.js?v=20260725-tool-locales"></script>
   </body>
 </html>

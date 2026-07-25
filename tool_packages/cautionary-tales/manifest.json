@@ -3,6 +3,12 @@
   "version": "0.4.0",
   "label": "Cautionary Tales",
   "description": "Extends a current trend toward an unwanted everyday consequence, using warning, satire, or dark design to expose hidden costs and values.",
+  "locales": {
+    "zh": {
+      "label": "警示故事",
+      "description": "将当下趋势延展到不愿发生的日常后果，用警示、讽刺或黑暗设计揭示被忽略的代价与价值取舍。"
+    }
+  },
   "layer": "tool",
   "family": "critical/speculative design",
   "compatible_nodes": [

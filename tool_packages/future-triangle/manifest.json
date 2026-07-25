@@ -3,6 +3,12 @@
   "version": "0.3.0",
   "label": "Futures Triangle",
   "description": "Maps a topic through future pull, present push, and historical weight, revealing tensions, drivers, constraints, and possible intervention points for discussion.",
+  "locales": {
+    "zh": {
+      "label": "未来三角",
+      "description": "从未来拉力、当下推力与历史负担三方面梳理议题，识别张力、驱动因素、限制条件与可介入的位置。"
+    }
+  },
   "layer": "tool",
   "family": "futures studies / design research",
   "compatible_nodes": [
