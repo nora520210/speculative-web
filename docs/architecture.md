@@ -6,7 +6,7 @@ This prototype is organized around a graph runtime rather than a chat page.
 
 - `static/index.html`: homepage and canvas workspace shell.
 - `static/app.js`: graph interaction, node rendering, connection creation, zoom, theme and interface-language toggling, API calls.
-- `static/styles.css`: black/white experimental visual system with light and dark variable sets.
+- `static/styles.css`: tokenized workspace visual system with light and dark variable sets; the earlier black-and-white experimental treatment is not the active presentation mode.
 - `app.py`: stdlib HTTP API and static file server.
 - `api/index.py`: Vercel serverless entrypoint that reuses the HTTP handler.
 - `server/graph_store.py`: file-backed projects, canvases, nodes, edges, runs, and runtime snapshots.
@@ -38,6 +38,9 @@ that graph, never a second canvas that copies nodes.
   policy, progress steps, and a small deterministic `guide` cursor. Messages reference
   node IDs and scopes; they do not duplicate node content into a parallel graph. A
   message may be ordinary conversation, a guide prompt, or a graph `activity` record.
+  Each record also preserves a small node-title reference and a state (`active`,
+  `superseded`, or `removed`) so a graph deletion never deletes the corresponding
+  conversational trace.
 - `CommandProposal` represents an intended graph action such as `create_node`,
   `patch_node`, `connect_nodes`, or `create_scope`. Its lifecycle is
   `proposed -> approved | rejected -> applied`.
@@ -87,7 +90,9 @@ The canvas interface is a quiet research workspace with four persistent regions:
 4. The lower region is the linked conversation session. Its entry state suppresses the
    progress strip and message history: it shows one default-path hint, one optional
    mode switch, and the input. Contextual prompts appear only when a guide stage needs
-   a decision.
+   a decision. Once a thread has content, its message area has an independent scroll
+   history per session, so researchers can review earlier reasoning without changing
+   the graph Scope.
 
 System, guide, activity, and assistant messages are capped to 200 characters by the
 runtime before persistence and are capped again by the presentation layer for legacy
@@ -157,7 +162,11 @@ path requested for the early and middle research process:
    Scope containing all four results. The existing Four Futures executor keeps its
    canonical `growth`, `collapse`, `discipline`, and `transformation` strategies.
 5. Require an explicit human branch selection before the conversation enters that
-   branch's isolated Scope. Only then does the workflow become a focused discussion.
+   branch's isolated Scope. Selection creates one empty `Modify` discussion node,
+   connects the selected branch to it with a direct `data` edge, and adds it to that
+   Scope's snapshot. The workflow manifest sets its minimum selected-tool count and
+   branch-specific recommendations; the registry still owns tool theory, contracts,
+   and future card presentation. No tool is preselected.
 
 If either workflow input is edited after branch generation, the workflow and its old
 branch artifacts become `stale`. The user must run the four futures again rather than
@@ -178,7 +187,11 @@ What-if runs cannot combine a new brief with old keywords.
 The user can at any time take the equivalent node route: edit a node, connect or
 remove an edge, delete a branch, or select a branch from the graph. Semantic graph
 changes append an `activity` message to the linked conversation session with node
-references. Layout-only moves do not create noise in the timeline.
+references. Layout-only moves do not create noise in the timeline. If a manual edit
+invalidates a generated branch, its earlier conversational records stay visible but
+become `superseded`; if a node is deleted, related records become `removed`. The
+presentation renders those entries in muted text with a small statement that the
+current flow no longer contains that speculative part.
 
 For a workflow-owned Guided Scenario operation, `source_node_ids` and
 `input_edge_ids` record the semantic direct `data` inputs and their provenance at

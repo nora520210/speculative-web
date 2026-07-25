@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Speculative Web</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20260724-ui11" />
+    <link rel="stylesheet" href="/static/styles.css?v=20260725-conversation-history" />
   </head>
   <body>
     <main id="app-shell" class="app-shell">
@@ -130,7 +130,7 @@
               <div id="conversation-progress" class="conversation-progress"></div>
               <div id="conversation-guide-actions" class="conversation-guide-actions" aria-live="polite"></div>
               <div class="conversation-dock-body">
-                <div id="conversation-messages" class="conversation-messages" aria-live="polite"></div>
+                <div id="conversation-messages" class="conversation-messages" role="log" aria-live="polite" aria-relevant="additions text" data-i18n-aria-label="conversation.history" aria-label="Conversation history"></div>
                 <form id="conversation-form" class="conversation-form">
                   <label class="sr-only" for="conversation-input" data-i18n="conversation.inputLabel">Add to conversation</label>
                   <textarea id="conversation-input" rows="3" data-i18n-placeholder="conversation.placeholder" placeholder="Add a research instruction for this scope"></textarea>
@@ -138,6 +138,17 @@
                 </form>
               </div>
             </section>
+
+            <dialog id="conversation-history-dialog" class="conversation-history-dialog" aria-labelledby="conversation-history-dialog-title">
+              <header class="conversation-history-dialog-header">
+                <div>
+                  <p class="eyebrow" data-i18n="conversation.history">Conversation history</p>
+                  <h2 id="conversation-history-dialog-title">完整对话记录</h2>
+                </div>
+                <button id="conversation-history-close" class="conversation-history-close" type="button" aria-label="关闭对话记录">关闭</button>
+              </header>
+              <div id="conversation-history-dialog-messages" class="conversation-history-dialog-messages" role="log" aria-live="polite" aria-relevant="additions text"></div>
+            </dialog>
           </main>
         </div>
 
@@ -304,6 +315,6 @@
           </form>
         </div>
     </section>
-    <script src="/static/app.js?v=20260724-ui10"></script>
+    <script src="/static/app.js?v=20260725-conversation-history"></script>
   </body>
 </html>

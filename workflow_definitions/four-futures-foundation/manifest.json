@@ -1,6 +1,6 @@
 {
   "id": "workflow.four-futures-foundation",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "label": "Four Futures foundation",
   "description": "A low-friction research path: frame one inquiry, confirm keywords, compare four What-if futures, choose one branch, then discuss it in a focused scope.",
   "start_input": {
@@ -45,9 +45,18 @@
       "id": "discussion",
       "label": "Discuss the chosen future",
       "kind": "conversation",
-      "description": "Move the existing conversation session into the selected branch Scope. Tool, image, and summary operations may be added later."
+      "description": "Move the existing conversation session into the selected branch Scope, attach one empty discussion-tool node, and require one selected method before a later scenario or materialisation run."
     }
   ],
+  "discussion_tool_policy": {
+    "minimum_selected": 1,
+    "recommended_by_branch": {
+      "growth": ["futures-wheel"],
+      "collapse": ["cautionary-tales"],
+      "discipline": ["causal-layered-analysis"],
+      "transformation": ["experiential-futures-ladder"]
+    }
+  },
   "ui": {
     "start_label": "Start Four Futures flow",
     "start_mode_options": [

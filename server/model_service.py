@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from http.client import RemoteDisconnected
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -86,16 +87,33 @@ def require_openai_key(api_key: str | None = None) -> str:
     return key
 
 
-def generate_modify_response(prompt: str, api_key: str | None = None, image_inputs: list[dict] | None = None) -> dict:
+def generate_modify_response(
+    prompt: str,
+    api_key: str | None = None,
+    image_inputs: list[dict] | None = None,
+    max_output_tokens: int = 1200,
+) -> dict:
     if not openai_runs_enabled():
         raise ModelServiceNotConfigured("OpenAI runs are disabled for this process.")
     key = require_openai_key(api_key)
     model = resolve_model(key)
     try:
-        return call_responses_api(key, model, prompt, image_inputs=image_inputs)
+        return call_responses_api(
+            key,
+            model,
+            prompt,
+            image_inputs=image_inputs,
+            max_output_tokens=max_output_tokens,
+        )
     except ModelServiceError as responses_error:
         try:
-            result = call_chat_completions_api(key, model, prompt, image_inputs=image_inputs)
+            result = call_chat_completions_api(
+                key,
+                model,
+                prompt,
+                image_inputs=image_inputs,
+                max_output_tokens=max_output_tokens,
+            )
             result["fallback_reason"] = str(responses_error)
             return result
         except ModelServiceError:
@@ -154,7 +172,13 @@ def resolve_model(key: str) -> str:
     return "gpt-4.1-mini"
 
 
-def call_responses_api(key: str, model: str, prompt: str, image_inputs: list[dict] | None = None) -> dict:
+def call_responses_api(
+    key: str,
+    model: str,
+    prompt: str,
+    image_inputs: list[dict] | None = None,
+    max_output_tokens: int = 1200,
+) -> dict:
     content = [{"type": "input_text", "text": prompt}]
     content.extend(
         {
@@ -171,7 +195,7 @@ def call_responses_api(key: str, model: str, prompt: str, image_inputs: list[dic
         {
             "model": model,
             "input": [{"role": "user", "content": content}],
-            "max_output_tokens": 1200,
+            "max_output_tokens": max(256, min(int(max_output_tokens), 4096)),
         },
         timeout=60,
     )
@@ -186,7 +210,13 @@ def call_responses_api(key: str, model: str, prompt: str, image_inputs: list[dic
     }
 
 
-def call_chat_completions_api(key: str, model: str, prompt: str, image_inputs: list[dict] | None = None) -> dict:
+def call_chat_completions_api(
+    key: str,
+    model: str,
+    prompt: str,
+    image_inputs: list[dict] | None = None,
+    max_output_tokens: int = 1200,
+) -> dict:
     content: str | list[dict] = prompt
     if image_inputs:
         content = [{"type": "text", "text": prompt}]
@@ -210,7 +240,7 @@ def call_chat_completions_api(key: str, model: str, prompt: str, image_inputs: l
                 },
                 {"role": "user", "content": content},
             ],
-            "max_tokens": 1200,
+            "max_tokens": max(256, min(int(max_output_tokens), 4096)),
         },
         timeout=60,
     )
@@ -246,20 +276,30 @@ def openai_json_request(
             "Content-Type": "application/json",
         },
     )
-    try:
-        with urlopen(request, timeout=timeout) as response:
-            raw = response.read().decode("utf-8")
-            return json.loads(raw or "{}")
-    except HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")[:500]
-        raise ModelServiceError(f"OpenAI request failed with HTTP {exc.code}: {detail}") from exc
-    except (URLError, RemoteDisconnected, ConnectionError, OSError) as exc:
-        reason = getattr(exc, "reason", None) or str(exc) or exc.__class__.__name__
-        raise ModelServiceError(f"OpenAI request failed: {reason}") from exc
-    except TimeoutError as exc:
-        raise ModelServiceError("OpenAI request timed out.") from exc
-    except json.JSONDecodeError as exc:
-        raise ModelServiceError("OpenAI returned invalid JSON.") from exc
+    # A transient close before the HTTP status line is common on long-lived desktop
+    # connections. Retry the same idempotent request body a small, bounded number
+    # of times before letting the graph executor surface a real failure.
+    transient_error = None
+    for attempt in range(3):
+        try:
+            with urlopen(request, timeout=timeout) as response:
+                raw = response.read().decode("utf-8")
+                try:
+                    return json.loads(raw or "{}")
+                except json.JSONDecodeError as exc:
+                    raise ModelServiceError("OpenAI returned invalid JSON.") from exc
+        except HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")[:500]
+            raise ModelServiceError(f"OpenAI request failed with HTTP {exc.code}: {detail}") from exc
+        except (URLError, RemoteDisconnected, ConnectionError, OSError, TimeoutError) as exc:
+            transient_error = exc
+            if attempt < 2:
+                time.sleep(0.5 * (attempt + 1))
+                continue
+    if isinstance(transient_error, TimeoutError):
+        raise ModelServiceError("OpenAI request timed out.") from transient_error
+    reason = getattr(transient_error, "reason", None) or str(transient_error) or transient_error.__class__.__name__
+    raise ModelServiceError(f"OpenAI request failed: {reason}") from transient_error
 
 
 def extract_responses_text(response: dict) -> str:

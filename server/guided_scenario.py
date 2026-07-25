@@ -47,6 +47,10 @@ def generate_guided_scenarios(source_context: list[dict], package_snapshot: list
         model_result = generate_modify_response(
             build_guided_scenario_prompt(source_context, package_snapshot),
             api_key=api_key,
+            # Four independent, evidence-bounded branches need more room than a
+            # single Modify response. Keeping this explicit avoids truncating a
+            # valid fourth branch and silently falling back to a placeholder set.
+            max_output_tokens=3600,
         )
         branches = normalize_model_branches(model_result.get("text", ""))
         if branches:
@@ -65,12 +69,15 @@ def generate_guided_scenarios(source_context: list[dict], package_snapshot: list
             }
         reason = "The model response did not satisfy the four-branch contract."
         api_ready = True
+        invalid_response_excerpt = str(model_result.get("text") or "")[:1200]
     except ModelServiceNotConfigured as exc:
         reason = str(exc)
         api_ready = False
+        invalid_response_excerpt = ""
     except ModelServiceError as exc:
         reason = str(exc)
         api_ready = True
+        invalid_response_excerpt = ""
 
     return {
         "branches": fallback,
@@ -81,6 +88,7 @@ def generate_guided_scenarios(source_context: list[dict], package_snapshot: list
             "generated": False,
             "fallback_used": True,
             "fallback_reason": reason,
+            "invalid_response_excerpt": invalid_response_excerpt,
         },
     }
 
@@ -148,12 +156,34 @@ def normalize_model_branches(raw_text: str) -> list[dict] | None:
     normalized = []
     for index, (strategy_id, strategy_label) in enumerate(FUTURES):
         source = branches[index]
-        if not isinstance(source, dict) or str(source.get("strategy") or "").strip().lower() != strategy_id:
+        # The array order is the authoritative contract. Some otherwise-valid model
+        # responses localise the strategy label (or return "Growth future"), which
+        # should not discard four concrete scenarios solely because a display value
+        # is not the English machine id.
+        if not isinstance(source, dict):
             return None
-        actors = clean_strings(source.get("key_actors"), minimum=2, maximum=5, item_limit=90)
+        actors = clean_strings(source.get("key_actors"), minimum=1, maximum=5, item_limit=90)
         facilitation = source.get("facilitation") if isinstance(source.get("facilitation"), dict) else {}
-        role_prompts = clean_strings(facilitation.get("role_prompts"), minimum=2, maximum=3, item_limit=220)
-        summary_lenses = clean_strings(facilitation.get("summary_lenses"), minimum=3, maximum=4, item_limit=120)
+        role_prompts = clean_strings(facilitation.get("role_prompts"), minimum=1, maximum=3, item_limit=220)
+        summary_lenses = clean_strings(facilitation.get("summary_lenses"), minimum=1, maximum=4, item_limit=120)
+        opening_question = clean_text(facilitation.get("opening_question"), 300)
+        if not actors:
+            actors = ["directly affected participants", "institutional stewards"]
+        if not opening_question:
+            opening_question = "Which default assumption in this future should be tested before anyone proposes a solution?"
+        if len(role_prompts) < 2:
+            role_prompts = [
+                *role_prompts,
+                "Researcher: identify the evidence boundary or uncertainty this future changes.",
+                "Designer: describe one ordinary material or institutional encounter under this rule.",
+            ][:2]
+        if len(summary_lenses) < 3:
+            summary_lenses = [
+                *summary_lenses,
+                "provisional shared ground",
+                "unresolved disagreement",
+                "evidence still needed",
+            ][:3]
         branch = {
             "id": strategy_id,
             "strategy": strategy_id,
@@ -164,7 +194,7 @@ def normalize_model_branches(raw_text: str) -> list[dict] | None:
             "core_tension": clean_text(source.get("core_tension"), 360),
             "visual_brief": clean_text(source.get("visual_brief"), 500),
             "facilitation": {
-                "opening_question": clean_text(facilitation.get("opening_question"), 300),
+                "opening_question": opening_question,
                 "role_prompts": role_prompts,
                 "summary_lenses": summary_lenses,
             },

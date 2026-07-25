@@ -1557,6 +1557,71 @@ pre {
   }
 }
 
+/* Conversation history and discussion-tool policy are state views, not a second
+   graph. Keep invalidated thought visible, quiet, and recoverable in the thread. */
+.canvas-shell.active .conversation-dock .conversation-messages {
+  scrollbar-gutter: stable;
+}
+
+.canvas-shell.active .conversation-dock .conversation-message.is-superseded,
+.canvas-shell.active .conversation-dock .conversation-message.is-removed {
+  opacity: 0.62;
+}
+
+.canvas-shell.active .conversation-dock .conversation-message.is-superseded p,
+.canvas-shell.active .conversation-dock .conversation-message.is-removed p {
+  color: var(--muted);
+}
+
+.canvas-shell.active .conversation-dock .message-activity-state,
+.canvas-shell.active .conversation-dock .message-node-refs {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.canvas-shell.active .conversation-dock .message-activity-state {
+  font-style: italic;
+}
+
+.canvas-shell.active .workspace-sidebar .tool-sidebar-policy {
+  width: 100%;
+  margin: 0 0 5px;
+  padding: 0 12px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.canvas-shell.active .workspace-sidebar .tool-sidebar-row {
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  column-gap: 8px;
+}
+
+.canvas-shell.active .workspace-sidebar .tool-sidebar-row > span:not(.tool-card-mark) {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.canvas-shell.active .workspace-sidebar .tool-sidebar-row > small {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.canvas-shell.active .workspace-sidebar .tool-sidebar-row.selected > small {
+  color: color-mix(in srgb, var(--chrome-selected-ink) 72%, transparent);
+}
+
+.canvas-shell.active .workspace-sidebar .tool-sidebar-row.recommended:not(.selected) .tool-card-mark {
+  border-color: var(--chrome-focus);
+}
+
 /* Stage presentation is a view of existing workflow and registry data. The
    `data-*` tokens keep future graphical card variants independent of execution. */
 @media (min-width: 761px) {
@@ -5055,5 +5120,169 @@ textarea:focus-visible {
   .canvas-shell.active .overview-panel {
     border-color: var(--chrome-border);
     background: var(--chrome-surface);
+  }
+}
+
+/* Canonical canvas preview: the right quarter is a live, cropped window onto
+   the same node/edge surface that opens in the full editor. Conversation and
+   Scope history belong exclusively to the dock below. This final cascade
+   prevents older experimental layout rules from collapsing the preview. */
+@media (min-width: 761px) {
+  .canvas-shell.active .overview-panel {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .canvas-shell.active .canvas-preview-shell {
+    display: block;
+    height: 100%;
+    min-height: 0;
+    margin: 14px 0 0 12px;
+  }
+
+  .canvas-shell.active .canvas-preview,
+  .canvas-shell.active .canvas-preview-viewport {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .canvas-shell.active .overview-scope-switcher {
+    display: none !important;
+  }
+}
+
+/* Final tool-rail override: selection stays a filled radio mark only.
+   Never invert the full row into a black rectangle. */
+.canvas-shell.active .workspace-sidebar .tool-sidebar-row.selected,
+.canvas-shell.active .workspace-sidebar .tool-sidebar-row.selected:hover,
+.canvas-shell.active .workspace-sidebar .tool-sidebar-row.selected:focus-visible {
+  background: transparent;
+  color: var(--ink);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.canvas-shell.active .workspace-sidebar .tool-sidebar-row.selected .tool-card-mark {
+  border-color: var(--ink);
+  background: var(--ink);
+}
+
+/* The dock stays concise: hover exposes a small recent excerpt, while the
+   complete, independently scrollable record opens only on request. */
+.canvas-shell.active .conversation-dock .conversation-history-preview {
+  position: relative;
+  display: block;
+  cursor: pointer;
+  outline: none;
+}
+
+.canvas-shell.active .conversation-dock .conversation-history-preview-copy {
+  max-height: 48px;
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, #000 58%, transparent);
+}
+
+.canvas-shell.active .conversation-dock .conversation-history-preview:hover .conversation-history-preview-copy,
+.canvas-shell.active .conversation-dock .conversation-history-preview:focus-visible .conversation-history-preview-copy {
+  max-height: 118px;
+  mask-image: none;
+}
+
+.canvas-shell.active .conversation-dock .conversation-history-preview-hint {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.25;
+}
+
+.canvas-shell.active .conversation-dock .conversation-history-preview:focus-visible {
+  outline: 1px solid var(--chrome-focus);
+  outline-offset: 3px;
+}
+
+.conversation-history-dialog {
+  width: min(760px, calc(100vw - 32px));
+  max-width: none;
+  height: min(720px, calc(100dvh - 56px));
+  max-height: none;
+  overflow: hidden;
+  border: 1px solid var(--chrome-border);
+  border-radius: 14px;
+  padding: 0;
+  color: var(--ink);
+  background: var(--chrome-surface);
+}
+
+.conversation-history-dialog::backdrop {
+  background: rgb(0 0 0 / 0.28);
+}
+
+.conversation-history-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid var(--chrome-border);
+  padding: 16px 18px;
+}
+
+.conversation-history-dialog-header .eyebrow {
+  margin: 0 0 3px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.conversation-history-dialog-header h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.conversation-history-close {
+  min-height: 30px;
+  border: 1px solid var(--chrome-border);
+  border-radius: 7px;
+  padding: 0 10px;
+  color: var(--ink);
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.conversation-history-close:hover,
+.conversation-history-close:focus-visible {
+  border-color: var(--chrome-focus);
+  background: var(--chrome-hover);
+}
+
+.conversation-history-dialog-messages {
+  box-sizing: border-box;
+  height: calc(100% - 76px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 14px 18px 24px;
+}
+
+.conversation-history-dialog-messages .conversation-message {
+  max-width: 680px;
+  padding: 9px 0;
+}
+
+.conversation-history-dialog-messages .conversation-message.assistant {
+  border-left: 2px solid var(--chrome-border);
+  padding-left: 11px;
+}
+
+@media (max-width: 760px) {
+  .conversation-history-dialog {
+    width: calc(100vw - 20px);
+    height: calc(100dvh - 20px);
+    border-radius: 10px;
+  }
+
+  .conversation-history-dialog-messages {
+    height: calc(100% - 70px);
+    padding: 12px 14px 20px;
   }
 }

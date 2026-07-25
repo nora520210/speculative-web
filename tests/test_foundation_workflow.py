@@ -30,6 +30,8 @@ def test_four_futures_workflow_definition_is_a_backend_owned_sequence():
         "discussion",
     ]
     assert definition["stages"][2]["operation_definition_id"] == "operation.guided-scenario"
+    assert definition["discussion_tool_policy"]["minimum_selected"] == 1
+    assert definition["discussion_tool_policy"]["recommended_by_branch"]["growth"] == ["futures-wheel"]
     assert all(item["package_path"].startswith("workflow_definitions/") for item in list_workflow_definitions())
 
 
@@ -119,6 +121,12 @@ def test_four_futures_foundation_lifecycle_uses_scopes_without_copying_graphs():
             assert selected["scope_id"] == workflow["branch_scope_ids"][selected_branch_id]
             assert workflow["status"] == "discussion"
             assert workflow["selected_branch_node_id"] == selected_branch_id
+            assert workflow["discussion_node_id"] == selected["discussion_node"]["id"]
+            discussion_node = next(node for node in saved["nodes"] if node["id"] == workflow["discussion_node_id"])
+            branch_scope = next(item for item in saved["scopes"] if item["id"] == selected["scope_id"])
+            assert discussion_node["id"] in branch_scope["snapshot_node_ids"]
+            assert discussion_node["config"]["selection_policy"]["minimum_selected"] == 1
+            assert not any(tool["selected"] for tool in discussion_node["config"]["tools"])
             assert session["active_scope_id"] == selected["scope_id"]
             assert next(step for step in session["progress"] if step["workflow_stage_id"] == "discussion")["status"] == "active"
 
@@ -141,6 +149,11 @@ def test_four_futures_foundation_lifecycle_uses_scopes_without_copying_graphs():
             assert keywords["payload"]["keywords"] == ["已更新的研究简报"]
             assert session["active_scope_id"] == "scope-global"
             assert session["guide"]["stage_id"] == "stale"
+            assert any(
+                message.get("state") == "superseded"
+                and selected_branch_id in message.get("related_node_ids", [])
+                for message in session["messages"]
+            )
             try:
                 select_four_futures_branch(
                     "project-a",

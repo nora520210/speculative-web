@@ -74,7 +74,10 @@ Creates a conversation session with a title, `control_policy` (`manual`, `propos
 Appends a user, assistant, or system message. Messages store their Scope and optional
 node references; they do not mutate graph nodes. System and assistant feedback is
 limited to 200 characters so it remains usable as an in-workspace status signal; user
-research input retains the normal storage limit.
+research input retains the normal storage limit. Persisted messages also expose a
+`state` (`active`, `superseded`, or `removed`), `inactive_reason`, and compact
+`related_node_refs` (`id` plus last-known title). These fields preserve an auditable,
+scrollable thread after direct node edits or deletions; they are not a copied graph.
 
 `PATCH /api/projects/{project_id}/conversations/{session_id}`
 
@@ -153,11 +156,16 @@ Selects one current Guided Scenario branch after its four outputs have been gene
 ```
 
 The API moves the linked ConversationSession into that branch's existing snapshot
-Scope and activates its discussion step. It rejects a branch that is absent, belongs to
-another workflow, or is stale. Editing a workflow source node after branch generation
-marks all corresponding branches stale, requiring a new run before selection. Deleting
-or editing a generated branch also clears the workflow's selection and records an
-activity message in the linked conversation.
+Scope and activates its discussion step. It also creates one empty registry-backed
+Modify node, joins it to the selected branch with a direct `data` edge, and includes it
+in the Scope. Its `selection_policy` comes from the backend workflow manifest; at
+least the configured number of methods must be selected before that node can run.
+Tools are never selected automatically. The API rejects a branch that is absent,
+belongs to another workflow, or is stale. Editing a workflow source node after branch
+generation marks all corresponding branches stale, requiring a new run before
+selection. Deleting or editing a generated branch also clears the workflow's selection
+and records an activity message in the linked conversation; older related entries
+remain in the session with a `superseded` or `removed` state.
 
 ## Nodes
 

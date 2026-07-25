@@ -36,6 +36,7 @@ from server.interaction_runtime import (
     ensure_interaction_data,
     get_scope,
     interaction_payload,
+    mark_messages_inactive,
     mark_workflows_stale_for_source_node,
     record_execution_from_run,
     record_graph_event,
@@ -438,6 +439,7 @@ def start_four_futures_workflow(project_id: str, payload: dict, expected_revisio
         "branch_node_ids": [],
         "branch_scope_ids": {},
         "selected_branch_node_id": "",
+        "discussion_node_id": "",
         "input_revision": int(canvas.get("revision") or 0) + 1,
         "created_at": utc_now(),
         "updated_at": utc_now(),
@@ -496,21 +498,128 @@ def select_four_futures_branch(project_id: str, workflow_id: str, payload: dict,
     branch_node_id = str(payload.get("branch_node_id") or "")
     result = select_workflow_branch_record(canvas, workflow_id, branch_node_id)
     workflow = next((item for item in canvas.get("workflow_instances", []) if item.get("id") == workflow_id), None)
+    discussion_node = _ensure_discussion_tool_node(canvas, workflow, branch_node_id)
     _record_graph_activity(
         canvas,
-        "Selected a What-if branch for the discussion scope.",
+        "Selected a What-if branch and prepared its discussion tools.",
         requested_session_id=str(payload.get("session_id") or ""),
         workflow=workflow,
-        related_node_ids=[branch_node_id],
+        related_node_ids=[branch_node_id, discussion_node["id"]],
         activity_type="workflow.branch_selected",
     )
     record_graph_event(
         canvas,
         "workflow.four_futures.branch_selected",
-        {"workflow_id": workflow_id, "branch_node_id": branch_node_id, "scope_id": result["scope_id"]},
+        {
+            "workflow_id": workflow_id,
+            "branch_node_id": branch_node_id,
+            "discussion_node_id": discussion_node["id"],
+            "scope_id": result["scope_id"],
+        },
     )
     write_canvas(project_id, canvas)
-    return result
+    return {**result, "discussion_node": discussion_node}
+
+
+def _ensure_discussion_tool_node(canvas: dict, workflow: dict | None, branch_node_id: str) -> dict:
+    """Attach one empty, registry-backed tool node to a chosen future Scope.
+
+    The workflow owns only the reference and its selection rule. Tool theory, card
+    metadata, constraints, and later executors still come from the package registry.
+    """
+
+    if not workflow:
+        raise KeyError("Workflow not found while preparing the discussion scope.")
+    branch = next((node for node in canvas.get("nodes", []) if node.get("id") == branch_node_id), None)
+    if not branch:
+        raise KeyError("Selected What-if branch no longer exists.")
+    scope_id = str(workflow.get("branch_scope_ids", {}).get(branch_node_id) or "")
+    scope = get_scope(canvas, scope_id)
+    if not scope:
+        raise ValueError("Selected What-if branch has no discussion Scope.")
+
+    definition = get_workflow_definition((workflow.get("definition_ref") or {}).get("id")) or {}
+    policy = definition.get("discussion_tool_policy") if isinstance(definition.get("discussion_tool_policy"), dict) else {}
+    scenario = branch.get("payload", {}).get("scenario_branch", {})
+    strategy_id = str(scenario.get("strategy") or "")
+    recommended_tool_ids = list((policy.get("recommended_by_branch") or {}).get(strategy_id, []))
+    selection_policy = {
+        "minimum_selected": int(policy.get("minimum_selected") or 0),
+        "required_for": "workflow.discussion",
+        "recommended_tool_ids": recommended_tool_ids,
+    }
+
+    existing_id = str(workflow.get("discussion_node_id") or "")
+    discussion_node = next((node for node in canvas.get("nodes", []) if node.get("id") == existing_id), None)
+    if not discussion_node:
+        discussion_node = normalize_node(
+            {
+                "type": "modify",
+                "title": "Discussion tools",
+                "position": {
+                    "x": int(branch.get("position", {}).get("x") or 0) + 320,
+                    "y": int(branch.get("position", {}).get("y") or 0),
+                },
+                "status": "ready",
+                "config": {
+                    "output_type": "text",
+                    "tools": [
+                        {"id": tool["id"], "selected": False}
+                        for tool in default_modifier_tools()
+                    ],
+                    "selection_policy": selection_policy,
+                    "workflow_context": {
+                        "workflow_id": workflow["id"],
+                        "branch_node_id": branch_node_id,
+                    },
+                },
+            }
+        )
+        canvas["nodes"].append(discussion_node)
+        canvas["edges"].append(
+            {
+                "id": f"edge-{uuid.uuid4().hex[:8]}",
+                "source_node_id": branch_node_id,
+                "target_node_id": discussion_node["id"],
+                "source_port": "out",
+                "target_port": "in",
+                "edge_kind": "data",
+                "created_at": utc_now(),
+            }
+        )
+    else:
+        discussion_node.setdefault("config", {})["selection_policy"] = selection_policy
+        discussion_node.setdefault("config", {})["workflow_context"] = {
+            "workflow_id": workflow["id"],
+            "branch_node_id": branch_node_id,
+        }
+
+    if not any(
+        edge.get("source_node_id") == branch_node_id
+        and edge.get("target_node_id") == discussion_node["id"]
+        and edge.get("edge_kind") == "data"
+        for edge in canvas.get("edges", [])
+    ):
+        canvas["edges"].append(
+            {
+                "id": f"edge-{uuid.uuid4().hex[:8]}",
+                "source_node_id": branch_node_id,
+                "target_node_id": discussion_node["id"],
+                "source_port": "out",
+                "target_port": "in",
+                "edge_kind": "data",
+                "created_at": utc_now(),
+            }
+        )
+
+    if scope.get("mode") == "snapshot":
+        member_ids = scope.setdefault("snapshot_node_ids", [])
+        if discussion_node["id"] not in member_ids:
+            member_ids.append(discussion_node["id"])
+    workflow["discussion_node_id"] = discussion_node["id"]
+    workflow["updated_at"] = utc_now()
+    refresh_runtime_config(canvas)
+    return discussion_node
 
 
 GUIDE_FIELD_SEQUENCE = {
@@ -828,6 +937,7 @@ def _workflow_for_node_id(canvas: dict, node_id: str) -> dict | None:
             if node_id in {
                 *workflow.get("source_node_ids", []),
                 workflow.get("operation_node_id", ""),
+                workflow.get("discussion_node_id", ""),
                 *workflow.get("branch_node_ids", []),
             }
         ),
@@ -892,17 +1002,26 @@ def _invalidate_workflow(
 ) -> None:
     """Make an invalid graph dependency visible instead of retaining a branch silently."""
 
+    branch_ids = set(workflow.get("branch_node_ids", []))
+    discussion_node_id = str(workflow.get("discussion_node_id") or "")
+    mark_messages_inactive(
+        canvas,
+        related_node_ids=list(branch_ids),
+        state="superseded",
+        reason="This speculative branch no longer participates in the current workflow.",
+        workflow_id=str(workflow.get("id") or ""),
+    )
     workflow.update(
         {
             "status": "stale",
             "stage": "stale",
             "selected_branch_node_id": "",
+            "discussion_node_id": "",
             "updated_at": utc_now(),
         }
     )
-    branch_ids = set(workflow.get("branch_node_ids", []))
     for node in canvas.get("nodes", []):
-        if node.get("id") in branch_ids:
+        if node.get("id") in branch_ids or node.get("id") == discussion_node_id:
             node["status"] = "stale"
     session = _activity_session(canvas, requested_session_id=requested_session_id, workflow=workflow)
     if session:
@@ -1086,13 +1205,22 @@ def update_node(project_id: str, node_id: str, patch: dict, expected_revision=No
             # An invalidation already writes the meaningful conversational record for
             # a semantic edit. Avoid following it with a generic duplicate update.
             if set(patch) - {"position", "size"} and not stale_workflows:
+                config_patch = patch.get("config") if isinstance(patch.get("config"), dict) else {}
+                tools_changed = "tools" in config_patch
+                selected_count = len(
+                    [tool for tool in node.get("config", {}).get("tools", []) if tool.get("selected")]
+                )
                 _record_graph_activity(
                     canvas,
-                    f"Updated {node.get('title') or node.get('type', 'node')}.",
+                    (
+                        f"Updated discussion tools: {selected_count} method(s) selected."
+                        if tools_changed
+                        else f"Updated {node.get('title') or node.get('type', 'node')}."
+                    ),
                     requested_session_id=session_id,
                     workflow=workflow,
                     related_node_ids=[node_id],
-                    activity_type="node.updated",
+                    activity_type="workflow.discussion_tools_changed" if tools_changed else "node.updated",
                 )
             record_graph_event(
                 canvas,
@@ -1115,12 +1243,22 @@ def delete_node(project_id: str, node_id: str, expected_revision=None, session_i
     if not node:
         raise KeyError(f"Node not found: {node_id}")
 
+    # Preserve the conversational trace before the graph item disappears. This is
+    # intentionally a status change to history, not a deletion of history.
+    mark_messages_inactive(
+        canvas,
+        related_node_ids=[node_id],
+        state="removed",
+        reason="This part of the speculation was removed directly from the current workflow.",
+    )
+
     affected_workflows = [
         workflow
         for workflow in canvas.get("workflow_instances", [])
         if node_id in {
             *workflow.get("source_node_ids", []),
             workflow.get("operation_node_id", ""),
+            workflow.get("discussion_node_id", ""),
             *workflow.get("branch_node_ids", []),
         }
     ]
@@ -1270,6 +1408,11 @@ def run_modify(project_id: str, node_id: str, api_key: str | None = None, expect
         for tool in modify.get("config", {}).get("tools", [])
         if tool.get("selected")
     ]
+    minimum_selected_tools = int((modify.get("config", {}).get("selection_policy") or {}).get("minimum_selected") or 0)
+    if len(selected_tools) < minimum_selected_tools:
+        raise ValueError(
+            f"Select at least {minimum_selected_tools} discussion tool before running this node."
+        )
     input_modalities = input_modalities_for_nodes(canvas, upstream_ids)
     output_type = normalize_output_type(modify.get("config", {}).get("output_type"))
     recommendation = recommend_output(selected_tools, input_modalities)
@@ -2155,11 +2298,28 @@ def normalize_modify_config(config: dict, input_modalities: list[str] | None = N
     tools = normalize_modifier_tools(config.get("tools") if isinstance(config, dict) else None)
     output_type = normalize_output_type(config.get("output_type") if isinstance(config, dict) else None)
     selected_tools = [tool["id"] for tool in tools if tool.get("selected")]
+    raw_policy = config.get("selection_policy") if isinstance(config, dict) and isinstance(config.get("selection_policy"), dict) else {}
+    try:
+        configured_minimum = int(raw_policy.get("minimum_selected") or 0)
+    except (TypeError, ValueError):
+        configured_minimum = 0
+    minimum_selected = min(24, max(0, configured_minimum))
+    recommended_tool_ids = []
+    for tool_id in raw_policy.get("recommended_tool_ids", []):
+        value = str(tool_id or "").strip()
+        if value and value not in recommended_tool_ids:
+            recommended_tool_ids.append(value)
+    selection_policy = {
+        "minimum_selected": minimum_selected,
+        "required_for": str(raw_policy.get("required_for") or "")[:96],
+        "recommended_tool_ids": recommended_tool_ids,
+    }
     return {
         **(config if isinstance(config, dict) else {}),
         "composition": (config.get("composition") if isinstance(config, dict) else None) or "parallel",
         "output_type": output_type,
         "tools": tools,
+        "selection_policy": selection_policy,
         "output_recommendation": public_recommendation(recommend_output(selected_tools, input_modalities)),
     }
 

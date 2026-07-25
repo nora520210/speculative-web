@@ -11,6 +11,7 @@ from server.graph_store import (
     default_canvas,
     delete_node,
     read_canvas,
+    run_modify,
     run_operation,
     select_four_futures_branch,
     update_node,
@@ -110,10 +111,82 @@ def test_deleting_a_selected_branch_invalidates_workflow_and_records_activity():
         assert workflow["selected_branch_node_id"] == ""
         assert session["guide"]["stage_id"] == "stale"
         assert any(message["kind"] == "activity" and "Deleted" in message["body"] for message in session["messages"])
+        removed_branch_messages = [
+            message
+            for message in session["messages"]
+            if branch_id in message.get("related_node_ids", []) and message.get("state") == "removed"
+        ]
+        assert removed_branch_messages
+        assert any(
+            any(reference.get("id") == branch_id and reference.get("title") for reference in message.get("related_node_refs", []))
+            for message in removed_branch_messages
+        )
 
         rerun = run_operation("project-a", workflow["operation_node_id"])
         assert rerun["workflow"]["status"] == "awaiting_selection"
         assert len(rerun["output_nodes"]) == 4
+    finally:
+        if original_runs is None:
+            os.environ.pop("SPEC_WEB_ENABLE_OPENAI_RUNS", None)
+        else:
+            os.environ["SPEC_WEB_ENABLE_OPENAI_RUNS"] = original_runs
+        _restore_project(tmp, graph_store, original)
+
+
+def test_selected_branch_adds_required_discussion_tool_node_without_preselecting_a_tool():
+    original_runs = os.environ.get("SPEC_WEB_ENABLE_OPENAI_RUNS")
+    os.environ["SPEC_WEB_ENABLE_OPENAI_RUNS"] = "0"
+    tmp, graph_store, original = _temporary_project()
+    try:
+        canvas = read_canvas("project-a")
+        session_id = canvas["conversation_sessions"][0]["id"]
+        workflow = _finish_guided_frame(session_id)["workflow"]
+        advance_conversation_guide("project-a", session_id, {"action": "confirm_keywords"})
+        run_operation("project-a", workflow["operation_node_id"])
+        saved = read_canvas("project-a")
+        workflow = next(item for item in saved["workflow_instances"] if item["id"] == workflow["id"])
+        branch_id = workflow["branch_node_ids"][0]
+
+        selected = select_four_futures_branch("project-a", workflow["id"], {"branch_node_id": branch_id})
+        saved = read_canvas("project-a")
+        workflow = next(item for item in saved["workflow_instances"] if item["id"] == workflow["id"])
+        discussion = next(node for node in saved["nodes"] if node["id"] == workflow["discussion_node_id"])
+        branch_scope = next(item for item in saved["scopes"] if item["id"] == selected["scope_id"])
+
+        assert selected["discussion_node"]["id"] == discussion["id"]
+        assert discussion["type"] == "modify"
+        assert discussion["config"]["selection_policy"]["minimum_selected"] == 1
+        assert discussion["config"]["selection_policy"]["required_for"] == "workflow.discussion"
+        assert not any(tool["selected"] for tool in discussion["config"]["tools"])
+        assert discussion["id"] in branch_scope["snapshot_node_ids"]
+        assert any(
+            edge["source_node_id"] == branch_id
+            and edge["target_node_id"] == discussion["id"]
+            and edge["edge_kind"] == "data"
+            for edge in saved["edges"]
+        )
+
+        try:
+            run_modify("project-a", discussion["id"])
+        except ValueError as exc:
+            assert "Select at least 1 discussion tool" in str(exc)
+        else:
+            raise AssertionError("Discussion should require an explicit tool choice.")
+
+        selected_tools = [dict(tool) for tool in discussion["config"]["tools"]]
+        selected_tools[0]["selected"] = True
+        update_node(
+            "project-a",
+            discussion["id"],
+            {"config": {"tools": selected_tools}},
+            session_id=session_id,
+        )
+        updated = read_canvas("project-a")
+        session = next(item for item in updated["conversation_sessions"] if item["id"] == session_id)
+        assert any(
+            message.get("activity", {}).get("type") == "workflow.discussion_tools_changed"
+            for message in session["messages"]
+        )
     finally:
         if original_runs is None:
             os.environ.pop("SPEC_WEB_ENABLE_OPENAI_RUNS", None)

@@ -21,6 +21,7 @@ EXECUTION_STATUSES = {"queued", "running", "awaiting_input", "succeeded", "faile
 PROGRESS_STATUSES = {"pending", "active", "succeeded", "failed", "stale"}
 WORKFLOW_STATUSES = {"active", "awaiting_selection", "discussion", "stale", "complete"}
 MESSAGE_KINDS = {"message", "guide", "activity"}
+MESSAGE_STATES = {"active", "superseded", "removed"}
 MAX_CONVERSATION_FEEDBACK_CHARS = 200
 GUIDE_STAGE_IDS = {
     "start",
@@ -363,9 +364,20 @@ def normalize_session(session: dict, canvas: dict) -> dict:
                     else compact_conversation_feedback(body)
                 ),
                 "scope_id": message.get("scope_id") if message.get("scope_id") in scope_ids else active_scope_id,
-                "related_node_ids": normalize_node_ids(message.get("related_node_ids"), canvas),
+                # Conversation history is an audit surface. Keep references to a
+                # removed node instead of silently erasing the historical link on
+                # the next read/migration pass.
+                "related_node_ids": normalize_reference_ids(message.get("related_node_ids")),
+                "related_node_refs": normalize_message_node_refs(
+                    message.get("related_node_refs"),
+                    canvas,
+                    message.get("related_node_ids"),
+                ),
                 "execution_id": str(message.get("execution_id") or ""),
                 "activity": normalize_activity(message.get("activity")),
+                "state": normalize_message_state(message.get("state")),
+                "inactive_reason": compact_conversation_feedback(message.get("inactive_reason") or ""),
+                "inactive_at": str(message.get("inactive_at") or ""),
                 "created_at": message.get("created_at") or utc_now(),
             }
         )
@@ -397,6 +409,40 @@ def normalize_activity(value) -> dict:
     }
 
 
+def normalize_message_state(value: object) -> str:
+    return str(value or "active") if str(value or "active") in MESSAGE_STATES else "active"
+
+
+def normalize_message_node_refs(value, canvas: dict, related_node_ids) -> list[dict]:
+    """Keep a readable node label even after a direct graph deletion.
+
+    Node IDs remain canonical references; the small title snapshot is presentation
+    provenance for the conversation history and never recreates node content.
+    """
+
+    node_titles = {
+        str(node.get("id")): str(node.get("title") or node.get("type") or "Node")[:96]
+        for node in canvas.get("nodes", [])
+        if node.get("id")
+    }
+    refs = []
+    seen = set()
+    for item in value if isinstance(value, list) else []:
+        if not isinstance(item, dict):
+            continue
+        node_id = str(item.get("id") or "").strip()
+        if not node_id or node_id in seen:
+            continue
+        refs.append({"id": node_id, "title": str(item.get("title") or node_titles.get(node_id) or node_id)[:96]})
+        seen.add(node_id)
+    for node_id in normalize_reference_ids(related_node_ids):
+        if node_id in seen:
+            continue
+        refs.append({"id": node_id, "title": node_titles.get(node_id, node_id)})
+        seen.add(node_id)
+    return refs
+
+
 def normalize_workflow(workflow: dict, canvas: dict) -> dict:
     """Normalize a workflow instance without copying graph nodes into workflow state."""
 
@@ -417,6 +463,9 @@ def normalize_workflow(workflow: dict, canvas: dict) -> dict:
     selected_branch_node_id = workflow.get("selected_branch_node_id")
     if selected_branch_node_id not in branch_node_ids or selected_branch_node_id not in known_node_ids:
         selected_branch_node_id = ""
+    discussion_node_id = str(workflow.get("discussion_node_id") or "")
+    if discussion_node_id not in known_node_ids:
+        discussion_node_id = ""
     input_edge_ids = normalize_reference_ids(workflow.get("input_edge_ids"))
     if not input_edge_ids:
         # Additive migration for foundation instances created before explicit input
@@ -450,6 +499,7 @@ def normalize_workflow(workflow: dict, canvas: dict) -> dict:
         "branch_node_ids": branch_node_ids,
         "branch_scope_ids": branch_scope_ids,
         "selected_branch_node_id": selected_branch_node_id,
+        "discussion_node_id": discussion_node_id,
         "input_revision": int(workflow.get("input_revision") or canvas.get("revision") or 0),
         "created_at": workflow.get("created_at") or utc_now(),
         "updated_at": workflow.get("updated_at") or utc_now(),
@@ -652,20 +702,74 @@ def append_message(canvas: dict, session_id: str, payload: dict) -> dict:
     body = str(payload.get("body") or "").strip()
     if not body:
         raise ValueError("Message body cannot be empty.")
+    related_node_ids = normalize_node_ids(payload.get("related_node_ids"), canvas)
     message = {
         "id": new_id("message"),
         "role": role,
         "kind": payload.get("kind") if payload.get("kind") in MESSAGE_KINDS else "message",
         "body": body[:12000] if role == "user" else compact_conversation_feedback(body),
         "scope_id": payload.get("scope_id") or session.get("active_scope_id") or "scope-global",
-        "related_node_ids": normalize_node_ids(payload.get("related_node_ids"), canvas),
+        "related_node_ids": related_node_ids,
+        "related_node_refs": normalize_message_node_refs(
+            payload.get("related_node_refs"),
+            canvas,
+            related_node_ids,
+        ),
         "execution_id": str(payload.get("execution_id") or ""),
         "activity": normalize_activity(payload.get("activity")),
+        "state": normalize_message_state(payload.get("state")),
+        "inactive_reason": compact_conversation_feedback(payload.get("inactive_reason") or ""),
+        "inactive_at": str(payload.get("inactive_at") or ""),
         "created_at": utc_now(),
     }
     session.setdefault("messages", []).append(message)
     session["updated_at"] = utc_now()
     return deepcopy(message)
+
+
+def mark_messages_inactive(
+    canvas: dict,
+    *,
+    related_node_ids: list[str],
+    state: str,
+    reason: str,
+    workflow_id: str = "",
+) -> list[str]:
+    """Mark historical branch talk as no longer live without deleting it.
+
+    A direct graph change must not rewrite a researcher's conversation. The timeline
+    therefore keeps the original messages, marks only messages tied to affected nodes
+    as superseded/removed, and leaves an explicit activity record to explain why.
+    """
+
+    next_state = normalize_message_state(state)
+    if next_state == "active":
+        raise ValueError("Inactive conversation messages require a non-active state.")
+    affected_ids = set(normalize_reference_ids(related_node_ids))
+    if not affected_ids and not workflow_id:
+        return []
+    changed = []
+    for session in canvas.get("conversation_sessions", []):
+        for message in session.get("messages", []):
+            message_ids = set(normalize_reference_ids(message.get("related_node_ids")))
+            message_workflow_id = str((message.get("activity") or {}).get("workflow_id") or "")
+            if not (message_ids & affected_ids) and not (workflow_id and message_workflow_id == workflow_id):
+                continue
+            previous_state = normalize_message_state(message.get("state"))
+            # Removal is stronger than supersession and must remain visible if a
+            # source edit later invalidates the enclosing workflow as well.
+            if previous_state == "removed" and next_state != "removed":
+                continue
+            message["state"] = next_state
+            message["inactive_reason"] = compact_conversation_feedback(reason)
+            message["inactive_at"] = utc_now()
+            message["related_node_refs"] = normalize_message_node_refs(
+                message.get("related_node_refs"),
+                canvas,
+                message.get("related_node_ids"),
+            )
+            changed.append(str(message.get("id") or ""))
+    return [message_id for message_id in changed if message_id]
 
 
 def append_activity_message(

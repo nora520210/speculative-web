@@ -49,6 +49,23 @@ def normalize_workflow_definition(value: dict) -> dict:
         raise ValueError("Workflow definitions need at least one stage.")
 
     start_input = value.get("start_input") if isinstance(value.get("start_input"), dict) else {}
+    raw_discussion_policy = value.get("discussion_tool_policy") if isinstance(value.get("discussion_tool_policy"), dict) else {}
+    try:
+        configured_minimum = int(raw_discussion_policy.get("minimum_selected") or 0)
+    except (TypeError, ValueError):
+        configured_minimum = 0
+    recommended_by_branch = {}
+    for branch_id, tool_ids in (raw_discussion_policy.get("recommended_by_branch") or {}).items():
+        key = str(branch_id or "").strip()
+        if not key or not isinstance(tool_ids, list):
+            continue
+        unique_ids = []
+        for tool_id in tool_ids:
+            value_id = str(tool_id or "").strip()
+            if value_id and value_id not in unique_ids:
+                unique_ids.append(value_id)
+        if unique_ids:
+            recommended_by_branch[key] = unique_ids
     return {
         "id": str(value["id"]),
         "version": str(value.get("version") or "0.1.0"),
@@ -59,6 +76,10 @@ def normalize_workflow_definition(value: dict) -> dict:
             "optional": [str(item) for item in start_input.get("optional", []) if str(item)],
         },
         "stages": stages,
+        "discussion_tool_policy": {
+            "minimum_selected": min(24, max(0, configured_minimum)),
+            "recommended_by_branch": recommended_by_branch,
+        },
         "ui": deepcopy(value.get("ui") if isinstance(value.get("ui"), dict) else {}),
         "package_path": str(value.get("package_path") or ""),
     }

@@ -46,6 +46,9 @@ const conversationPolicy = document.querySelector("#conversation-policy");
 const conversationProgress = document.querySelector("#conversation-progress");
 const conversationGuideActions = document.querySelector("#conversation-guide-actions");
 const conversationMessages = document.querySelector("#conversation-messages");
+const conversationHistoryDialog = document.querySelector("#conversation-history-dialog");
+const conversationHistoryDialogMessages = document.querySelector("#conversation-history-dialog-messages");
+const conversationHistoryClose = document.querySelector("#conversation-history-close");
 const conversationForm = document.querySelector("#conversation-form");
 const conversationInput = document.querySelector("#conversation-input");
 const conversationDock = document.querySelector(".conversation-dock");
@@ -84,6 +87,7 @@ let contextEdgeId = null;
 let zoom = 1;
 let spacePressed = false;
 let tabApiKey = "";
+const conversationHistoryState = new Map();
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 1;
 const ZOOM_STEP = 0.25;
@@ -243,6 +247,13 @@ const translations = {
     "conversation.send": "Send",
     "conversation.scope": "Scope",
     "conversation.none": "No messages in this scope yet.",
+    "conversation.history": "Conversation history",
+    "conversation.historyHint": "Scroll to review the full thread.",
+    "conversation.nodeEdited": "Node edited directly",
+    "conversation.nodeRemoved": "Node removed directly",
+    "conversation.branchInvalidated": "This speculation was removed from the current flow",
+    "conversation.superseded": "This speculation no longer participates in the current flow",
+    "conversation.toolsChanged": "Discussion methods updated",
     "conversation.user": "researcher",
     "conversation.assistant": "assistant",
     "conversation.system": "system",
@@ -265,6 +276,8 @@ const translations = {
     "toolSidebar.selected": "selected",
     "toolSidebar.remove": "Remove",
     "toolSidebar.toModify": "to Modify",
+    "toolSidebar.required": "Choose at least one method for this discussion.",
+    "toolSidebar.recommended": "Recommended",
     "modify.toolsInSidebar": "{count} tool nodes in sidebar",
     "workflowStrip.eyebrow": "Guided process",
     "workflowStrip.brief": "Research brief",
@@ -445,6 +458,13 @@ const translations = {
     "conversation.send": "发送",
     "conversation.scope": "当前范围",
     "conversation.none": "当前范围暂无消息。",
+    "conversation.history": "完整对话记录",
+    "conversation.historyHint": "可滚动回顾完整对话。",
+    "conversation.nodeEdited": "节点已直接修改",
+    "conversation.nodeRemoved": "节点已直接移除",
+    "conversation.branchInvalidated": "当前流程已移除此部分思辨",
+    "conversation.superseded": "此部分思辨已不参与当前流程",
+    "conversation.toolsChanged": "讨论方法已更新",
     "conversation.user": "研究者",
     "conversation.assistant": "助手",
     "conversation.system": "系统",
@@ -467,6 +487,8 @@ const translations = {
     "toolSidebar.selected": "已选",
     "toolSidebar.remove": "移除",
     "toolSidebar.toModify": "关联推演",
+    "toolSidebar.required": "本轮讨论请选择至少一种方法。",
+    "toolSidebar.recommended": "推荐",
     "modify.toolsInSidebar": "{count} 个工具节点在侧栏",
     "workflowStrip.eyebrow": "引导流程",
     "workflowStrip.brief": "研究简报",
@@ -718,7 +740,10 @@ function fittedScopeZoom(projection) {
 }
 
 function displayGraph() {
-  return activeProjection || activeCanvas || { nodes: [], edges: [] };
+  // The graph surface has one canonical source: the complete canvas. Scopes guide
+  // conversation and stage cards, but they must never turn the node canvas into a
+  // partial copy where upstream nodes, outputs, or images disappear.
+  return activeCanvas || activeProjection || { nodes: [], edges: [] };
 }
 
 function activeSession() {
@@ -815,15 +840,7 @@ function renderInteraction() {
   const messages = (session?.messages || []).filter((message) =>
     !(message.role === "system" && message.kind !== "activity"),
   );
-  conversationMessages.innerHTML = messages.length
-    ? messages.map((message) => `
-      <article class="conversation-message ${escapeHtml(message.role)} ${escapeHtml(message.kind || "message")}">
-        <span class="message-role">${escapeHtml(t(`conversation.${message.role}`))}</span>
-        <p>${escapeHtml(message.role === "user" ? message.body : compactConversationText(message.body))}</p>
-        ${(message.related_node_ids || []).length ? `<small class="message-node-refs">${escapeHtml((message.related_node_ids || []).map((nodeId) => findNode(nodeId)?.title || nodeId).join(" · "))}</small>` : ""}
-      </article>
-    `).join("")
-    : `<p class="empty-panel">${escapeHtml(isEntry ? (locale === "zh" ? "从一句研究问题开始。" : "Start with one research question.") : t("conversation.none"))}</p>`;
+  renderConversationHistory(session, messages, isEntry);
 
   renderConversationGuide(session);
 
@@ -840,6 +857,108 @@ function renderInteraction() {
   renderWorkflowStrip(session);
   renderCommandProposals();
   renderToolSidebar();
+}
+
+function renderConversationHistory(session, messages, isEntry) {
+  const sessionId = session?.id || "";
+  const previous = conversationHistoryState.get(sessionId);
+  const messageIds = messages.map((message) => message.id).filter(Boolean);
+  const addedMessage = Boolean(previous && messageIds.some((messageId) => !previous.messageIds.includes(messageId)));
+  if (sessionId) {
+    conversationHistoryState.set(sessionId, {
+      messageIds: previous?.messageIds || [],
+      scrollTop: conversationMessages.scrollTop,
+      atBottom: conversationMessages.scrollHeight - conversationMessages.scrollTop - conversationMessages.clientHeight < 24,
+    });
+  }
+  const previewMessages = messages.slice(-2);
+  const emptyText = isEntry ? (locale === "zh" ? "从一句研究问题开始。" : "Start with one research question.") : t("conversation.none");
+  conversationMessages.innerHTML = messages.length
+    ? `<div class="conversation-history-preview" role="button" tabindex="0" aria-label="${escapeHtml(locale === "zh" ? "打开完整对话记录" : "Open full conversation history")}">
+        <div class="conversation-history-preview-copy">${previewMessages.map((message) => renderConversationMessage(message)).join("")}</div>
+        <span class="conversation-history-preview-hint">${escapeHtml(locale === "zh" ? "悬停预览 · 点击查看全部记录" : "Preview · Click to view history")}</span>
+      </div>`
+    : `<p class="empty-panel">${escapeHtml(emptyText)}</p>`;
+  if (conversationHistoryDialogMessages) {
+    conversationHistoryDialogMessages.innerHTML = messages.length
+      ? messages.map((message) => renderConversationMessage(message)).join("")
+      : `<p class="empty-panel">${escapeHtml(emptyText)}</p>`;
+  }
+  conversationMessages.querySelector(".conversation-history-preview")?.addEventListener("click", openConversationHistory);
+  conversationMessages.querySelector(".conversation-history-preview")?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      openConversationHistory();
+    }
+  });
+  requestAnimationFrame(() => {
+    if (!sessionId) return;
+    const history = conversationHistoryState.get(sessionId) || previous;
+    if (!previous || (addedMessage && history?.atBottom)) {
+      conversationMessages.scrollTop = conversationMessages.scrollHeight;
+    } else if (history) {
+      conversationMessages.scrollTop = Math.min(history.scrollTop, conversationMessages.scrollHeight);
+    }
+    conversationHistoryState.set(sessionId, {
+      messageIds,
+      scrollTop: conversationMessages.scrollTop,
+      atBottom: conversationMessages.scrollHeight - conversationMessages.scrollTop - conversationMessages.clientHeight < 24,
+    });
+  });
+}
+
+function openConversationHistory() {
+  if (!conversationHistoryDialog?.showModal) return;
+  conversationHistoryDialog.showModal();
+  requestAnimationFrame(() => {
+    if (conversationHistoryDialogMessages) {
+      conversationHistoryDialogMessages.scrollTop = conversationHistoryDialogMessages.scrollHeight;
+    }
+    conversationHistoryClose?.focus();
+  });
+}
+
+conversationHistoryClose?.addEventListener("click", () => conversationHistoryDialog?.close());
+conversationHistoryDialog?.addEventListener("click", (event) => {
+  if (event.target === conversationHistoryDialog) conversationHistoryDialog.close();
+});
+
+conversationMessages.addEventListener("scroll", () => {
+  const sessionId = activeSession()?.id || "";
+  if (!sessionId) return;
+  const previous = conversationHistoryState.get(sessionId) || { messageIds: [] };
+  conversationHistoryState.set(sessionId, {
+    ...previous,
+    scrollTop: conversationMessages.scrollTop,
+    atBottom: conversationMessages.scrollHeight - conversationMessages.scrollTop - conversationMessages.clientHeight < 24,
+  });
+});
+
+function renderConversationMessage(message) {
+  const messageState = message.state === "removed" ? "removed" : (message.state === "superseded" ? "superseded" : "active");
+  const meta = conversationMessageMeta(message, messageState);
+  const refs = message.related_node_refs?.length
+    ? message.related_node_refs
+    : (message.related_node_ids || []).map((nodeId) => ({ id: nodeId, title: findNode(nodeId)?.title || nodeId }));
+  return `
+    <article class="conversation-message ${escapeHtml(message.role)} ${escapeHtml(message.kind || "message")} is-${messageState}">
+      <span class="message-role">${escapeHtml(t(`conversation.${message.role}`))}</span>
+      <p>${escapeHtml(message.role === "user" ? message.body : compactConversationText(message.body))}</p>
+      ${meta ? `<small class="message-activity-state">${escapeHtml(meta)}</small>` : ""}
+      ${refs.length ? `<small class="message-node-refs">${escapeHtml(refs.map((ref) => ref.title || ref.id).join(" · "))}</small>` : ""}
+    </article>
+  `;
+}
+
+function conversationMessageMeta(message, state) {
+  if (state === "removed") return t("conversation.branchInvalidated");
+  if (state === "superseded") return t("conversation.superseded");
+  const activityType = message.activity?.type || "";
+  if (activityType === "workflow.invalidated") return t("conversation.branchInvalidated");
+  if (activityType === "node.deleted") return t("conversation.nodeRemoved");
+  if (activityType === "node.updated") return t("conversation.nodeEdited");
+  if (activityType === "workflow.discussion_tools_changed") return t("conversation.toolsChanged");
+  return "";
 }
 
 function renderWorkflowStrip(session) {
@@ -1028,17 +1147,22 @@ function renderToolSidebar() {
   }
   toolSidebarList.innerHTML = modifyNodes.map((node) => {
     const tools = node.config?.tools || [];
+    const policy = node.config?.selection_policy || {};
+    const minimumSelected = Math.max(0, Number(policy.minimum_selected) || 0);
+    const selectedCount = tools.filter((tool) => tool.selected).length;
+    const recommendedIds = new Set(Array.isArray(policy.recommended_tool_ids) ? policy.recommended_tool_ids : []);
     return `
       <section class="tool-sidebar-group">
+        ${minimumSelected > selectedCount ? `<p class="tool-sidebar-policy">${escapeHtml(t("toolSidebar.required"))}</p>` : ""}
         ${tools.map((tool) => `
           <button
-            class="tool-sidebar-row ${tool.selected ? "selected" : ""}"
+            class="tool-sidebar-row ${tool.selected ? "selected" : ""} ${recommendedIds.has(tool.id) ? "recommended" : ""}"
             type="button"
             data-sidebar-modify-id="${escapeHtml(node.id)}"
             data-sidebar-tool-id="${escapeHtml(tool.id)}"
             data-card-kind="${escapeHtml(tool.presentation?.card_kind || "tool")}"
             title="${escapeHtml(tool.description || tool.label || tool.id)}"
-          ><span class="tool-card-mark" aria-hidden="true"></span><span>${escapeHtml(tool.label || tool.id)}</span></button>
+          ><span class="tool-card-mark" aria-hidden="true"></span><span>${escapeHtml(tool.label || tool.id)}</span>${recommendedIds.has(tool.id) ? `<small>${escapeHtml(t("toolSidebar.recommended"))}</small>` : ""}</button>
         `).join("")}
       </section>
     `;
@@ -1081,9 +1205,26 @@ function renderCanvasPreview() {
   canvasPreviewPlane.style.height = `${size.height}px`;
   const graphNodes = displayGraph()?.nodes || [];
   const workflow = activeWorkflow();
-  const focusIds = activeScopeId === "scope-global" && workflow
-    ? new Set([...(workflow.source_node_ids || []), workflow.keyword_node_id, workflow.operation_node_id, workflow.selected_branch_node_id].filter(Boolean))
-    : new Set((activeProjection?.nodes || []).map((node) => node.id));
+  const focusIds = new Set((activeProjection?.nodes || []).map((node) => node.id));
+  if (workflow) {
+    [
+      ...(workflow.source_node_ids || []),
+      workflow.keyword_node_id,
+      workflow.operation_node_id,
+      workflow.selected_branch_node_id,
+      workflow.discussion_node_id,
+    ].filter(Boolean).forEach((nodeId) => focusIds.add(nodeId));
+
+    // A selected branch's generated text/image outputs remain part of the exact
+    // same canvas. Include them in the preview focus so that an image cannot be
+    // hidden merely because it was produced after a snapshot Scope was created.
+    const discussionRunIds = new Set((activeCanvas?.runs || [])
+      .filter((run) => run.node_id === workflow.discussion_node_id)
+      .map((run) => run.id));
+    (activeCanvas?.nodes || []).forEach((node) => {
+      if (discussionRunIds.has(node.produced_by_run_id)) focusIds.add(node.id);
+    });
+  }
   const focusNodes = graphNodes.filter((node) => focusIds.has(node.id));
   const nodesForFocus = focusNodes.length ? focusNodes : graphNodes.slice(0, 3);
   const focus = nodesForFocus.length
@@ -1147,7 +1288,9 @@ function openCanvasFocus() {
   canvasFocusLayer.setAttribute("aria-hidden", "false");
   canvas.classList.add("canvas-focus-open");
   requestAnimationFrame(() => {
-    zoom = fittedScopeZoom(activeProjection);
+    // Opening the right-side preview always reveals the original, full editable
+    // canvas — not a scope-filtered substitute.
+    zoom = fittedScopeZoom(activeCanvas);
     renderCanvas();
   });
 }
