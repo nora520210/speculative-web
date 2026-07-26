@@ -29,5 +29,11 @@
   "ui": {
     "shell": "operation",
     "show_tool_selector": true
+  },
+  "locales": {
+    "zh": {
+      "label": "转换操作",
+      "description": "可配置的操作外壳：将已选择的图谱语境转化为新的研究产物，但不预设固定的思辨工具层级。"
+    }
   }
 }

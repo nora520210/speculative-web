@@ -23,6 +23,27 @@ def _manifest_paths() -> list[Path]:
     return sorted(OPERATION_DEFINITION_DIR.glob("*/manifest.json"))
 
 
+def normalize_definition_locales(value: object) -> dict:
+    if not isinstance(value, dict):
+        return {}
+    locales: dict[str, dict] = {}
+    for language, copy in value.items():
+        if not isinstance(language, str) or not isinstance(copy, dict):
+            continue
+        normalized = {
+            key: str(copy[key])
+            for key in ("label", "description")
+            if copy.get(key)
+        }
+        if isinstance(copy.get("ui"), dict):
+            ui = {key: str(item) for key, item in copy["ui"].items() if item}
+            if ui:
+                normalized["ui"] = ui
+        if normalized:
+            locales[language] = normalized
+    return locales
+
+
 def normalize_definition(value: dict) -> dict:
     if not isinstance(value, dict) or not value.get("id") or not value.get("label"):
         raise ValueError("Operation definitions need an id and label.")
@@ -68,6 +89,7 @@ def normalize_definition(value: dict) -> dict:
         },
         "execution": deepcopy(value.get("execution") if isinstance(value.get("execution"), dict) else {"kind": "model"}),
         "ui": deepcopy(value.get("ui") if isinstance(value.get("ui"), dict) else {}),
+        "locales": normalize_definition_locales(value.get("locales")),
         "package_path": str(value.get("package_path") or ""),
     }
 

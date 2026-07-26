@@ -38,5 +38,14 @@
     "shell": "operation",
     "run_label": "Generate four scenarios",
     "entry_point": true
+  },
+  "locales": {
+    "zh": {
+      "label": "引导情境",
+      "description": "将直接研究语境转化为四条相互独立的未来方向；每条包含可讨论的前提、角色提示与不封闭的问题。",
+      "ui": {
+        "run_label": "生成四条情境"
+      }
+    }
   }
 }

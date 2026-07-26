@@ -6,7 +6,7 @@ from tempfile import TemporaryDirectory
 
 from server.guided_scenario import generate_guided_scenarios
 from server.graph_store import default_canvas, normalize_node, read_canvas, run_operation, write_canvas, write_projects
-from server.operation_registry import get_operation_definition
+from server.operation_registry import get_operation_definition, list_operation_definitions
 
 
 def test_guided_scenario_definition_declares_backend_executor_and_contracts():
@@ -15,6 +15,24 @@ def test_guided_scenario_definition_declares_backend_executor_and_contracts():
     assert definition["execution"]["executor"] == "guided_scenario"
     assert definition["execution"]["tool_package_ids"] == ["dators-four-futures", "what-if"]
     assert definition["output_profiles"][0]["id"] == "branch-set"
+
+
+def test_guided_scenario_definition_exposes_package_owned_chinese_display_copy():
+    definition = get_operation_definition("operation.guided-scenario")
+    assert definition is not None
+    chinese = definition.get("locales", {}).get("zh", {})
+    assert chinese["label"] == "引导情境"
+    assert chinese["description"]
+    assert chinese["ui"]["run_label"] == "生成四条情境"
+
+
+def test_operation_definitions_expose_package_owned_chinese_display_copy():
+    definitions = list_operation_definitions()
+    assert definitions
+    for definition in definitions:
+        chinese = definition.get("locales", {}).get("zh", {})
+        assert chinese.get("label")
+        assert chinese.get("description")
 
 
 def test_guided_scenario_fallback_keeps_four_future_contract_visible():

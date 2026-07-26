@@ -225,6 +225,7 @@ const translations = {
     "node.openImage": "Open image preview",
     "node.inputPort": "Input port",
     "node.outputPort": "Output port",
+    "node.revision": "revision {count}",
     "generate.aria": "Generating content",
     "theme.dark": "Dark",
     "theme.light": "Light",
@@ -246,6 +247,7 @@ const translations = {
     "conversation.placeholder": "Add a research instruction for this scope",
     "conversation.send": "Send",
     "conversation.scope": "Scope",
+    "conversation.policy.confirm": "confirm",
     "conversation.none": "No messages in this scope yet.",
     "conversation.history": "Conversation history",
     "conversation.historyHint": "Scroll to review the full thread.",
@@ -297,6 +299,9 @@ const translations = {
     "stagePresentation.moreMethods": "+{count} more",
     "canvasFocus.eyebrow": "Node canvas",
     "canvasFocus.close": "Return to process",
+    "canvasFocus.zoomControls": "Canvas zoom controls",
+    "operation.definition": "definition",
+    "operation.toolsSelected": "{count} tools",
     "command.approve": "Approve",
     "command.reject": "Reject",
     "command.proposed": "proposed",
@@ -351,7 +356,7 @@ const translations = {
     "sidebar.imageNode": "图像节点",
     "sidebar.methodNode": "方法节点",
     "sidebar.operationNode": "操作节点",
-    "sidebar.scenarioNode": "引导情景",
+    "sidebar.scenarioNode": "引导情境",
     "sidebar.startFlow": "开始引导流程",
     "workflow.start": "开始四种未来流程",
     "workflow.eyebrow": "引导式基础流程",
@@ -436,6 +441,7 @@ const translations = {
     "node.openImage": "打开图像预览",
     "node.inputPort": "输入端口",
     "node.outputPort": "输出端口",
+    "node.revision": "版本 {count}",
     "generate.aria": "正在生成内容",
     "theme.dark": "深色",
     "theme.light": "浅色",
@@ -457,6 +463,7 @@ const translations = {
     "conversation.placeholder": "为当前范围补充研究指令",
     "conversation.send": "发送",
     "conversation.scope": "当前范围",
+    "conversation.policy.confirm": "确认后执行",
     "conversation.none": "当前范围暂无消息。",
     "conversation.history": "完整对话记录",
     "conversation.historyHint": "可滚动回顾完整对话。",
@@ -508,6 +515,9 @@ const translations = {
     "stagePresentation.moreMethods": "另有 {count} 项",
     "canvasFocus.eyebrow": "节点画布",
     "canvasFocus.close": "返回流程",
+    "canvasFocus.zoomControls": "画布缩放控制",
+    "operation.definition": "操作定义",
+    "operation.toolsSelected": "{count} 个工具",
     "command.approve": "批准",
     "command.reject": "拒绝",
     "command.proposed": "待审核",
@@ -544,6 +554,25 @@ function localizedToolCopy(tool, field) {
   return String(tool?.[field] || tool?.id || "");
 }
 
+function localizedOperationCopy(definition, field) {
+  const localCopy = locale === "zh" ? definition?.locales?.zh : null;
+  const localized = localCopy?.[field];
+  if (localized) return String(localized);
+  return String(definition?.[field] || "");
+}
+
+function localizedOperationUiCopy(definition, field) {
+  const localCopy = locale === "zh" ? definition?.locales?.zh?.ui : null;
+  const localized = localCopy?.[field];
+  if (localized) return String(localized);
+  return String(definition?.ui?.[field] || "");
+}
+
+function localizedControlPolicy(policy) {
+  const value = String(policy || "confirm");
+  return translations[locale]?.[`conversation.policy.${value}`] || value;
+}
+
 function toolById(toolId) {
   for (const node of activeCanvas?.nodes || []) {
     const tool = (node.config?.tools || []).find((item) => item.id === toolId);
@@ -566,6 +595,28 @@ function localizedReferenceTitle(title) {
     "Text Output": "文本输出",
     "Image Output": "图像输出",
     "Text+Image Output": "文本与图像输出",
+    "Four Futures research thread": "四种未来研究线程",
+    "Working thread": "工作线程",
+    "Global graph": "全局图谱",
+    "Research material": "研究材料",
+    "Current inquiry": "当前议题",
+    "Artifact branch": "产物分支",
+    "Start inquiry": "开始议题",
+    "Compare four What-if futures": "比较四条假设情境",
+    "Four Futures foundation": "四种未来基础流程",
+    "Frame the inquiry": "确定研究议题",
+    "Confirm keywords": "确认关键词",
+    "Generate four What-if futures": "生成四条假设情境",
+    "Choose one future": "选择一条未来",
+    "Discuss the chosen future": "讨论已选未来",
+    "Text Node": "文本节点",
+    "Conversation": "对话节点",
+    "Upload Source": "上传来源",
+    "Image Node": "图像节点",
+    "Method Node": "方法节点",
+    "Operation Node": "操作节点",
+    "Semantic Image": "语义图像",
+    "Guided process": "引导流程",
   };
   return labels[title] || title;
 }
@@ -590,12 +641,23 @@ function localizedConversationBody(body) {
     "A workflow input changed. Its generated futures are now stale.": "流程输入已改变；此前生成的未来方向现已失效。",
     "Connected two nodes.": "已连接两个节点。",
     "Removed a connection between two nodes.": "已移除两个节点之间的连接。",
+    "The inquiry frame is complete. Review the editable keyword node, then confirm the keywords here to unlock the four What-if stage.": "研究框架已完成。请检查可编辑的关键词节点，然后在这里确认关键词以进入四条假设情境阶段。",
+    "Updated Discussion tools.": "讨论工具已更新。",
+    "Added Guided Scenario.": "已添加引导情境。",
   };
   if (copy[body]) return copy[body];
   const selectedMethods = body.match(/^Updated discussion tools: (\d+) method\(s\) selected\.$/);
   if (selectedMethods) return `讨论工具已更新：已选择 ${selectedMethods[1]} 个方法。`;
   const operationOutput = body.match(/^Ran (.+) and added (\d+) output nodes\.$/);
   if (operationOutput) return `已运行${localizedReferenceTitle(operationOutput[1])}，并新增 ${operationOutput[2]} 个输出节点。`;
+  const singleOutput = body.match(/^Ran (.+) and added a new output node\.$/);
+  if (singleOutput) return `已运行${localizedReferenceTitle(singleOutput[1])}，并新增一个输出节点。`;
+  const addedNode = body.match(/^Added (.+)\.$/);
+  if (addedNode) return `已添加${localizedReferenceTitle(addedNode[1])}。`;
+  const updatedNode = body.match(/^Updated (.+)\.$/);
+  if (updatedNode) return `已更新${localizedReferenceTitle(updatedNode[1])}。`;
+  const deletedNode = body.match(/^Deleted (.+)\.$/);
+  if (deletedNode) return `已删除${localizedReferenceTitle(deletedNode[1])}。`;
   return body;
 }
 
@@ -611,6 +673,9 @@ function applyLocale(nextLocale) {
   });
   document.querySelectorAll("[data-i18n-aria-label]").forEach((element) => {
     element.setAttribute("aria-label", t(element.dataset.i18nAriaLabel));
+  });
+  document.querySelectorAll("[data-i18n-title]").forEach((element) => {
+    element.setAttribute("title", t(element.dataset.i18nTitle));
   });
   document.querySelectorAll("[data-language-toggle]").forEach((button) => {
     const targetLanguage = locale === "zh" ? "EN" : "中文";
@@ -875,11 +940,11 @@ function renderInteraction() {
   const interaction = activeInteraction;
   const session = activeSession();
   const scope = activeProjection?.scope || (interaction?.scopes || []).find((item) => item.id === activeScopeId);
-  conversationTitle.textContent = session?.title || t("conversation.emptyTitle");
-  conversationPolicy.textContent = session?.control_policy || "confirm";
-  scopeViewTitle.textContent = scope?.label || t("scope.loading");
-  conversationScopeIndicator.textContent = scope?.label ? `${t("conversation.scope")}: ${scope.label}` : "";
-  canvasFocusTitle.textContent = scope?.label || t("scope.loading");
+  conversationTitle.textContent = localizedReferenceTitle(session?.title || t("conversation.emptyTitle"));
+  conversationPolicy.textContent = localizedControlPolicy(session?.control_policy);
+  scopeViewTitle.textContent = localizedReferenceTitle(scope?.label || t("scope.loading"));
+  conversationScopeIndicator.textContent = scope?.label ? `${t("conversation.scope")}: ${localizedReferenceTitle(scope.label)}` : "";
+  canvasFocusTitle.textContent = localizedReferenceTitle(scope?.label || t("scope.loading"));
   scopeNodeCount.textContent = `${scope?.node_count ?? activeProjection?.nodes?.length ?? 0}`;
   navigatorRevision.textContent = `r${interaction?.revision ?? activeCanvas?.revision ?? 0}`;
   const isGlobalScope = activeScopeId === "scope-global";
@@ -1142,7 +1207,7 @@ function renderStagePresentation(stages) {
       <p>${escapeHtml(activeStage.state)}</p>
       <div class="stage-focus-meta">
         <span>${escapeHtml(t("stagePresentation.scope"))}</span>
-        <strong>${escapeHtml(scope?.label || activeStage.label)}</strong>
+        <strong>${escapeHtml(localizedReferenceTitle(scope?.label || activeStage.label))}</strong>
       </div>
     </article>
     <section class="stage-methods-card" aria-label="${escapeHtml(t("stagePresentation.methods"))}">
@@ -1182,7 +1247,7 @@ function renderConversationGuide(session) {
   } else if (stage === "choose_future" && workflow?.branch_node_ids?.length) {
     conversationGuideActions.innerHTML = `
       <span>${localized ? "选择一个方向进入讨论：" : "Choose a direction to discuss:"}</span>
-      ${workflow.branch_node_ids.map((nodeId) => `<button type="button" data-guide-branch-id="${escapeHtml(nodeId)}" data-guide-workflow-id="${escapeHtml(workflow.id)}">${escapeHtml(findNode(nodeId)?.title || (localized ? "未来方向" : "Future direction"))}</button>`).join("")}
+      ${workflow.branch_node_ids.map((nodeId) => `<button type="button" data-guide-branch-id="${escapeHtml(nodeId)}" data-guide-workflow-id="${escapeHtml(workflow.id)}">${escapeHtml(localizedReferenceTitle(findNode(nodeId)?.title || (localized ? "未来方向" : "Future direction")))}</button>`).join("")}
     `;
   } else if (stage === "stale") {
     conversationGuideActions.innerHTML = `<span>${localized ? "关联节点已改变。旧分支已失效；修复输入边后可直接重新运行该节点。" : "A linked node changed. Existing branches are stale; restore the inputs, then run the node again."}</span>`;
@@ -1527,8 +1592,8 @@ function renderNode(node) {
     </header>
     ${renderNodeBody(node)}
     <footer>
-      <span>${escapeHtml(node.title)}</span>
-      <span>${escapeHtml(node.active_run_id || "revision 1")}</span>
+      <span>${escapeHtml(localizedReferenceTitle(node.title))}</span>
+      <span>${escapeHtml(node.active_run_id || t("node.revision", { count: 1 }))}</span>
     </footer>
   `;
 
@@ -1622,18 +1687,18 @@ function renderNodeBody(node) {
   if (node.type === "operation") {
     const definition = node.config?.definition || {};
     const selectedTools = node.config?.tool_selections || [];
-    const runLabel = definition.ui?.run_label || t("common.run");
+    const runLabel = localizedOperationUiCopy(definition, "run_label") || t("common.run");
     const canRun = Boolean(definition.execution?.executor);
     return `
       <div class="operation-definition">
-        <strong>${escapeHtml(definition.label || node.title)}</strong>
-        <span>${escapeHtml(definition.description || t("nodes.operationDefault"))}</span>
+        <strong>${escapeHtml(localizedOperationCopy(definition, "label") || localizedReferenceTitle(node.title))}</strong>
+        <span>${escapeHtml(localizedOperationCopy(definition, "description") || t("nodes.operationDefault"))}</span>
       </div>
       <div class="node-actions">
-        <span>${escapeHtml(selectedTools.length ? `${selectedTools.length} tools` : "definition")}</span>
+        <span>${escapeHtml(selectedTools.length ? t("operation.toolsSelected", { count: selectedTools.length }) : t("operation.definition"))}</span>
         ${canRun
           ? `<button type="button" data-run-operation>${escapeHtml(runLabel)}</button>`
-          : `<span>${escapeHtml(node.config?.output_profile || "text")}</span>`}
+          : `<span>${escapeHtml(outputLabel(node.config?.output_profile || "text"))}</span>`}
       </div>
     `;
   }
@@ -1680,7 +1745,7 @@ function renderScenarioBranchBody(node) {
   const canChoose = workflow?.status === "awaiting_selection";
   return `
     <div class="scenario-branch">
-      <strong>${escapeHtml(branch.strategy_label || node.title)}</strong>
+      <strong>${escapeHtml(localizedReferenceTitle(branch.strategy_label || node.title))}</strong>
       <p>${escapeHtml(branch.what_if || previewText(node.payload?.text || ""))}</p>
       ${branch.future_premise ? `<span>${escapeHtml(branch.future_premise)}</span>` : ""}
     </div>
@@ -1705,7 +1770,7 @@ function renderImageUploadControl(node) {
 function renderEditableTextBody(node) {
   const hasText = Boolean(String(node.payload?.text || "").trim());
   return `
-    <textarea aria-label="${escapeHtml(node.title)}">${escapeHtml(node.payload?.text || "")}</textarea>
+    <textarea aria-label="${escapeHtml(localizedReferenceTitle(node.title))}">${escapeHtml(node.payload?.text || "")}</textarea>
     <div class="node-actions input-node-actions">
       <span>${t("common.inputText")}</span>
       <button type="button" data-open-full-text ${hasText ? "" : "disabled"}>${t("common.openFullText")}</button>
@@ -2068,7 +2133,7 @@ function openContextNodeText() {
 }
 
 function openTextReader(node) {
-  textReaderTitle.textContent = node.title || node.type || t("reader.nodeText");
+  textReaderTitle.textContent = localizedReferenceTitle(node.title || node.type || t("reader.nodeText"));
   renderTextReaderBody(node);
   textReader.classList.remove("hidden");
 }
@@ -2225,7 +2290,7 @@ function renderTextBlock(block) {
 function openImageViewer(node) {
   const imageUrl = node.payload?.image_url;
   if (!imageUrl) return;
-  imageViewerTitle.textContent = node.title || t("reader.imagePreview");
+  imageViewerTitle.textContent = localizedReferenceTitle(node.title || t("reader.imagePreview"));
   imageViewerImg.src = imageUrl;
   imageViewerCaption.textContent = imageCaptionForNode(node);
   imageViewerImg.alt = imageViewerCaption.textContent || node.title || t("common.generatedImage");

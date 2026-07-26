@@ -61,17 +61,17 @@
         </header>
 
         <div class="workspace-layout">
-          <aside class="workspace-sidebar" aria-label="Workspace tools">
+          <aside class="workspace-sidebar" data-i18n-aria-label="canvas.tools" aria-label="Workspace tools">
             <nav class="canvas-tools" data-i18n-aria-label="canvas.tools" aria-label="Canvas tools">
               <p class="sidebar-section-label" data-i18n="sidebar.create">Create</p>
-              <button type="button" data-add-node="text" data-i18n="sidebar.textNode" title="Text node">Text node</button>
-              <button type="button" data-add-node="conversation" data-i18n="sidebar.conversationNode" title="Conversation node">Conversation node</button>
-              <button type="button" data-add-node="upload" data-i18n="sidebar.uploadSource" title="Upload source">Upload source</button>
-              <button type="button" data-add-node="image" data-i18n="sidebar.imageNode" title="Image node">Image node</button>
-              <button type="button" data-add-node="modify" data-i18n="sidebar.methodNode" title="Method node">Method node</button>
-              <button type="button" data-add-node="operation" data-i18n="sidebar.operationNode" title="Operation node">Operation node</button>
-              <button type="button" data-add-operation-definition="operation.guided-scenario" data-i18n="sidebar.scenarioNode" title="Guided scenario">Guided scenario</button>
-              <button id="start-foundation-workflow" class="workflow-start" type="button" data-i18n="sidebar.startFlow" title="Start guided flow">Start guided flow</button>
+              <button type="button" data-add-node="text" data-i18n="sidebar.textNode" data-i18n-title="sidebar.textNode" title="Text node">Text node</button>
+              <button type="button" data-add-node="conversation" data-i18n="sidebar.conversationNode" data-i18n-title="sidebar.conversationNode" title="Conversation node">Conversation node</button>
+              <button type="button" data-add-node="upload" data-i18n="sidebar.uploadSource" data-i18n-title="sidebar.uploadSource" title="Upload source">Upload source</button>
+              <button type="button" data-add-node="image" data-i18n="sidebar.imageNode" data-i18n-title="sidebar.imageNode" title="Image node">Image node</button>
+              <button type="button" data-add-node="modify" data-i18n="sidebar.methodNode" data-i18n-title="sidebar.methodNode" title="Method node">Method node</button>
+              <button type="button" data-add-node="operation" data-i18n="sidebar.operationNode" data-i18n-title="sidebar.operationNode" title="Operation node">Operation node</button>
+              <button type="button" data-add-operation-definition="operation.guided-scenario" data-i18n="sidebar.scenarioNode" data-i18n-title="sidebar.scenarioNode" title="Guided scenario">Guided scenario</button>
+              <button id="start-foundation-workflow" class="workflow-start" type="button" data-i18n="sidebar.startFlow" data-i18n-title="sidebar.startFlow" title="Start guided flow">Start guided flow</button>
             </nav>
 
             <section class="tool-sidebar" aria-labelledby="tool-sidebar-title">
@@ -143,9 +143,9 @@
               <header class="conversation-history-dialog-header">
                 <div>
                   <p class="eyebrow" data-i18n="conversation.history">Conversation history</p>
-                  <h2 id="conversation-history-dialog-title">完整对话记录</h2>
+                  <h2 id="conversation-history-dialog-title" data-i18n="conversation.history">完整对话记录</h2>
                 </div>
-                <button id="conversation-history-close" class="conversation-history-close" type="button" aria-label="关闭对话记录">关闭</button>
+                <button id="conversation-history-close" class="conversation-history-close" type="button" data-i18n="common.close" data-i18n-aria-label="common.close" aria-label="关闭对话记录">关闭</button>
               </header>
               <div id="conversation-history-dialog-messages" class="conversation-history-dialog-messages" role="log" aria-live="polite" aria-relevant="additions text"></div>
             </dialog>
@@ -159,7 +159,7 @@
               <h3 id="canvas-focus-title">Canvas</h3>
             </div>
             <div class="canvas-focus-actions">
-              <div class="canvas-focus-zoom" aria-label="Canvas zoom controls">
+              <div class="canvas-focus-zoom" data-i18n-aria-label="canvasFocus.zoomControls" aria-label="Canvas zoom controls">
                 <button id="zoom-out" type="button" data-i18n-aria-label="canvas.zoomOut" aria-label="Zoom out">-</button>
                 <span id="zoom-level" class="zoom-level">100%</span>
                 <button id="zoom-in" type="button" data-i18n-aria-label="canvas.zoomIn" aria-label="Zoom in">+</button>
@@ -315,6 +315,6 @@
           </form>
         </div>
     </section>
-    <script src="/static/app.js?v=20260725-conversation-locale"></script>
+    <script src="/static/app.js?v=20260726-locale-audit"></script>
   </body>
 </html>
