@@ -47,7 +47,7 @@ def test_custom_tool_registry_preserves_contract_fields():
 def test_tool_package_manifest_is_discoverable():
     import server.modifier_registry as registry
 
-    tools = registry.list_modifier_tools()
+    tools = registry.list_installed_modifier_tools()
     reductio = next(tool for tool in tools if tool["id"] == "reductio-ad-absurdum")
     assert reductio["label"] == "Reductio ad Absurdum"
     assert reductio["input_contract"]["required"] == ["accepted_claim_or_logic"]
@@ -59,7 +59,7 @@ def test_tool_package_manifest_is_discoverable():
 def test_tool_card_metadata_stays_with_the_package_contract():
     import server.modifier_registry as registry
 
-    tools = {tool["id"]: tool for tool in registry.list_modifier_tools()}
+    tools = {tool["id"]: tool for tool in registry.list_installed_modifier_tools()}
     four_futures = tools["dators-four-futures"]
     assert four_futures["presentation"]["card_kind"] == "four-futures"
     assert four_futures["presentation"]["asset"] == {"kind": "none", "path": ""}
@@ -85,7 +85,7 @@ def test_tool_card_metadata_stays_with_the_package_contract():
 def test_critical_embodiment_constraints_remain_owned_by_individual_packages():
     import server.modifier_registry as registry
 
-    tools = {tool["id"]: tool for tool in registry.list_modifier_tools()}
+    tools = {tool["id"]: tool for tool in registry.list_installed_modifier_tools()}
     assert any("world-level premise" in item for item in tools["counterfactual"]["model_constraints"])
     assert any("human body never became" in item for item in tools["counterfactual"]["model_constraints"])
     assert any("human likeness" in item for item in tools["causal-layered-analysis"]["model_constraints"])
@@ -99,7 +99,7 @@ def test_critical_embodiment_constraints_remain_owned_by_individual_packages():
 def test_future_tool_packages_are_discoverable_with_recommendations():
     import server.modifier_registry as registry
 
-    tools = {tool["id"]: tool for tool in registry.list_modifier_tools()}
+    tools = {tool["id"]: tool for tool in registry.list_installed_modifier_tools()}
     for tool_id in [
         "future-triangle",
         "futures-wheel",
@@ -121,7 +121,7 @@ def test_future_tool_packages_are_discoverable_with_recommendations():
 def test_text_recommended_packages_expose_independent_structured_forms():
     import server.modifier_registry as registry
 
-    tools = {tool["id"]: tool for tool in registry.list_modifier_tools()}
+    tools = {tool["id"]: tool for tool in registry.list_installed_modifier_tools()}
     expected_forms = {
         "what-if": ["callout", "paragraph", "table", "questions"],
         "counterfactual": ["table", "table", "paragraph", "questions"],
@@ -158,12 +158,27 @@ def test_modifier_tools_expose_short_descriptions():
         "reductio-ad-absurdum",
         "three-horizons",
     }
-    tools = {tool["id"]: tool for tool in registry.list_modifier_tools()}
+    tools = {tool["id"]: tool for tool in registry.list_installed_modifier_tools()}
     assert required_ids.issubset(tools)
     for tool_id in required_ids:
         words = tools[tool_id]["description"].split()
         assert 20 <= len(words) <= 30
         assert tools[tool_id]["package_path"].startswith("tool_packages/")
+
+
+def test_public_tool_selector_exposes_only_the_enabled_experiment_set():
+    import server.modifier_registry as registry
+
+    assert {tool["id"] for tool in registry.list_modifier_tools()} == {
+        "cautionary-tales",
+        "experiential-futures-ladder",
+        "future-triangle",
+        "futures-cone",
+        "futures-wheel",
+    }
+    installed = {tool["id"]: tool for tool in registry.list_installed_modifier_tools()}
+    assert installed["what-if"]["enabled"] is False
+    assert installed["futures-cone"]["enabled"] is True
 
 
 def test_env_file_loader_sets_missing_values():

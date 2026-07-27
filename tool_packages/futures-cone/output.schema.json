@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "required": ["plausible_futures", "possible_futures", "preferable_futures", "assumptions"],
+  "properties": {
+    "plausible_futures": {"type": "array", "items": {"type": "string"}},
+    "possible_futures": {"type": "array", "items": {"type": "string"}},
+    "preferable_futures": {"type": "array", "items": {"type": "string"}},
+    "assumptions": {"type": "array", "items": {"type": "string"}},
+    "decision_questions": {"type": "array", "items": {"type": "string"}}
+  }
+}

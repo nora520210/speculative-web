@@ -1,6 +1,7 @@
 {
   "id": "physical-fiction",
   "version": "0.2.0",
+  "enabled": false,
   "label": "Physical Fiction",
   "description": "Materializes a speculative world as an inspectable object, prototype, prop, or exhibit that lets viewers infer systems, users, and rules.",
   "locales": {

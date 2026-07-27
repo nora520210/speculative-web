@@ -1,6 +1,7 @@
 {
   "id": "envisioning-cards",
   "version": "0.3.0",
+  "enabled": false,
   "label": "Envisioning Cards",
   "description": "Creates prompt cards that test stakeholders, time scales, values, and diffusion, helping teams critically review long term ethical effects early.",
   "locales": {

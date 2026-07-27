@@ -1,6 +1,7 @@
 {
   "id": "what-if",
   "version": "0.4.0",
+  "enabled": false,
   "label": "What-If Scenarios",
   "description": "Turns broad research into a sharp what if condition, revealing everyday consequences, affected groups, risks, values, and discussable speculative scenarios.",
   "locales": {

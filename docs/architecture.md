@@ -174,6 +174,44 @@ discussing a silently out-of-date result. This sequencing changes interaction st
 not the model, image, or tool-selection mechanism, so those systems can evolve later
 without replacing the workflow contract.
 
+### Versioned Workflow Packages
+
+Workflow packages use the same separation as tool packages. A future workflow change
+starts with a natural-language process document, which is translated into one
+`workflow_definitions/<workflow-id>/manifest.json` package before any visual work
+begins. The package owns stable stage IDs and order, input requirements, operation
+references, discussion-tool policy, and package-owned display copy. It does **not**
+own CSS, DOM structure, card dimensions, or button placement.
+
+At workflow creation, the runtime stores `definition_ref` and a compact
+`definition_snapshot` on the workflow instance. The snapshot freezes the stage order,
+labels, and interface-language copy used by that research record. The workspace cards
+render the session's durable `progress` entries through this snapshot; they do not
+contain a second hard-coded phase list. Therefore a new package version can change a
+future process without silently reinterpreting an existing canvas.
+
+For a new document-derived workflow, the implementation sequence is:
+
+1. Define or revise the versioned manifest and its localized display copy.
+2. Add a backend transition adapter only where the new semantics require graph
+   mutations, Scope changes, or execution rules.
+3. Reuse the existing node, Scope, conversation, command, and run contracts rather
+   than creating parallel UI state.
+4. Let the frontend render generic progress and package metadata; visual prototypes
+   may be swapped independently.
+5. Add contract tests for stage order, snapshots, required ports, invalidation, and
+   direct-node equivalence before enabling the new workflow.
+
+### Tool Availability Sets
+
+Each `tool_packages/<tool-id>/manifest.json` has an `enabled` flag. A disabled package
+remains installed: its theory, contracts, version, historical run snapshots, and
+assets are retained. It is simply excluded from new Modify nodes, the tool sidebar,
+and the public tool endpoint. This permits reversible tool experiments without
+deleting packages or changing frontend code. Existing node configurations retain a
+disabled tool only as unavailable provenance and its selected state is cleared, so a
+new run cannot silently execute a method that has been removed from the active set.
+
 ### Conversation-first, Node-equivalent Control
 
 The default Working Thread starts with a deterministic guide rather than a blank

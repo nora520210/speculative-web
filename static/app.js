@@ -1137,7 +1137,7 @@ function activeStageTools() {
     : (activeCanvas?.nodes || []).filter((node) => node.type === "modify");
   const uniqueTools = new Map();
   sourceNodes.forEach((node) => {
-    (node.config?.tools || []).filter((tool) => tool.selected).forEach((tool) => {
+    (node.config?.tools || []).filter((tool) => tool.enabled !== false && tool.selected).forEach((tool) => {
       const key = tool.id || tool.label;
       if (!key || uniqueTools.has(key)) return;
       uniqueTools.set(key, tool);
@@ -1250,7 +1250,7 @@ function renderToolSidebar() {
     return;
   }
   toolSidebarList.innerHTML = modifyNodes.map((node) => {
-    const tools = node.config?.tools || [];
+    const tools = (node.config?.tools || []).filter((tool) => tool.enabled !== false);
     const policy = node.config?.selection_policy || {};
     const minimumSelected = Math.max(0, Number(policy.minimum_selected) || 0);
     const selectedCount = tools.filter((tool) => tool.selected).length;
@@ -1635,7 +1635,7 @@ function renderNode(node) {
 
 function renderNodeBody(node) {
   if (node.type === "modify") {
-    const tools = node.config?.tools || [];
+    const tools = (node.config?.tools || []).filter((tool) => tool.enabled !== false);
     const outputType = node.config?.output_type || "text";
     const recommendation = outputRecommendation(node);
     const outputRows = ["text", "image", "multimodal"]

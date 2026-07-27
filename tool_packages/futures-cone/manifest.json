@@ -1,0 +1,56 @@
+{
+  "id": "futures-cone",
+  "version": "0.1.0",
+  "enabled": true,
+  "label": "Futures Cone",
+  "description": "Maps plausible, possible and preferable futures from a present condition, making uncertainty, assumptions and decision boundaries explicit before a direction is chosen.",
+  "locales": {
+    "zh": {
+      "label": "未来锥",
+      "description": "从当前条件展开可能、可行与理想的未来范围，在选择方向前明确不确定性、默认假设与决策边界。"
+    }
+  },
+  "layer": "tool",
+  "family": "futures studies / design research",
+  "compatible_nodes": ["modify"],
+  "accepted_modalities": ["text", "image", "multimodal"],
+  "supported_outputs": ["text", "image", "multimodal"],
+  "input_contract": {
+    "required": ["present_condition_or_signal"],
+    "optional": ["time_horizon", "constraints", "stakeholders", "desired_future"]
+  },
+  "output_contract": {
+    "text": ["present_condition", "plausible_futures", "possible_futures", "preferable_futures", "assumptions", "decision_questions", "text_blocks"],
+    "image": ["cone_visual_brief", "image_prompt"],
+    "multimodal": ["future_cone_brief", "cone_visual_brief", "image_prompt", "text_blocks"]
+  },
+  "theory_mapping": {
+    "method": "futures cone",
+    "source_notes": "Use the cone to distinguish ranges of futures, not to predict a single outcome."
+  },
+  "model_constraints": [
+    "Separate plausible, possible and preferable futures; do not present them as forecasts.",
+    "State which assumptions widen or narrow each range.",
+    "Keep the preferable future tied to stakeholders and an explicit value choice."
+  ],
+  "recommendation": {
+    "type": "text",
+    "best_when": "A team needs to compare the range of futures before selecting one scenario to develop."
+  },
+  "presentation": {
+    "card_kind": "futures-cone",
+    "icon_token": "futures-cone",
+    "accent_token": "neutral",
+    "asset": {"kind": "none", "path": ""},
+    "summary_fields": ["description", "recommendation.best_when"],
+    "interaction_hint": "Compare ranges before committing to one branch."
+  },
+  "files": {
+    "theory": "theory.md",
+    "constraints": "constraints.md",
+    "input_schema": "input.schema.json",
+    "output_schema": "output.schema.json"
+  },
+  "executor": {"kind": "model", "entrypoint": ""},
+  "placeholder": true
+}

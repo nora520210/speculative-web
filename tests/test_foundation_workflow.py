@@ -32,6 +32,7 @@ def test_four_futures_workflow_definition_is_a_backend_owned_sequence():
     assert definition["stages"][2]["operation_definition_id"] == "operation.guided-scenario"
     assert definition["discussion_tool_policy"]["minimum_selected"] == 1
     assert definition["discussion_tool_policy"]["recommended_by_branch"]["growth"] == ["futures-wheel"]
+    assert definition["discussion_tool_policy"]["recommended_by_branch"]["discipline"] == ["future-triangle"]
     assert definition["locales"]["zh"]["stages"]["four_futures"]["label"] == "生成四条假设情境"
     assert all(item["package_path"].startswith("workflow_definitions/") for item in list_workflow_definitions())
 

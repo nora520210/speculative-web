@@ -1,6 +1,7 @@
 {
   "id": "cautionary-tales",
   "version": "0.4.0",
+  "enabled": true,
   "label": "Cautionary Tales",
   "description": "Extends a current trend toward an unwanted everyday consequence, using warning, satire, or dark design to expose hidden costs and values.",
   "locales": {

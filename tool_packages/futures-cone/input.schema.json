@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "required": ["present_condition_or_signal"],
+  "properties": {
+    "present_condition_or_signal": {"type": "string"},
+    "time_horizon": {"type": "string"},
+    "constraints": {"type": "array", "items": {"type": "string"}},
+    "stakeholders": {"type": "array", "items": {"type": "string"}},
+    "desired_future": {"type": "string"}
+  }
+}

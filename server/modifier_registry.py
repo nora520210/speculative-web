@@ -115,7 +115,14 @@ DEFAULT_MODIFIER_TOOLS = [
 ]
 
 
-def _registry_tools() -> list[dict]:
+def _installed_registry_tools() -> list[dict]:
+    """Return every installed package, including temporarily disabled ones.
+
+    Installed packages remain available for provenance and historical canvas
+    normalization. The public selector is intentionally narrower and is exposed by
+    ``_registry_tools`` below.
+    """
+
     package_tools = _package_tools()
     if not TOOL_REGISTRY_FILE.exists():
         return merge_tools(DEFAULT_MODIFIER_TOOLS, package_tools)
@@ -132,6 +139,12 @@ def _registry_tools() -> list[dict]:
             continue
         normalized.append(normalize_registry_tool(tool))
     return merge_tools(DEFAULT_MODIFIER_TOOLS, package_tools, normalized)
+
+
+def _registry_tools() -> list[dict]:
+    """Return only packages currently enabled for new interaction surfaces."""
+
+    return [tool for tool in _installed_registry_tools() if tool.get("enabled", True)]
 
 
 def _package_tools() -> list[dict]:
@@ -181,6 +194,7 @@ def normalize_registry_tool(tool: dict) -> dict:
         "accepted_modalities": tool.get("accepted_modalities") or ["text"],
         "supported_outputs": tool.get("supported_outputs") or ["text"],
         "selected": bool(tool.get("selected", False)),
+        "enabled": bool(tool.get("enabled", True)),
         "placeholder": bool(tool.get("placeholder", True)),
         "presentation": normalize_tool_presentation(tool.get("presentation"), tool),
     }
@@ -265,6 +279,12 @@ def list_modifier_tools() -> list[dict]:
     return deepcopy(_registry_tools())
 
 
+def list_installed_modifier_tools() -> list[dict]:
+    """Administrative/package view; disabled tools never appear in the UI list."""
+
+    return deepcopy(_installed_registry_tools())
+
+
 def list_output_types() -> list[dict]:
     return [
         {
@@ -297,6 +317,7 @@ def default_modifier_tools() -> list[dict]:
             "description": tool.get("description", ""),
             "locales": deepcopy(tool.get("locales", {})),
             "selected": tool["selected"],
+            "enabled": tool.get("enabled", True),
         }
         for tool in _registry_tools()
     ]
@@ -318,6 +339,7 @@ def public_modifier_tools() -> list[dict]:
             "package_path": tool.get("package_path", ""),
             "presentation": deepcopy(tool.get("presentation", {})),
             "selected": tool["selected"],
+            "enabled": tool.get("enabled", True),
         }
         for tool in _registry_tools()
     ]
@@ -330,8 +352,12 @@ def normalize_modifier_tools(configured_tools: list[dict] | None) -> list[dict]:
         if isinstance(tool, dict) and tool.get("id")
     }
     normalized = []
-    for registry_tool in _registry_tools():
+    for registry_tool in _installed_registry_tools():
         configured = configured_by_id.get(registry_tool["id"], {})
+        # Disabled tools are kept only when an existing node already carries their
+        # configuration. They are marked unavailable and cannot enter a new node.
+        if not registry_tool.get("enabled", True) and not configured:
+            continue
         normalized.append(
             {
                 "id": registry_tool["id"],
@@ -346,7 +372,8 @@ def normalize_modifier_tools(configured_tools: list[dict] | None) -> list[dict]:
                 "supported_outputs": deepcopy(registry_tool.get("supported_outputs", ["text"])),
                 "package_path": registry_tool.get("package_path", ""),
                 "presentation": deepcopy(registry_tool.get("presentation", {})),
-                "selected": bool(configured.get("selected", registry_tool["selected"])),
+                "enabled": bool(registry_tool.get("enabled", True)),
+                "selected": bool(configured.get("selected", registry_tool["selected"])) if registry_tool.get("enabled", True) else False,
             }
         )
     return normalized
@@ -359,11 +386,12 @@ def normalize_output_type(output_type: str | None) -> str:
 
 
 def tool_snapshot(tool_ids: list[str]) -> list[dict]:
-    by_id = {tool["id"]: tool for tool in _registry_tools()}
+    by_id = {tool["id"]: tool for tool in _installed_registry_tools()}
     return [
         {
             "id": tool_id,
             "version": by_id.get(tool_id, {}).get("version", "unknown"),
+            "enabled": bool(by_id.get(tool_id, {}).get("enabled", False)),
             "label": by_id.get(tool_id, {}).get("label", tool_id),
             "description": by_id.get(tool_id, {}).get("description", ""),
             "locales": deepcopy(by_id.get(tool_id, {}).get("locales", {})),
@@ -391,7 +419,7 @@ def tool_snapshot(tool_ids: list[str]) -> list[dict]:
 
 def recommend_output(selected_tool_ids: list[str], input_modalities: list[str] | None = None) -> dict:
     input_modalities = input_modalities or ["text"]
-    by_id = {tool["id"]: tool for tool in _registry_tools()}
+    by_id = {tool["id"]: tool for tool in _installed_registry_tools()}
     items = [
         recommendation_for_tool(by_id[tool_id], input_modalities)
         for tool_id in selected_tool_ids

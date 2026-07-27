@@ -1,6 +1,7 @@
 {
   "id": "experiential-futures-ladder",
   "version": "0.2.0",
+  "enabled": true,
   "label": "Experiential Futures Ladder",
   "description": "Steps from broad future context to scenario, situation, and tangible stuff, clearly turning abstract foresight into embodied artifacts or scenes.",
   "locales": {

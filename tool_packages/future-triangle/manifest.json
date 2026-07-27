@@ -1,6 +1,7 @@
 {
   "id": "future-triangle",
   "version": "0.3.0",
+  "enabled": true,
   "label": "Futures Triangle",
   "description": "Maps a topic through future pull, present push, and historical weight, revealing tensions, drivers, constraints, and possible intervention points for discussion.",
   "locales": {
