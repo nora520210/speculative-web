@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+from copy import deepcopy
 import json
 import re
 import uuid
@@ -358,42 +359,23 @@ def start_four_futures_workflow(project_id: str, payload: dict, expected_revisio
             },
         },
     )
+    # Progress is materialized from the workflow package, rather than duplicated
+    # in the presentation layer. The status rules below are the Four Futures
+    # runtime contract; labels and order belong to the versioned definition.
+    initial_statuses = {
+        "frame": "active" if guided else "succeeded",
+        "keywords": "pending" if guided else "succeeded",
+        "four_futures": "pending" if guided else "active",
+    }
     progress = [
         {
-            "id": f"step-{workflow_id}-frame",
-            "workflow_stage_id": "frame",
-            "label": "Frame the inquiry",
+            "id": f"step-{workflow_id}-{stage['id']}",
+            "workflow_stage_id": stage["id"],
+            "label": stage["label"],
             "scope_id": scope["id"],
-            "status": "active" if guided else "succeeded",
-        },
-        {
-            "id": f"step-{workflow_id}-keywords",
-            "workflow_stage_id": "keywords",
-            "label": "Confirm keywords",
-            "scope_id": scope["id"],
-            "status": "pending" if guided else "succeeded",
-        },
-        {
-            "id": f"step-{workflow_id}-futures",
-            "workflow_stage_id": "four_futures",
-            "label": "Generate four What-if futures",
-            "scope_id": scope["id"],
-            "status": "pending" if guided else "active",
-        },
-        {
-            "id": f"step-{workflow_id}-choose",
-            "workflow_stage_id": "choose_future",
-            "label": "Choose one future",
-            "scope_id": scope["id"],
-            "status": "pending",
-        },
-        {
-            "id": f"step-{workflow_id}-discussion",
-            "workflow_stage_id": "discussion",
-            "label": "Discuss the chosen future",
-            "scope_id": scope["id"],
-            "status": "pending",
-        },
+            "status": initial_statuses.get(stage["id"], "pending"),
+        }
+        for stage in definition["stages"]
     ]
     session = next(
         (item for item in canvas.get("conversation_sessions", []) if item.get("id") == requested_session_id),
@@ -426,6 +408,10 @@ def start_four_futures_workflow(project_id: str, payload: dict, expected_revisio
     workflow = {
         "id": workflow_id,
         "definition_ref": {"id": definition["id"], "version": definition["version"]},
+        # Freeze the workflow's structural and display contract. Later package
+        # versions can render differently for new instances without reinterpreting
+        # an in-progress research record.
+        "definition_snapshot": deepcopy(definition),
         "label": definition["label"],
         "status": "active",
         "stage": "frame" if guided else "four_futures",

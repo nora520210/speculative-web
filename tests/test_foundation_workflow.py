@@ -32,6 +32,7 @@ def test_four_futures_workflow_definition_is_a_backend_owned_sequence():
     assert definition["stages"][2]["operation_definition_id"] == "operation.guided-scenario"
     assert definition["discussion_tool_policy"]["minimum_selected"] == 1
     assert definition["discussion_tool_policy"]["recommended_by_branch"]["growth"] == ["futures-wheel"]
+    assert definition["locales"]["zh"]["stages"]["four_futures"]["label"] == "生成四条假设情境"
     assert all(item["package_path"].startswith("workflow_definitions/") for item in list_workflow_definitions())
 
 
@@ -82,6 +83,15 @@ def test_four_futures_foundation_lifecycle_uses_scopes_without_copying_graphs():
 
             assert workflow["operation_node_id"] == started["nodes"][2]["id"]
             assert workflow["source_node_ids"] == [started["nodes"][0]["id"], started["nodes"][1]["id"]]
+            assert workflow["definition_snapshot"]["id"] == "workflow.four-futures-foundation"
+            assert [stage["id"] for stage in workflow["definition_snapshot"]["stages"]] == [
+                "frame",
+                "keywords",
+                "four_futures",
+                "choose_future",
+                "discussion",
+            ]
+            assert workflow["definition_snapshot"]["locales"]["zh"]["stages"]["discussion"]["label"] == "讨论已选未来"
             assert workflow["status"] == "active"
             assert workflow["stage"] == "four_futures"
             assert [step["workflow_stage_id"] for step in session["progress"]] == [

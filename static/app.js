@@ -1105,51 +1105,28 @@ function renderWorkflowStrip(session) {
 }
 
 function workflowStages(session) {
-  const nodes = activeCanvas?.nodes || [];
   const workflow = activeWorkflow();
-  const guideStage = session?.guide?.stage_id || "start";
-  const localScopeId = session?.active_scope_id || activeScopeId || "scope-global";
-  const artifactScopeId = (activeInteraction?.scopes || []).find((scope) =>
-    /artifact|branch|结果|分支/i.test(scope.id || "") || /artifact|branch|结果|分支/i.test(scope.label || ""),
-  )?.id || localScopeId;
-  const toolCount = nodes
-    .filter((node) => node.type === "modify")
-    .reduce((count, node) => count + (node.config?.tools || []).filter((tool) => tool.selected).length, 0);
-  const outputCount = nodes.filter((node) => ["generated", "ready"].includes(node.status) && ["image", "multimodal"].includes(node.type)).length;
-  const framingStages = new Set(["frame_focus", "frame_assumptions", "frame_stakeholders", "frame_tensions", "keywords"]);
-  const stages = [
-    {
+  const progress = session?.progress || [];
+  if (!progress.length) {
+    return [{
       label: t("workflowStrip.brief"),
-      state: guideStage === "start" ? t("workflowStrip.awaiting") : t("workflowStrip.ready"),
-      scopeId: localScopeId,
-      active: guideStage === "start",
-    },
-    {
-      label: t("workflowStrip.keywords"),
-      state: framingStages.has(guideStage) ? t("workflowStrip.active") : (guideStage === "start" ? t("workflowStrip.awaiting") : t("workflowStrip.ready")),
-      scopeId: localScopeId,
-      active: framingStages.has(guideStage),
-    },
-    {
-      label: t("workflowStrip.whatIf"),
-      state: ["four_futures", "choose_future"].includes(guideStage) ? t("workflowStrip.active") : (workflow ? t("workflowStrip.ready") : t("workflowStrip.awaiting")),
-      scopeId: workflow?.foundation_scope_id || localScopeId,
-      active: ["four_futures", "choose_future"].includes(guideStage),
-    },
-    {
-      label: t("workflowStrip.methods"),
-      state: toolCount ? `${toolCount} · ${t("workflowStrip.ready")}` : t("workflowStrip.awaiting"),
-      scopeId: localScopeId,
-      active: guideStage === "discussion",
-    },
-    {
-      label: t("workflowStrip.outcomes"),
-      state: outputCount ? `${outputCount} · ${t("workflowStrip.ready")}` : t("workflowStrip.awaiting"),
-      scopeId: artifactScopeId,
-      active: guideStage === "discussion",
-    },
-  ];
-  return stages;
+      state: t("workflowStrip.awaiting"),
+      scopeId: activeScopeId || "scope-global",
+      active: true,
+    }];
+  }
+  return progress.map((step) => ({
+    label: localizedWorkflowStageLabel(workflow, step),
+    state: statusLabel(step.status || "pending"),
+    scopeId: step.scope_id || activeScopeId || "scope-global",
+    active: step.status === "active",
+  }));
+}
+
+function localizedWorkflowStageLabel(workflow, step) {
+  const stageId = step?.workflow_stage_id || "";
+  const localCopy = locale === "zh" ? workflow?.definition_snapshot?.locales?.zh?.stages?.[stageId] : null;
+  return String(localCopy?.label || localizedReferenceTitle(step?.label || stageId || t("workflowStrip.brief")));
 }
 
 function activeStageTools() {

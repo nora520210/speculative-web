@@ -63,5 +63,21 @@
       "research",
       "design"
     ]
+  },
+  "locales": {
+    "zh": {
+      "label": "四种未来基础流程",
+      "description": "低门槛研究路径：确立一个议题、确认关键词、比较四条假设情境、选择一个方向，再在聚焦范围内展开讨论。",
+      "stages": {
+        "frame": {"label": "确立研究议题"},
+        "keywords": {"label": "确认关键词"},
+        "four_futures": {"label": "生成四条假设情境"},
+        "choose_future": {"label": "选择一条未来"},
+        "discussion": {"label": "讨论已选未来"}
+      },
+      "ui": {
+        "start_label": "开始四种未来流程"
+      }
+    }
   }
 }

@@ -480,12 +480,34 @@ def normalize_workflow(workflow: dict, canvas: dict) -> dict:
             and edge.get("id")
         ]
 
+    raw_snapshot = workflow.get("definition_snapshot") if isinstance(workflow.get("definition_snapshot"), dict) else {}
+    snapshot_stages = []
+    for stage in raw_snapshot.get("stages", []):
+        if not isinstance(stage, dict) or not stage.get("id"):
+            continue
+        snapshot_stages.append(
+            {
+                "id": str(stage["id"])[:64],
+                "label": str(stage.get("label") or stage["id"])[:96],
+                "kind": str(stage.get("kind") or "input")[:32],
+            }
+        )
+    snapshot_locales = raw_snapshot.get("locales") if isinstance(raw_snapshot.get("locales"), dict) else {}
+    definition_snapshot = {
+        "id": str(raw_snapshot.get("id") or (workflow.get("definition_ref") or {}).get("id") or "")[:128],
+        "version": str(raw_snapshot.get("version") or (workflow.get("definition_ref") or {}).get("version") or "")[:64],
+        "label": str(raw_snapshot.get("label") or workflow.get("label") or "Guided workflow")[:96],
+        "stages": snapshot_stages,
+        "locales": deepcopy(snapshot_locales),
+    }
+
     return {
         "id": str(workflow.get("id") or new_id("workflow")),
         "definition_ref": {
             "id": str((workflow.get("definition_ref") or {}).get("id") or ""),
             "version": str((workflow.get("definition_ref") or {}).get("version") or ""),
         },
+        "definition_snapshot": definition_snapshot,
         "label": str(workflow.get("label") or "Guided workflow")[:96],
         "status": workflow.get("status") if workflow.get("status") in WORKFLOW_STATUSES else "active",
         "stage": str(workflow.get("stage") or "frame")[:64],

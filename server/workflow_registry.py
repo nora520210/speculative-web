@@ -22,6 +22,35 @@ def _manifest_paths() -> list[Path]:
     return sorted(WORKFLOW_DEFINITION_DIR.glob("*/manifest.json"))
 
 
+def normalize_workflow_locales(value: object) -> dict:
+    """Keep display copy package-owned without making it workflow logic."""
+
+    if not isinstance(value, dict):
+        return {}
+    locales: dict[str, dict] = {}
+    for language, copy in value.items():
+        if not isinstance(language, str) or not isinstance(copy, dict):
+            continue
+        normalized = {
+            key: str(copy[key])
+            for key in ("label", "description")
+            if copy.get(key)
+        }
+        stages = copy.get("stages") if isinstance(copy.get("stages"), dict) else {}
+        stage_copy = {}
+        for stage_id, stage in stages.items():
+            if isinstance(stage_id, str) and isinstance(stage, dict) and stage.get("label"):
+                stage_copy[stage_id] = {"label": str(stage["label"])}
+        if stage_copy:
+            normalized["stages"] = stage_copy
+        ui = copy.get("ui") if isinstance(copy.get("ui"), dict) else {}
+        if ui:
+            normalized["ui"] = {key: str(item) for key, item in ui.items() if item}
+        if normalized:
+            locales[language] = normalized
+    return locales
+
+
 def normalize_workflow_definition(value: dict) -> dict:
     if not isinstance(value, dict) or not value.get("id") or not value.get("label"):
         raise ValueError("Workflow definitions need an id and label.")
@@ -81,6 +110,7 @@ def normalize_workflow_definition(value: dict) -> dict:
             "recommended_by_branch": recommended_by_branch,
         },
         "ui": deepcopy(value.get("ui") if isinstance(value.get("ui"), dict) else {}),
+        "locales": normalize_workflow_locales(value.get("locales")),
         "package_path": str(value.get("package_path") or ""),
     }
 
