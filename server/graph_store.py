@@ -51,7 +51,7 @@ from server.interaction_runtime import (
     workflow_for_operation,
 )
 from server.operation_registry import normalize_operation_config
-from server.workflow_registry import default_workflow_definition, get_workflow_definition
+from server.workflow_registry import default_workflow_definition, get_workflow_definition, workflow_runtime_contract
 from server.guided_scenario import generate_guided_scenarios, render_branch_text
 from server.visual_context import visual_context_for_nodes
 
@@ -359,13 +359,13 @@ def start_four_futures_workflow(project_id: str, payload: dict, expected_revisio
             },
         },
     )
+    runtime = workflow_runtime_contract(definition)
     # Progress is materialized from the workflow package, rather than duplicated
     # in the presentation layer. The status rules below are the Four Futures
     # runtime contract; labels and order belong to the versioned definition.
     initial_statuses = {
-        "frame": "active" if guided else "succeeded",
-        "keywords": "pending" if guided else "succeeded",
-        "four_futures": "pending" if guided else "active",
+        runtime["input_stage_id"]: "active" if guided else "succeeded",
+        runtime["future_stage_id"]: "pending" if guided else "active",
     }
     progress = [
         {
@@ -414,7 +414,7 @@ def start_four_futures_workflow(project_id: str, payload: dict, expected_revisio
         "definition_snapshot": deepcopy(definition),
         "label": definition["label"],
         "status": "active",
-        "stage": "frame" if guided else "four_futures",
+        "stage": runtime["input_stage_id"] if guided else runtime["future_stage_id"],
         "session_id": session["id"],
         "foundation_scope_id": scope["id"],
         "comparison_scope_id": "",
@@ -426,6 +426,7 @@ def start_four_futures_workflow(project_id: str, payload: dict, expected_revisio
         "branch_scope_ids": {},
         "selected_branch_node_id": "",
         "discussion_node_id": "",
+        "active_scenario_node_id": "",
         "input_revision": int(canvas.get("revision") or 0) + 1,
         "created_at": utc_now(),
         "updated_at": utc_now(),
@@ -524,14 +525,18 @@ def _ensure_discussion_tool_node(canvas: dict, workflow: dict | None, branch_nod
     if not scope:
         raise ValueError("Selected What-if branch has no discussion Scope.")
 
-    definition = get_workflow_definition((workflow.get("definition_ref") or {}).get("id")) or {}
+    # The instance snapshot freezes tool-selection policy for this research record.
+    # A later workflow package version must not reinterpret an in-progress branch.
+    definition = workflow.get("definition_snapshot") if isinstance(workflow.get("definition_snapshot"), dict) else {}
+    if not definition:
+        definition = get_workflow_definition((workflow.get("definition_ref") or {}).get("id")) or {}
     policy = definition.get("discussion_tool_policy") if isinstance(definition.get("discussion_tool_policy"), dict) else {}
     scenario = branch.get("payload", {}).get("scenario_branch", {})
     strategy_id = str(scenario.get("strategy") or "")
     recommended_tool_ids = list((policy.get("recommended_by_branch") or {}).get(strategy_id, []))
     selection_policy = {
         "minimum_selected": int(policy.get("minimum_selected") or 0),
-        "required_for": "workflow.discussion",
+        "required_for": "workflow.tools",
         "recommended_tool_ids": recommended_tool_ids,
     }
 
@@ -579,6 +584,24 @@ def _ensure_discussion_tool_node(canvas: dict, workflow: dict | None, branch_nod
             "workflow_id": workflow["id"],
             "branch_node_id": branch_node_id,
         }
+        discussion_node["position"] = {
+            "x": int(branch.get("position", {}).get("x") or 0) + 320,
+            "y": int(branch.get("position", {}).get("y") or 0),
+        }
+
+    # A re-selection is a replacement of the current line, not a fan-out from
+    # several branches into one tool node. Keep historical results as stale nodes,
+    # but keep exactly one live data edge into the active tool stage.
+    canvas["edges"] = [
+        edge
+        for edge in canvas.get("edges", [])
+        if not (
+            edge.get("target_node_id") == discussion_node["id"]
+            and edge.get("edge_kind") == "data"
+            and edge.get("source_node_id") in set(workflow.get("branch_node_ids", []))
+            and edge.get("source_node_id") != branch_node_id
+        )
+    ]
 
     if not any(
         edge.get("source_node_id") == branch_node_id
@@ -602,6 +625,14 @@ def _ensure_discussion_tool_node(canvas: dict, workflow: dict | None, branch_nod
         member_ids = scope.setdefault("snapshot_node_ids", [])
         if discussion_node["id"] not in member_ids:
             member_ids.append(discussion_node["id"])
+    for candidate_scope_id in workflow.get("branch_scope_ids", {}).values():
+        candidate_scope = get_scope(canvas, candidate_scope_id)
+        if not candidate_scope or candidate_scope.get("id") == scope_id or candidate_scope.get("mode") != "snapshot":
+            continue
+        candidate_scope["snapshot_node_ids"] = [
+            node_id for node_id in candidate_scope.get("snapshot_node_ids", [])
+            if node_id != discussion_node["id"]
+        ]
     workflow["discussion_node_id"] = discussion_node["id"]
     workflow["updated_at"] = utc_now()
     refresh_runtime_config(canvas)
@@ -675,6 +706,7 @@ def advance_conversation_guide(project_id: str, session_id: str, payload: dict, 
     workflow = next((item for item in canvas.get("workflow_instances", []) if item.get("id") == workflow_id), None)
     if not workflow:
         raise ValueError("Begin with a topic before answering the guided questions.")
+    runtime = workflow_runtime_contract(workflow.get("definition_snapshot"))
     if action not in {"answer", "skip", "confirm_keywords"}:
         raise ValueError("Unsupported guided conversation action.")
     if workflow.get("status") == "stale":
@@ -683,9 +715,9 @@ def advance_conversation_guide(project_id: str, session_id: str, payload: dict, 
     if action == "confirm_keywords":
         if guide.get("stage_id") != "keywords":
             raise ValueError("Keywords can only be confirmed after the inquiry frame is complete.")
-        workflow.update({"status": "active", "stage": "four_futures", "updated_at": utc_now()})
-        _set_workflow_progress(session, "keywords", "succeeded")
-        _set_workflow_progress(session, "four_futures", "active")
+        workflow.update({"status": "active", "stage": runtime["future_stage_id"], "updated_at": utc_now()})
+        _set_workflow_progress(session, runtime["input_stage_id"], "succeeded")
+        _set_workflow_progress(session, runtime["future_stage_id"], "active")
         set_session_guide(session, "four_futures", workflow_instance_id=workflow_id, pending_field="")
         append_conversation_message(
             canvas,
@@ -767,10 +799,10 @@ def advance_conversation_guide(project_id: str, session_id: str, payload: dict, 
             },
         )
     else:
-        workflow.update({"stage": "keywords", "status": "active", "updated_at": utc_now()})
-        _set_workflow_progress(session, "frame", "succeeded")
-        _set_workflow_progress(session, "keywords", "active")
-        set_session_guide(session, "keywords", workflow_instance_id=workflow_id, pending_field="")
+        workflow.update({"stage": runtime["future_stage_id"], "status": "active", "updated_at": utc_now()})
+        _set_workflow_progress(session, runtime["input_stage_id"], "succeeded")
+        _set_workflow_progress(session, runtime["future_stage_id"], "active")
+        set_session_guide(session, "four_futures", workflow_instance_id=workflow_id, pending_field="")
         append_conversation_message(
             canvas,
             session_id,
@@ -779,7 +811,7 @@ def advance_conversation_guide(project_id: str, session_id: str, payload: dict, 
                 "kind": "guide",
                 "scope_id": scope_id,
                 "related_node_ids": [source_node["id"], keyword_node["id"]],
-                "body": "The inquiry frame is complete. Review the editable keyword node, then confirm the keywords here to unlock the four What-if stage.",
+                "body": "The input cards are complete. You can edit the linked nodes directly, or run Guided Scenario to compare four What-if futures.",
             },
         )
     record_graph_event(
@@ -791,10 +823,14 @@ def advance_conversation_guide(project_id: str, session_id: str, payload: dict, 
     return {"workflow": workflow, "conversation": session, "source_node": source_node, "keyword_node": keyword_node}
 
 
-def _set_workflow_progress(session: dict, stage_id: str, status: str) -> None:
+def _set_workflow_progress(session: dict, stage_id: str, status: str, *, scope_id: str = "", execution_id: str = "") -> None:
     for step in session.get("progress", []):
         if step.get("workflow_stage_id") == stage_id:
             step["status"] = status
+            if scope_id:
+                step["scope_id"] = scope_id
+            if execution_id:
+                step["execution_id"] = execution_id
             return
 
 
@@ -1003,6 +1039,7 @@ def _invalidate_workflow(
             "stage": "stale",
             "selected_branch_node_id": "",
             "discussion_node_id": "",
+            "active_scenario_node_id": "",
             "updated_at": utc_now(),
         }
     )
@@ -1011,10 +1048,11 @@ def _invalidate_workflow(
             node["status"] = "stale"
     session = _activity_session(canvas, requested_session_id=requested_session_id, workflow=workflow)
     if session:
+        runtime = workflow_runtime_contract(workflow.get("definition_snapshot"))
         session["active_scope_id"] = "scope-global"
-        _set_workflow_progress(session, "four_futures", "stale")
-        _set_workflow_progress(session, "choose_future", "pending")
-        _set_workflow_progress(session, "discussion", "pending")
+        _set_workflow_progress(session, runtime["future_stage_id"], "stale")
+        _set_workflow_progress(session, runtime["tools_stage_id"], "pending")
+        _set_workflow_progress(session, runtime["scenario_stage_id"], "pending")
         set_session_guide(session, "stale", workflow_instance_id=workflow["id"], pending_field="")
     _record_graph_activity(
         canvas,
@@ -1146,6 +1184,15 @@ def update_node(project_id: str, node_id: str, patch: dict, expected_revision=No
             workflow = _workflow_for_node_id(canvas, node_id)
             stale_workflows = []
             synchronized_keyword_node = None
+            config_patch = patch.get("config") if isinstance(patch.get("config"), dict) else {}
+            if config_patch.get("tools") is not None and workflow and node_id == workflow.get("discussion_node_id"):
+                runtime = workflow_runtime_contract(workflow.get("definition_snapshot"))
+                workflow.update({"status": "tools", "stage": runtime["tools_stage_id"], "updated_at": utc_now()})
+                session = _activity_session(canvas, requested_session_id=session_id, workflow=workflow)
+                if session:
+                    _set_workflow_progress(session, runtime["tools_stage_id"], "active", scope_id=session.get("active_scope_id"))
+                    _set_workflow_progress(session, runtime["scenario_stage_id"], "pending", scope_id=session.get("active_scope_id"))
+                    set_session_guide(session, "tools", workflow_instance_id=workflow["id"], pending_field="")
             if "payload" in patch and workflow and node_id in workflow.get("source_node_ids", []):
                 if node_id != workflow.get("keyword_node_id"):
                     synchronized_keyword_node = synchronize_keyword_scaffold_from_brief(canvas, workflow, node, patch)
@@ -1191,7 +1238,6 @@ def update_node(project_id: str, node_id: str, patch: dict, expected_revision=No
             # An invalidation already writes the meaningful conversational record for
             # a semantic edit. Avoid following it with a generic duplicate update.
             if set(patch) - {"position", "size"} and not stale_workflows:
-                config_patch = patch.get("config") if isinstance(patch.get("config"), dict) else {}
                 tools_changed = "tools" in config_patch
                 selected_count = len(
                     [tool for tool in node.get("config", {}).get("tools", []) if tool.get("selected")]
@@ -1387,6 +1433,14 @@ def run_modify(project_id: str, node_id: str, api_key: str | None = None, expect
     if modify.get("type") != "modify":
         raise ValueError("Only modify nodes can be run through this endpoint.")
 
+    workflow = _workflow_for_node_id(canvas, node_id)
+    workflow_runtime = workflow_runtime_contract(workflow.get("definition_snapshot")) if workflow else None
+    if workflow and node_id == workflow.get("discussion_node_id"):
+        if not workflow.get("selected_branch_node_id"):
+            raise ValueError("Choose exactly one What-if future before generating a scenario.")
+        if workflow.get("status") not in {"tools", "scenario", "complete", "discussion"}:
+            raise ValueError("Choose tools for the selected future before generating a scenario.")
+
     upstream_edges = ordered_data_input_edges(canvas, node_id)
     upstream_ids = [edge["source_node_id"] for edge in upstream_edges if edge.get("edge_kind") == "data"]
     selected_tools = [
@@ -1419,6 +1473,7 @@ def run_modify(project_id: str, node_id: str, api_key: str | None = None, expect
         "node_id": node_id,
         "status": model_payload["run_status"],
         "input_node_ids": upstream_ids,
+        "output_node_ids": [],
         "context_snapshot": {
             "direct_input_node_ids": upstream_ids,
             "edge_policy": "data edges only; sibling branches excluded",
@@ -1457,6 +1512,7 @@ def run_modify(project_id: str, node_id: str, api_key: str | None = None, expect
         }
     )
     output_node["produced_by_run_id"] = run["id"]
+    run["output_node_ids"].append(output_node["id"])
     edge = {
         "id": f"edge-{uuid.uuid4().hex[:8]}",
         "source_node_id": node_id,
@@ -1471,6 +1527,35 @@ def run_modify(project_id: str, node_id: str, api_key: str | None = None, expect
     canvas["edges"].append(edge)
     modify["active_run_id"] = run["id"]
     modify["status"] = "success" if run["status"] == "succeeded" else "failed"
+    if workflow and node_id == workflow.get("discussion_node_id"):
+        previous_run_ids = {
+            str(candidate.get("id"))
+            for candidate in canvas.get("runs", [])
+            if candidate.get("node_id") == node_id and candidate.get("id") != run["id"]
+        }
+        superseded_output_ids = [
+            candidate.get("id")
+            for candidate in canvas.get("nodes", [])
+            if candidate.get("produced_by_run_id") in previous_run_ids
+        ]
+        for candidate in canvas.get("nodes", []):
+            if candidate.get("id") in superseded_output_ids:
+                candidate["status"] = "stale"
+        if superseded_output_ids:
+            mark_messages_inactive(
+                canvas,
+                related_node_ids=superseded_output_ids,
+                state="superseded",
+                reason="A later tool run replaced this scenario on the current workflow line.",
+                workflow_id=workflow["id"],
+            )
+        workflow.update({"status": "complete", "stage": workflow_runtime["scenario_stage_id"], "updated_at": utc_now()})
+        workflow["active_scenario_node_id"] = output_node["id"]
+        session = _activity_session(canvas, requested_session_id=session_id, workflow=workflow)
+        if session:
+            _set_workflow_progress(session, workflow_runtime["tools_stage_id"], "succeeded", scope_id=session.get("active_scope_id"))
+            _set_workflow_progress(session, workflow_runtime["scenario_stage_id"], "succeeded", scope_id=session.get("active_scope_id"), execution_id=run["id"])
+            set_session_guide(session, "scenario", workflow_instance_id=workflow["id"], pending_field="", status="idle")
     scope_id = next(
         (
             scope["id"]
@@ -1482,10 +1567,12 @@ def run_modify(project_id: str, node_id: str, api_key: str | None = None, expect
     execution = record_execution_from_run(canvas, run, scope_id)
     _record_graph_activity(
         canvas,
-        f"Ran {modify.get('title') or 'Modify'} and added a new output node.",
+        "Generated the current scenario from the selected tools."
+        if workflow and node_id == workflow.get("discussion_node_id")
+        else f"Ran {modify.get('title') or 'Modify'} and added a new output node.",
         requested_session_id=session_id,
         related_node_ids=[node_id, output_node["id"]],
-        activity_type="execution.completed",
+        activity_type="workflow.scenario_generated" if workflow and node_id == workflow.get("discussion_node_id") else "execution.completed",
     )
     record_graph_event(canvas, "execution.completed", {"execution_id": execution["id"], "run_id": run["id"], "status": run["status"]})
     write_canvas(project_id, canvas)

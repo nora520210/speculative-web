@@ -11,6 +11,8 @@ graph runtime.
 - Required/optional start inputs.
 - References to operation definitions.
 - Tool-selection policy that references package ids only.
+- A small `runtime` transition contract (stage IDs, branch cardinality/selection,
+  and rerun policy) that the backend validates and snapshots.
 - Localized display copy for labels and stages.
 
 ## Manifest must not own
@@ -28,3 +30,13 @@ graph runtime.
 4. Test both conversation-led and direct-node-led routes against the same canonical
    nodes and Scope transitions.
 5. Keep the frontend generic: it reads workflow progress and the stored snapshot.
+
+## Active-line rule
+
+When a workflow allows revisiting an earlier stage, define its behavior in `runtime`
+rather than in a component. For example, the Four Futures package uses
+`branch_selection_mode: "exactly_one"` and
+`rerun_policy: "supersede_previous_active_line"`. The graph runtime then marks the
+previous branch outputs and associated conversation messages as superseded, while
+retaining them as traceable history. Cards, previews, and dialogs only render that
+authoritative state.

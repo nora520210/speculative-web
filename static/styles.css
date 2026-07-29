@@ -5305,6 +5305,177 @@ textarea:focus-visible {
   grid-template-rows: minmax(0, 1fr);
 }
 
+/* Four-stage workflow presentation. The strip is intentionally scrollable:
+   past stages are history, not a second workflow state. */
+.canvas-shell.active .workflow-strip {
+  display: flex;
+  grid-template-columns: none;
+  align-items: stretch;
+  gap: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-inline: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+}
+
+.canvas-shell.active .workflow-card {
+  flex: 0 0 min(220px, 26vw);
+  scroll-snap-align: start;
+}
+
+.canvas-shell.active .stage-presentation {
+  display: grid;
+  grid-template-columns: minmax(230px, 0.82fr) minmax(0, 1.18fr);
+  gap: 12px;
+  min-height: 0;
+}
+
+.canvas-shell.active .stage-focus-card {
+  min-height: 190px;
+}
+
+.stage-input-cards,
+.stage-branch-choices {
+  min-width: 0;
+  border: 1px solid var(--chrome-border, var(--soft-line));
+  border-radius: 10px;
+  padding: 12px;
+  background: var(--chrome-surface, var(--bg));
+}
+
+.stage-input-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  align-content: start;
+}
+
+.stage-input-cards article {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  border: 1px solid var(--chrome-border, var(--soft-line));
+  border-radius: 7px;
+  padding: 8px;
+  background: var(--chrome-input, var(--bg));
+}
+
+.stage-input-cards small,
+.stage-input-cards p,
+.stage-branch-choices small,
+.stage-flow-hint {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.stage-input-cards strong {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.stage-input-cards p {
+  grid-column: 1 / -1;
+  margin: 2px 0 0;
+}
+
+.stage-input-empty {
+  grid-template-columns: 1fr;
+}
+
+.stage-input-empty button {
+  justify-self: start;
+  min-height: 30px;
+  border-radius: 7px;
+  padding: 0 10px;
+}
+
+.stage-branch-choices {
+  grid-column: 1 / -1;
+}
+
+.stage-branch-choices header {
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.stage-branch-choices > div {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(145px, 1fr));
+  gap: 8px;
+  overflow-x: auto;
+}
+
+.stage-branch-choices button {
+  display: grid;
+  min-height: 82px;
+  gap: 7px;
+  border: 1px solid var(--chrome-border, var(--soft-line));
+  border-radius: 8px;
+  padding: 10px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+}
+
+.stage-branch-choices button:hover,
+.stage-branch-choices button:focus-visible {
+  border-color: var(--ink);
+  background: var(--chrome-hover, var(--faint));
+}
+
+.stage-flow-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 0 2px;
+}
+
+/* The overview is intentionally an abstract tree: it is a navigation affordance,
+   while the full editable node canvas opens on click. */
+.canvas-shell.active .canvas-preview-plane {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: stretch;
+}
+
+.canvas-shell.active .workflow-tree-preview {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.canvas-shell.active .workflow-tree-preview path {
+  fill: none;
+  stroke: var(--soft-line);
+  stroke-width: 0.65;
+}
+
+.canvas-shell.active .workflow-tree-preview circle {
+  fill: var(--muted);
+}
+
+.canvas-shell.active .workflow-tree-preview circle.current {
+  fill: var(--ink);
+}
+
+@media (max-width: 760px) {
+  .canvas-shell.active .stage-presentation {
+    grid-template-columns: 1fr;
+  }
+
+  .canvas-shell.active .workflow-card {
+    flex-basis: 170px;
+  }
+
+  .stage-branch-choices > div {
+    grid-template-columns: repeat(4, minmax(160px, 1fr));
+  }
+}
+
 @media (max-width: 760px) {
   .conversation-history-dialog {
     width: calc(100vw - 20px);

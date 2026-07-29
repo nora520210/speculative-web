@@ -14,6 +14,7 @@ from server.graph_store import (
     run_modify,
     run_operation,
     select_four_futures_branch,
+    start_four_futures_workflow,
     update_node,
     write_canvas,
     write_projects,
@@ -75,11 +76,10 @@ def test_conversation_guide_updates_canonical_nodes_without_tool_configuration()
         assert source["payload"]["workflow_brief"]["topic"] == "城市里的自动语音系统"
         assert "公共空间中的拒绝权" in source["payload"]["text"]
         assert "安全与沉默" in keywords["payload"]["text"]
-        assert session["guide"]["stage_id"] == "keywords"
+        assert session["guide"]["stage_id"] == "four_futures"
         assert "tools" not in session["guide"]
         assert "tool" not in workflow
 
-        advance_conversation_guide("project-a", session_id, {"action": "confirm_keywords"})
         saved = read_canvas("project-a")
         workflow = next(item for item in saved["workflow_instances"] if item["id"] == workflow["id"])
         assert workflow["stage"] == "four_futures"
@@ -96,7 +96,6 @@ def test_deleting_a_selected_branch_invalidates_workflow_and_records_activity():
         canvas = read_canvas("project-a")
         session_id = canvas["conversation_sessions"][0]["id"]
         workflow = _finish_guided_frame(session_id)["workflow"]
-        advance_conversation_guide("project-a", session_id, {"action": "confirm_keywords"})
         run_operation("project-a", workflow["operation_node_id"])
         saved = read_canvas("project-a")
         workflow = next(item for item in saved["workflow_instances"] if item["id"] == workflow["id"])
@@ -141,7 +140,6 @@ def test_selected_branch_adds_required_discussion_tool_node_without_preselecting
         canvas = read_canvas("project-a")
         session_id = canvas["conversation_sessions"][0]["id"]
         workflow = _finish_guided_frame(session_id)["workflow"]
-        advance_conversation_guide("project-a", session_id, {"action": "confirm_keywords"})
         run_operation("project-a", workflow["operation_node_id"])
         saved = read_canvas("project-a")
         workflow = next(item for item in saved["workflow_instances"] if item["id"] == workflow["id"])
@@ -156,7 +154,7 @@ def test_selected_branch_adds_required_discussion_tool_node_without_preselecting
         assert selected["discussion_node"]["id"] == discussion["id"]
         assert discussion["type"] == "modify"
         assert discussion["config"]["selection_policy"]["minimum_selected"] == 1
-        assert discussion["config"]["selection_policy"]["required_for"] == "workflow.discussion"
+        assert discussion["config"]["selection_policy"]["required_for"] == "workflow.tools"
         assert not any(tool["selected"] for tool in discussion["config"]["tools"])
         assert discussion["id"] in branch_scope["snapshot_node_ids"]
         assert any(
@@ -195,13 +193,69 @@ def test_selected_branch_adds_required_discussion_tool_node_without_preselecting
         _restore_project(tmp, graph_store, original)
 
 
+def test_branch_reselection_and_tool_reruns_keep_one_current_scenario_line():
+    original_runs = os.environ.get("SPEC_WEB_ENABLE_OPENAI_RUNS")
+    os.environ["SPEC_WEB_ENABLE_OPENAI_RUNS"] = "0"
+    tmp, graph_store, original = _temporary_project()
+    try:
+        started = start_four_futures_workflow(
+            "project-a",
+            {"start_mode": "research", "topic": "城市公共数据的退出权"},
+        )
+        workflow_id = started["workflow"]["id"]
+        run_operation("project-a", started["workflow"]["operation_node_id"])
+        saved = read_canvas("project-a")
+        workflow = next(item for item in saved["workflow_instances"] if item["id"] == workflow_id)
+        first_branch, second_branch = workflow["branch_node_ids"][:2]
+        selected = select_four_futures_branch("project-a", workflow_id, {"branch_node_id": first_branch})
+        discussion = selected["discussion_node"]
+        tools = [dict(tool) for tool in discussion["config"]["tools"]]
+        tools[0]["selected"] = True
+        update_node("project-a", discussion["id"], {"config": {"tools": tools}})
+        first_result = run_modify("project-a", discussion["id"])
+
+        select_four_futures_branch("project-a", workflow_id, {"branch_node_id": second_branch})
+        saved = read_canvas("project-a")
+        workflow = next(item for item in saved["workflow_instances"] if item["id"] == workflow_id)
+        old_output = next(node for node in saved["nodes"] if node["id"] == first_result["output_node"]["id"])
+        assert workflow["status"] == "tools"
+        assert workflow["selected_branch_node_id"] == second_branch
+        assert workflow["active_scenario_node_id"] == ""
+        assert old_output["status"] == "stale"
+        assert not any(
+            edge["source_node_id"] == first_branch and edge["target_node_id"] == discussion["id"] and edge["edge_kind"] == "data"
+            for edge in saved["edges"]
+        )
+        assert any(
+            edge["source_node_id"] == second_branch and edge["target_node_id"] == discussion["id"] and edge["edge_kind"] == "data"
+            for edge in saved["edges"]
+        )
+
+        second_result = run_modify("project-a", discussion["id"])
+        saved = read_canvas("project-a")
+        workflow = next(item for item in saved["workflow_instances"] if item["id"] == workflow_id)
+        assert workflow["status"] == "complete"
+        assert workflow["stage"] == "scenario"
+        assert workflow["active_scenario_node_id"] == second_result["output_node"]["id"]
+        assert sum(
+            node["status"] != "stale"
+            for node in saved["nodes"]
+            if node.get("produced_by_run_id") in {first_result["run"]["id"], second_result["run"]["id"]}
+        ) == 1
+    finally:
+        if original_runs is None:
+            os.environ.pop("SPEC_WEB_ENABLE_OPENAI_RUNS", None)
+        else:
+            os.environ["SPEC_WEB_ENABLE_OPENAI_RUNS"] = original_runs
+        _restore_project(tmp, graph_store, original)
+
+
 def test_direct_input_edge_change_blocks_mismatched_workflow_run():
     tmp, graph_store, original = _temporary_project()
     try:
         canvas = read_canvas("project-a")
         session_id = canvas["conversation_sessions"][0]["id"]
         workflow = _finish_guided_frame(session_id)["workflow"]
-        advance_conversation_guide("project-a", session_id, {"action": "confirm_keywords"})
         extra = canvas["nodes"][0]
         add_edge(
             "project-a",
@@ -234,7 +288,6 @@ def test_direct_brief_edit_rebuilds_keywords_and_resets_the_session_scope():
         canvas = read_canvas("project-a")
         session_id = canvas["conversation_sessions"][0]["id"]
         workflow = _finish_guided_frame(session_id)["workflow"]
-        advance_conversation_guide("project-a", session_id, {"action": "confirm_keywords"})
         run_operation("project-a", workflow["operation_node_id"])
         saved = read_canvas("project-a")
         workflow = next(item for item in saved["workflow_instances"] if item["id"] == workflow["id"])

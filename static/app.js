@@ -161,6 +161,12 @@ const translations = {
     "workflow.choose": "Choose this future",
     "workflow.chosen": "Selected for discussion",
     "workflow.awaitingSelection": "Compare and choose a future",
+    "workflow.inputManual": "Enter by cards",
+    "workflow.inputConversation": "Or describe it in the conversation below",
+    "workflow.inputReady": "Input cards are ready to edit directly on the canvas.",
+    "workflow.chooseOne": "Choose exactly one direction",
+    "workflow.toolsHint": "Choose one or more tools in the left rail, then generate one scenario.",
+    "workflow.scenarioReady": "Current scenario generated",
     "nodes.textTitle": "Text Node",
     "nodes.conversationTitle": "Conversation",
     "nodes.uploadTitle": "Upload",
@@ -377,6 +383,12 @@ const translations = {
     "workflow.choose": "选择这条未来",
     "workflow.chosen": "已选，进入讨论",
     "workflow.awaitingSelection": "比较并选择一条未来",
+    "workflow.inputManual": "使用信息卡片输入",
+    "workflow.inputConversation": "或在下方对话框中描述",
+    "workflow.inputReady": "信息卡片已经就绪；可在完整画布中直接编辑关联节点。",
+    "workflow.chooseOne": "从四个方向中仅选择一个",
+    "workflow.toolsHint": "在左侧栏选择一个或多个工具，然后生成一条情境。",
+    "workflow.scenarioReady": "当前情境已生成",
     "nodes.textTitle": "文本节点",
     "nodes.conversationTitle": "对话",
     "nodes.uploadTitle": "上传",
@@ -606,6 +618,10 @@ function localizedReferenceTitle(title) {
     "Four Futures foundation": "四种未来基础流程",
     "Frame the inquiry": "确定研究议题",
     "Confirm keywords": "确认关键词",
+    "Input cards": "信息输入",
+    "Four What-if futures": "四个 What-if",
+    "Choose tools": "选择工具",
+    "Generate scenario": "生成情境",
     "Generate four What-if futures": "生成四条假设情境",
     "Choose one future": "选择一条未来",
     "Discuss the chosen future": "讨论已选未来",
@@ -635,8 +651,12 @@ function localizedConversationBody(body) {
     "This conversation writes to the canonical research nodes. You can also edit those nodes directly; both routes update the same workflow record.": "这段对话会写入规范研究节点。你也可以直接编辑节点；两种方式都会更新同一条流程记录。",
     "Four What-if futures are ready. Compare their assumptions and tensions, then choose one branch before beginning discussion.": "四条假设情境已生成。请比较它们的默认假设与张力，再选择一个方向开始讨论。",
     "Generated four What-if futures from the current canonical inputs.": "已根据当前规范输入生成四条假设情境。",
+    "The input cards are complete. You can edit the linked nodes directly, or run Guided Scenario to compare four What-if futures.": "信息卡片已完成。你可以直接编辑关联节点，或运行“引导情境”比较四个 What-if。",
     "Selected a What-if branch and prepared its discussion tools.": "已选择一条假设情境方向，并准备好相应的讨论工具。",
     "Ran Discussion tools and added a new output node.": "已运行讨论工具，并新增一个输出节点。",
+    "Generated the current scenario from the selected tools.": "已根据所选工具生成当前情境。",
+    "A different What-if branch is now the only active line of this workflow.": "已切换 What-if 分支；流程中仅保留该分支为当前有效线。",
+    "A later tool run replaced this scenario on the current workflow line.": "后一次工具运行已替代当前流程线中的这条情境。",
     "A What-if branch was edited directly. Re-run the comparison before using a selected branch.": "一条假设情境已被直接修改。使用已选方向前，请重新运行比较。",
     "A workflow input changed. Its generated futures are now stale.": "流程输入已改变；此前生成的未来方向现已失效。",
     "Connected two nodes.": "已连接两个节点。",
@@ -1116,6 +1136,7 @@ function workflowStages(session) {
     }];
   }
   return progress.map((step) => ({
+    id: step.workflow_stage_id || "",
     label: localizedWorkflowStageLabel(workflow, step),
     state: statusLabel(step.status || "pending"),
     scopeId: step.scope_id || activeScopeId || "scope-global",
@@ -1157,6 +1178,7 @@ function renderStagePresentation(stages) {
   }
   const activeIndex = Math.max(0, stages.indexOf(activeStage));
   const tools = activeStageTools();
+  const workflow = activeWorkflow();
   const readyOutputs = (activeCanvas?.nodes || []).filter((node) =>
     ["generated", "ready"].includes(node.status) && ["image", "multimodal"].includes(node.type),
   ).length;
@@ -1174,6 +1196,24 @@ function renderStagePresentation(stages) {
     }).join("")
     : `<p class="stage-empty-state">${escapeHtml(t("stagePresentation.noMethods"))}</p>`;
   const remainingTools = tools.length - visibleTools.length;
+  const inputCards = renderStageInputCards(workflow, activeStage);
+  const branchChoices = renderStageBranchChoices(workflow, activeStage);
+  const stageHint = activeStage.id === "tools"
+    ? `<p class="stage-flow-hint">${escapeHtml(t("workflow.toolsHint"))}</p>`
+    : activeStage.id === "scenario"
+      ? `<p class="stage-flow-hint">${escapeHtml(t("workflow.scenarioReady"))}</p>`
+      : "";
+  const methodsPanel = ["tools", "scenario"].includes(activeStage.id)
+    ? `<section class="stage-methods-card" aria-label="${escapeHtml(t("stagePresentation.methods"))}">
+      <header>
+        <span>${escapeHtml(t("stagePresentation.methods"))}</span>
+        <span>${tools.length}</span>
+      </header>
+      <div class="stage-tool-grid">${methodCards}</div>
+      ${remainingTools > 0 ? `<span class="stage-more-tools">${escapeHtml(t("stagePresentation.moreMethods", { count: remainingTools }))}</span>` : ""}
+      <footer><span>${escapeHtml(t("stagePresentation.outputs"))}</span><strong>${readyOutputs}</strong></footer>
+    </section>`
+    : "";
   stagePresentation.innerHTML = `
     <article class="stage-focus-card ${activeStage.active ? "is-active" : ""}">
       <div class="stage-focus-topline">
@@ -1187,16 +1227,53 @@ function renderStagePresentation(stages) {
         <strong>${escapeHtml(localizedReferenceTitle(scope?.label || activeStage.label))}</strong>
       </div>
     </article>
-    <section class="stage-methods-card" aria-label="${escapeHtml(t("stagePresentation.methods"))}">
-      <header>
-        <span>${escapeHtml(t("stagePresentation.methods"))}</span>
-        <span>${tools.length}</span>
-      </header>
-      <div class="stage-tool-grid">${methodCards}</div>
-      ${remainingTools > 0 ? `<span class="stage-more-tools">${escapeHtml(t("stagePresentation.moreMethods", { count: remainingTools }))}</span>` : ""}
-      <footer><span>${escapeHtml(t("stagePresentation.outputs"))}</span><strong>${readyOutputs}</strong></footer>
-    </section>
+    ${inputCards}
+    ${methodsPanel}
+    ${branchChoices}
+    ${stageHint}
   `;
+  stagePresentation.querySelectorAll("[data-stage-branch-id]").forEach((button) => {
+    button.addEventListener("click", () => selectWorkflowBranch(button.dataset.stageWorkflowId, button.dataset.stageBranchId));
+  });
+  stagePresentation.querySelectorAll("[data-open-foundation-input]").forEach((button) => {
+    button.addEventListener("click", openFoundationWorkflowDialog);
+  });
+}
+
+function renderStageInputCards(workflow, activeStage) {
+  if (activeStage?.id !== "input") return "";
+  const briefNode = (activeCanvas?.nodes || []).find((node) => node.id === workflow?.source_node_ids?.[0]);
+  const brief = briefNode?.payload?.workflow_brief;
+  if (!brief) {
+    return `<section class="stage-input-cards stage-input-empty">
+      <strong>${escapeHtml(t("workflow.inputManual"))}</strong>
+      <span>${escapeHtml(t("workflow.inputConversation"))}</span>
+      <button type="button" data-open-foundation-input>${escapeHtml(t("workflow.inputManual"))}</button>
+    </section>`;
+  }
+  const fields = [
+    [t("workflow.topic"), brief.topic],
+    [t("workflow.focus"), brief.research_focus],
+    [t("workflow.assumptions"), Array.isArray(brief.assumptions) ? brief.assumptions.join(" · ") : ""],
+    [t("workflow.stakeholders"), Array.isArray(brief.stakeholders) ? brief.stakeholders.join(" · ") : ""],
+    [t("workflow.tensions"), Array.isArray(brief.tensions) ? brief.tensions.join(" · ") : ""],
+  ].filter(([, value]) => String(value || "").trim());
+  return `<section class="stage-input-cards" aria-label="${escapeHtml(t("workflow.inputManual"))}">
+    ${fields.map(([label, value]) => `<article><small>${escapeHtml(label)}</small><strong>${escapeHtml(compactConversationText(value, 112))}</strong></article>`).join("")}
+    <p>${escapeHtml(t("workflow.inputReady"))}</p>
+  </section>`;
+}
+
+function renderStageBranchChoices(workflow, activeStage) {
+  if (activeStage?.id !== "four_futures" || !workflow?.branch_node_ids?.length || workflow.status !== "awaiting_selection") return "";
+  return `<section class="stage-branch-choices" aria-label="${escapeHtml(t("workflow.chooseOne"))}">
+    <header><strong>${escapeHtml(t("workflow.chooseOne"))}</strong></header>
+    <div>${workflow.branch_node_ids.map((nodeId) => {
+      const node = findNode(nodeId);
+      const branch = node?.payload?.scenario_branch || {};
+      return `<button type="button" data-stage-workflow-id="${escapeHtml(workflow.id)}" data-stage-branch-id="${escapeHtml(nodeId)}"><strong>${escapeHtml(localizedReferenceTitle(branch.strategy_label || node?.title || t("workflow.choose")))}</strong><small>${escapeHtml(compactConversationText(branch.what_if || "", 88))}</small></button>`;
+    }).join("")}</div>
+  </section>`;
 }
 
 function renderConversationGuide(session) {
@@ -1219,9 +1296,17 @@ function renderConversationGuide(session) {
     conversationGuideActions.innerHTML = `<button type="button" data-guide-action="skip">${localized ? "跳过这一步" : "Skip this step"}</button>`;
   } else if (stage === "keywords") {
     conversationGuideActions.innerHTML = `<button type="button" data-guide-action="confirm_keywords">${localized ? "确认关键词，进入 What-if" : "Confirm keywords"}</button>`;
+  } else if (stage === "four_futures" && workflow?.branch_node_ids?.length && workflow?.status === "awaiting_selection") {
+    conversationGuideActions.innerHTML = `
+      <span>${localized ? "从四个方向中仅选择一个：" : "Choose exactly one of the four directions:"}</span>
+      ${workflow.branch_node_ids.map((nodeId) => `<button type="button" data-guide-branch-id="${escapeHtml(nodeId)}" data-guide-workflow-id="${escapeHtml(workflow.id)}">${escapeHtml(localizedReferenceTitle(findNode(nodeId)?.title || (localized ? "未来方向" : "Future direction")))}</button>`).join("")}
+    `;
   } else if (stage === "four_futures") {
-    conversationGuideActions.innerHTML = `<span>${localized ? "下一步：在节点上运行 Guided Scenario，生成四条 What-if。" : "Next: run Guided Scenario on its node to generate four What-if directions."}</span>`;
+    conversationGuideActions.innerHTML = `<span>${localized ? "下一步：在节点上运行“引导情境”，生成四个 What-if 方向。" : "Next: run Guided Scenario on its node to generate four What-if directions."}</span>`;
+  } else if (stage === "tools") {
+    conversationGuideActions.innerHTML = `<span>${localized ? "在左侧选择工具；你可以调整后重复生成，系统只保留当前一条有效情境线。" : "Choose tools in the left rail. You can revise and run again; only one current scenario line remains active."}</span>`;
   } else if (stage === "choose_future" && workflow?.branch_node_ids?.length) {
+    // Legacy workflow snapshots retain their historical guide identifier.
     conversationGuideActions.innerHTML = `
       <span>${localized ? "选择一个方向进入讨论：" : "Choose a direction to discuss:"}</span>
       ${workflow.branch_node_ids.map((nodeId) => `<button type="button" data-guide-branch-id="${escapeHtml(nodeId)}" data-guide-workflow-id="${escapeHtml(workflow.id)}">${escapeHtml(localizedReferenceTitle(findNode(nodeId)?.title || (localized ? "未来方向" : "Future direction")))}</button>`).join("")}
@@ -1286,61 +1371,58 @@ function renderToolSidebar() {
 
 function renderCanvasPreview() {
   if (!canvasPreviewViewport || !canvasPreviewPlane) return;
-  const viewportWidth = canvasPreviewViewport.clientWidth;
-  const viewportHeight = canvasPreviewViewport.clientHeight;
-  if (!viewportWidth || !viewportHeight) return;
-
-  const size = canvasBaseSize();
-  const fitScale = Math.min(
-    Math.max(0.01, viewportWidth / size.width),
-    Math.max(0.01, viewportHeight / size.height),
-  );
-  // The preview intentionally keeps the real canvas enlarged and cropped. It is
-  // a local context window, not a second miniature graph with different state.
-  const scale = Math.min(0.8, Math.max(0.18, fitScale * 2.6));
-  const rendered = [...canvasPlane.children].map((child) => child.cloneNode(true));
-  rendered.forEach((child) => {
-    if (!(child instanceof Element)) return;
-    child.removeAttribute("id");
-    child.querySelectorAll("[id]").forEach((element) => element.removeAttribute("id"));
-  });
-  canvasPreviewPlane.replaceChildren(...rendered);
-  canvasPreviewPlane.style.width = `${size.width}px`;
-  canvasPreviewPlane.style.height = `${size.height}px`;
-  const graphNodes = displayGraph()?.nodes || [];
+  const graphNodes = activeCanvas?.nodes || [];
   const workflow = activeWorkflow();
-  const focusIds = new Set((activeProjection?.nodes || []).map((node) => node.id));
-  if (workflow) {
-    [
-      ...(workflow.source_node_ids || []),
-      workflow.keyword_node_id,
-      workflow.operation_node_id,
-      workflow.selected_branch_node_id,
-      workflow.discussion_node_id,
-    ].filter(Boolean).forEach((nodeId) => focusIds.add(nodeId));
-
-    // A selected branch's generated text/image outputs remain part of the exact
-    // same canvas. Include them in the preview focus so that an image cannot be
-    // hidden merely because it was produced after a snapshot Scope was created.
-    const discussionRunIds = new Set((activeCanvas?.runs || [])
-      .filter((run) => run.node_id === workflow.discussion_node_id)
-      .map((run) => run.id));
-    (activeCanvas?.nodes || []).forEach((node) => {
-      if (discussionRunIds.has(node.produced_by_run_id)) focusIds.add(node.id);
+  const nodesById = new Map(graphNodes.map((node) => [node.id, node]));
+  const layers = workflow
+    ? [
+      (workflow.source_node_ids || []).filter((id) => nodesById.has(id)),
+      [workflow.operation_node_id].filter((id) => nodesById.has(id)),
+      (workflow.branch_node_ids || []).filter((id) => nodesById.has(id)),
+      [workflow.selected_branch_node_id].filter((id) => nodesById.has(id)),
+      [workflow.discussion_node_id].filter((id) => nodesById.has(id)),
+      [workflow.active_scenario_node_id].filter((id) => nodesById.has(id)),
+    ].filter((layer) => layer.length)
+    : previewTreeLayers(graphNodes, activeCanvas?.edges || []);
+  const visibleIds = [...new Set(layers.flat())];
+  const points = new Map();
+  layers.forEach((layer, index) => {
+    layer.forEach((nodeId, itemIndex) => {
+      points.set(nodeId, {
+        x: 18 + ((itemIndex + 1) * 64) / (layer.length + 1),
+        y: 12 + ((index + 1) * 76) / (layers.length + 1),
+      });
     });
-  }
-  const focusNodes = graphNodes.filter((node) => focusIds.has(node.id));
-  const nodesForFocus = focusNodes.length ? focusNodes : graphNodes.slice(0, 3);
-  const focus = nodesForFocus.length
-    ? nodesForFocus.reduce((point, node) => ({
-      x: point.x + Number(node.position?.x || 0) + Number(node.size?.width || 240) / 2,
-      y: point.y + Number(node.position?.y || 0) + Number(node.size?.height || 170) / 2,
-    }), { x: 0, y: 0 })
-    : { x: size.width / 2, y: size.height / 2 };
-  const divisor = Math.max(1, nodesForFocus.length);
-  const focusX = focus.x / divisor;
-  const focusY = focus.y / divisor;
-  canvasPreviewPlane.style.transform = `translate(${viewportWidth / 2 - focusX * scale}px, ${viewportHeight / 2 - focusY * scale}px) scale(${scale})`;
+  });
+  const edges = (activeCanvas?.edges || []).filter((edge) => visibleIds.includes(edge.source_node_id) && visibleIds.includes(edge.target_node_id));
+  const selectedId = workflow?.selected_branch_node_id || "";
+  const activeOutputId = workflow?.active_scenario_node_id || "";
+  canvasPreviewPlane.style.width = "100%";
+  canvasPreviewPlane.style.height = "100%";
+  canvasPreviewPlane.style.transform = "none";
+  canvasPreviewPlane.innerHTML = `<svg class="workflow-tree-preview" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    ${edges.map((edge) => {
+      const start = points.get(edge.source_node_id);
+      const end = points.get(edge.target_node_id);
+      return start && end ? `<path d="M ${start.x} ${start.y} C ${start.x} ${(start.y + end.y) / 2}, ${end.x} ${(start.y + end.y) / 2}, ${end.x} ${end.y}" />` : "";
+    }).join("")}
+    ${visibleIds.map((nodeId) => {
+      const point = points.get(nodeId);
+      const current = nodeId === selectedId || nodeId === activeOutputId;
+      return `<circle class="${current ? "current" : ""}" cx="${point.x}" cy="${point.y}" r="${current ? 2.5 : 1.7}" />`;
+    }).join("")}
+  </svg>`;
+}
+
+function previewTreeLayers(nodes, edges) {
+  const ids = nodes.slice(0, 12).map((node) => node.id);
+  const incoming = new Map(ids.map((id) => [id, 0]));
+  edges.forEach((edge) => {
+    if (incoming.has(edge.target_node_id) && incoming.has(edge.source_node_id)) incoming.set(edge.target_node_id, incoming.get(edge.target_node_id) + 1);
+  });
+  const roots = ids.filter((id) => !incoming.get(id));
+  const rest = ids.filter((id) => incoming.get(id));
+  return [roots, rest].filter((layer) => layer.length);
 }
 
 function renderCommandProposals() {

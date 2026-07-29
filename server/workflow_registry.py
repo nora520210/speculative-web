@@ -15,6 +15,16 @@ from server.config import ROOT, WORKFLOW_DEFINITION_DIR
 
 STAGE_KINDS = {"input", "derived", "operation", "selection", "conversation", "optional"}
 
+DEFAULT_RUNTIME = {
+    "input_stage_id": "input",
+    "future_stage_id": "four_futures",
+    "tools_stage_id": "tools",
+    "scenario_stage_id": "scenario",
+    "branch_count": 4,
+    "branch_selection_mode": "exactly_one",
+    "rerun_policy": "supersede_previous_active_line",
+}
+
 
 def _manifest_paths() -> list[Path]:
     if not WORKFLOW_DEFINITION_DIR.exists():
@@ -78,6 +88,20 @@ def normalize_workflow_definition(value: dict) -> dict:
         raise ValueError("Workflow definitions need at least one stage.")
 
     start_input = value.get("start_input") if isinstance(value.get("start_input"), dict) else {}
+    raw_runtime = value.get("runtime") if isinstance(value.get("runtime"), dict) else {}
+    stage_ids = {stage["id"] for stage in stages}
+    runtime = dict(DEFAULT_RUNTIME)
+    for key in ("input_stage_id", "future_stage_id", "tools_stage_id", "scenario_stage_id"):
+        candidate = str(raw_runtime.get(key) or runtime[key])
+        runtime[key] = candidate if candidate in stage_ids else runtime[key]
+    try:
+        runtime["branch_count"] = max(1, min(12, int(raw_runtime.get("branch_count") or runtime["branch_count"])))
+    except (TypeError, ValueError):
+        pass
+    if raw_runtime.get("branch_selection_mode") in {"exactly_one"}:
+        runtime["branch_selection_mode"] = raw_runtime["branch_selection_mode"]
+    if raw_runtime.get("rerun_policy") in {"supersede_previous_active_line"}:
+        runtime["rerun_policy"] = raw_runtime["rerun_policy"]
     raw_discussion_policy = value.get("discussion_tool_policy") if isinstance(value.get("discussion_tool_policy"), dict) else {}
     try:
         configured_minimum = int(raw_discussion_policy.get("minimum_selected") or 0)
@@ -105,6 +129,7 @@ def normalize_workflow_definition(value: dict) -> dict:
             "optional": [str(item) for item in start_input.get("optional", []) if str(item)],
         },
         "stages": stages,
+        "runtime": runtime,
         "discussion_tool_policy": {
             "minimum_selected": min(24, max(0, configured_minimum)),
             "recommended_by_branch": recommended_by_branch,
@@ -113,6 +138,30 @@ def normalize_workflow_definition(value: dict) -> dict:
         "locales": normalize_workflow_locales(value.get("locales")),
         "package_path": str(value.get("package_path") or ""),
     }
+
+
+def workflow_runtime_contract(value: dict | None) -> dict:
+    """Read a small runtime contract from a frozen workflow snapshot.
+
+    Workflow packages own stage names and branch semantics. Runtime functions use
+    this normalised mapping rather than duplicating a presentational stage order.
+    Older snapshots receive their historical defaults during migration.
+    """
+
+    raw = value.get("runtime") if isinstance(value, dict) and isinstance(value.get("runtime"), dict) else {}
+    runtime = dict(DEFAULT_RUNTIME)
+    for key in ("input_stage_id", "future_stage_id", "tools_stage_id", "scenario_stage_id"):
+        if raw.get(key):
+            runtime[key] = str(raw[key])
+    try:
+        runtime["branch_count"] = max(1, min(12, int(raw.get("branch_count") or runtime["branch_count"])))
+    except (TypeError, ValueError):
+        pass
+    if raw.get("branch_selection_mode") in {"exactly_one"}:
+        runtime["branch_selection_mode"] = raw["branch_selection_mode"]
+    if raw.get("rerun_policy") in {"supersede_previous_active_line"}:
+        runtime["rerun_policy"] = raw["rerun_policy"]
+    return runtime
 
 
 def list_workflow_definitions() -> list[dict]:

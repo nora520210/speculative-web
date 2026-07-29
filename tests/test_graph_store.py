@@ -31,11 +31,11 @@ def test_default_canvas_has_modify_and_edges():
     assert any(edge["edge_kind"] == "data" for edge in canvas["edges"])
 
 
-def test_modify_recommendation_prefers_multimodal_for_physical_fiction():
+def test_modify_recommendation_defaults_to_text_when_no_enabled_tool_is_selected():
     canvas = default_canvas("test-project")
     modify = next(node for node in canvas["nodes"] if node["type"] == "modify")
     recommendation = recommend_output_for_modify(modify)
-    assert recommendation["type"] == "multimodal"
+    assert recommendation["type"] == "text"
 
 
 def test_modify_prompt_carries_tool_owned_text_block_forms():
@@ -239,7 +239,7 @@ def test_run_modify_creates_output():
             result = run_modify("project-a", "node-modify")
             assert result["run"]["status"] == "succeeded"
             assert result["run"]["model_snapshot"]["provider"] == "placeholder"
-            assert result["run"]["context_snapshot"]["output_recommendation"]["type"] == "multimodal"
+            assert result["run"]["context_snapshot"]["output_recommendation"]["type"] == "text"
             assert result["output_node"]["produced_by_run_id"] == result["run"]["id"]
             assert result["execution"]["run_id"] == result["run"]["id"]
             assert result["execution"]["status"] == "succeeded"

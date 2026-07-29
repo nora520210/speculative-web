@@ -23,17 +23,18 @@ def test_four_futures_workflow_definition_is_a_backend_owned_sequence():
     assert definition["package_path"] == "workflow_definitions/four-futures-foundation"
     assert definition["start_input"]["required"] == ["start_mode", "topic"]
     assert [stage["id"] for stage in definition["stages"]] == [
-        "frame",
-        "keywords",
+        "input",
         "four_futures",
-        "choose_future",
-        "discussion",
+        "tools",
+        "scenario",
     ]
-    assert definition["stages"][2]["operation_definition_id"] == "operation.guided-scenario"
+    assert definition["stages"][1]["operation_definition_id"] == "operation.guided-scenario"
+    assert definition["runtime"]["branch_selection_mode"] == "exactly_one"
+    assert definition["runtime"]["rerun_policy"] == "supersede_previous_active_line"
     assert definition["discussion_tool_policy"]["minimum_selected"] == 1
     assert definition["discussion_tool_policy"]["recommended_by_branch"]["growth"] == ["futures-wheel"]
     assert definition["discussion_tool_policy"]["recommended_by_branch"]["discipline"] == ["future-triangle"]
-    assert definition["locales"]["zh"]["stages"]["four_futures"]["label"] == "生成四条假设情境"
+    assert definition["locales"]["zh"]["stages"]["four_futures"]["label"] == "四个 What-if"
     assert all(item["package_path"].startswith("workflow_definitions/") for item in list_workflow_definitions())
 
 
@@ -86,21 +87,19 @@ def test_four_futures_foundation_lifecycle_uses_scopes_without_copying_graphs():
             assert workflow["source_node_ids"] == [started["nodes"][0]["id"], started["nodes"][1]["id"]]
             assert workflow["definition_snapshot"]["id"] == "workflow.four-futures-foundation"
             assert [stage["id"] for stage in workflow["definition_snapshot"]["stages"]] == [
-                "frame",
-                "keywords",
+                "input",
                 "four_futures",
-                "choose_future",
-                "discussion",
+                "tools",
+                "scenario",
             ]
-            assert workflow["definition_snapshot"]["locales"]["zh"]["stages"]["discussion"]["label"] == "讨论已选未来"
+            assert workflow["definition_snapshot"]["locales"]["zh"]["stages"]["scenario"]["label"] == "生成情境"
             assert workflow["status"] == "active"
             assert workflow["stage"] == "four_futures"
             assert [step["workflow_stage_id"] for step in session["progress"]] == [
-                "frame",
-                "keywords",
+                "input",
                 "four_futures",
-                "choose_future",
-                "discussion",
+                "tools",
+                "scenario",
             ]
             assert not saved["runs"]
 
@@ -111,13 +110,13 @@ def test_four_futures_foundation_lifecycle_uses_scopes_without_copying_graphs():
 
             assert completed["workflow"]["id"] == workflow_id
             assert workflow["status"] == "awaiting_selection"
-            assert workflow["stage"] == "choose_future"
+            assert workflow["stage"] == "four_futures"
             assert len(workflow["branch_node_ids"]) == 4
             comparison_scope = next(item for item in saved["scopes"] if item["id"] == workflow["comparison_scope_id"])
             assert comparison_scope["mode"] == "snapshot"
             assert set(workflow["branch_node_ids"]).issubset(comparison_scope["snapshot_node_ids"])
             assert session["active_scope_id"] == comparison_scope["id"]
-            assert next(step for step in session["progress"] if step["workflow_stage_id"] == "choose_future")["status"] == "active"
+            assert next(step for step in session["progress"] if step["workflow_stage_id"] == "four_futures")["status"] == "active"
 
             selected_branch_id = workflow["branch_node_ids"][0]
             selected = select_four_futures_branch(
@@ -130,7 +129,7 @@ def test_four_futures_foundation_lifecycle_uses_scopes_without_copying_graphs():
             session = next(item for item in saved["conversation_sessions"] if item["id"] == workflow["session_id"])
 
             assert selected["scope_id"] == workflow["branch_scope_ids"][selected_branch_id]
-            assert workflow["status"] == "discussion"
+            assert workflow["status"] == "tools"
             assert workflow["selected_branch_node_id"] == selected_branch_id
             assert workflow["discussion_node_id"] == selected["discussion_node"]["id"]
             discussion_node = next(node for node in saved["nodes"] if node["id"] == workflow["discussion_node_id"])
@@ -139,7 +138,7 @@ def test_four_futures_foundation_lifecycle_uses_scopes_without_copying_graphs():
             assert discussion_node["config"]["selection_policy"]["minimum_selected"] == 1
             assert not any(tool["selected"] for tool in discussion_node["config"]["tools"])
             assert session["active_scope_id"] == selected["scope_id"]
-            assert next(step for step in session["progress"] if step["workflow_stage_id"] == "discussion")["status"] == "active"
+            assert next(step for step in session["progress"] if step["workflow_stage_id"] == "tools")["status"] == "active"
 
             update_node(
                 "project-a",

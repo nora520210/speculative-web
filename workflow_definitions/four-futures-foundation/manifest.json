@@ -1,8 +1,8 @@
 {
   "id": "workflow.four-futures-foundation",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "label": "Four Futures foundation",
-  "description": "A low-friction research path: frame one inquiry, confirm keywords, compare four What-if futures, choose one branch, then discuss it in a focused scope.",
+  "description": "A low-friction research path: enter one research brief, compare four What-if futures, choose exactly one branch, select tools, then generate one scenario in a focused scope.",
   "start_input": {
     "required": [
       "start_mode",
@@ -17,37 +17,40 @@
   },
   "stages": [
     {
-      "id": "frame",
-      "label": "Frame the inquiry",
+      "id": "input",
+      "label": "Input cards",
       "kind": "input",
-      "description": "Capture the topic, point of view, research concern, assumptions, stakeholders, and tension as one editable research brief."
-    },
-    {
-      "id": "keywords",
-      "label": "Confirm keywords",
-      "kind": "derived",
-      "description": "Keep a deterministic keyword scaffold beside the brief; a later keyword operation can replace it without changing the workflow."
+      "description": "Capture the topic, point of view, research concern, assumptions, stakeholders, and tension as one editable research brief. Keywords remain a derived detail of this same input stage."
     },
     {
       "id": "four_futures",
-      "label": "Generate four What-if futures",
+      "label": "Four What-if futures",
       "kind": "operation",
       "operation_definition_id": "operation.guided-scenario",
-      "description": "Run the existing Guided Scenario operation from direct research inputs only."
+      "description": "Run the existing Guided Scenario operation from direct research inputs only, compare exactly four branches, and choose one before proceeding."
     },
     {
-      "id": "choose_future",
-      "label": "Choose one future",
+      "id": "tools",
+      "label": "Choose tools",
       "kind": "selection",
-      "description": "Compare all four branches before explicitly selecting one; no branch is selected automatically."
+      "description": "Attach one registry-backed tool node to the selected branch Scope. Tools can be changed and re-run without creating a second active scenario line."
     },
     {
-      "id": "discussion",
-      "label": "Discuss the chosen future",
-      "kind": "conversation",
-      "description": "Move the existing conversation session into the selected branch Scope, attach one empty discussion-tool node, and require one selected method before a later scenario or materialisation run."
+      "id": "scenario",
+      "label": "Generate scenario",
+      "kind": "operation",
+      "description": "Run the selected tools into one current scenario output. Earlier outputs remain available as superseded history, never as parallel active conclusions."
     }
   ],
+  "runtime": {
+    "input_stage_id": "input",
+    "future_stage_id": "four_futures",
+    "tools_stage_id": "tools",
+    "scenario_stage_id": "scenario",
+    "branch_count": 4,
+    "branch_selection_mode": "exactly_one",
+    "rerun_policy": "supersede_previous_active_line"
+  },
   "discussion_tool_policy": {
     "minimum_selected": 1,
     "recommended_by_branch": {
@@ -67,13 +70,12 @@
   "locales": {
     "zh": {
       "label": "四种未来基础流程",
-      "description": "低门槛研究路径：确立一个议题、确认关键词、比较四条假设情境、选择一个方向，再在聚焦范围内展开讨论。",
+      "description": "低门槛研究路径：以信息卡片输入研究议题，比较四个 What-if，且仅选择一个方向；然后选择工具并生成一条当前情境。",
       "stages": {
-        "frame": {"label": "确立研究议题"},
-        "keywords": {"label": "确认关键词"},
-        "four_futures": {"label": "生成四条假设情境"},
-        "choose_future": {"label": "选择一条未来"},
-        "discussion": {"label": "讨论已选未来"}
+        "input": {"label": "信息输入"},
+        "four_futures": {"label": "四个 What-if"},
+        "tools": {"label": "选择工具"},
+        "scenario": {"label": "生成情境"}
       },
       "ui": {
         "start_label": "开始四种未来流程"

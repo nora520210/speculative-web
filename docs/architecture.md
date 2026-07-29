@@ -148,31 +148,33 @@ the existing graph runtime. A workflow instance contains only references to cano
 node IDs, Scope IDs, one ConversationSession, and its current stage. It never stores a
 second copy of research content or a client-side phase machine.
 
-The initial `workflow.four-futures-foundation` introduces the lower-cognitive-load
-path requested for the early and middle research process:
+The initial `workflow.four-futures-foundation` is a four-stage, low-cognitive-load
+path for early and middle research:
 
-1. Capture either a researcher-led inquiry or a designer-led proposition as one
-   editable Research Brief.
-2. Create a deterministic, editable keyword scaffold next to that brief. This is
-   intentionally not a model call.
-3. Prepare the existing `operation.guided-scenario` with direct data edges from the
-   brief and keywords. Starting the workflow does not select a tool, call a model, or
-   produce an image.
-4. When that operation is later run, move the linked conversation into a comparison
-   Scope containing all four results. The existing Four Futures executor keeps its
-   canonical `growth`, `collapse`, `discipline`, and `transformation` strategies.
-5. Require an explicit human branch selection before the conversation enters that
-   branch's isolated Scope. Selection creates one empty `Modify` discussion node,
-   connects the selected branch to it with a direct `data` edge, and adds it to that
-   Scope's snapshot. The workflow manifest sets its minimum selected-tool count and
-   branch-specific recommendations; the registry still owns tool theory, contracts,
-   and future card presentation. No tool is preselected.
+1. **Input cards.** Capture a researcher-led inquiry or designer-led proposition as
+   one editable Research Brief. The deterministic keyword scaffold remains an
+   editable, derived detail of this same stage—not a separate user decision.
+2. **Four What-if.** Run `operation.guided-scenario` from the canonical inputs and
+   compare its exactly four strategies: growth, collapse, discipline, and
+   transformation.
+3. **Choose tools.** A person must select exactly one What-if branch. The runtime
+   attaches one Modify node to that branch Scope through a direct `data` edge. Tool
+   policy and recommendations remain in the workflow package; tool theory,
+   contracts, executors, and card metadata remain in their own tool packages.
+4. **Generate scenario.** Run the selected tools to create one current scenario
+   output. A return to the branch or tools stage is allowed, but reselecting a branch
+   or re-running tools supersedes the earlier active output. Earlier nodes and
+   conversation messages remain visible as gray history; they never become a second
+   active conclusion.
 
-If either workflow input is edited after branch generation, the workflow and its old
-branch artifacts become `stale`. The user must run the four futures again rather than
-discussing a silently out-of-date result. This sequencing changes interaction state,
-not the model, image, or tool-selection mechanism, so those systems can evolve later
-without replacing the workflow contract.
+The package-owned `runtime` contract records the stage IDs, required branch count,
+`exactly_one` selection rule, and `supersede_previous_active_line` rerun rule. The
+backend—not the card UI—enforces these transitions and stores the current branch and
+current scenario node IDs. If an input is edited after branch generation, the
+workflow and old branch artifacts become `stale`; the user must generate the four
+futures again rather than discussing a silently outdated result. This sequencing
+changes interaction state, not model, image, or tool-selection mechanisms, so those
+systems can evolve without replacing the workflow contract.
 
 ### Versioned Workflow Packages
 
@@ -184,11 +186,12 @@ references, discussion-tool policy, and package-owned display copy. It does **no
 own CSS, DOM structure, card dimensions, or button placement.
 
 At workflow creation, the runtime stores `definition_ref` and a compact
-`definition_snapshot` on the workflow instance. The snapshot freezes the stage order,
-labels, and interface-language copy used by that research record. The workspace cards
-render the session's durable `progress` entries through this snapshot; they do not
-contain a second hard-coded phase list. Therefore a new package version can change a
-future process without silently reinterpreting an existing canvas.
+`definition_snapshot` on the workflow instance. The snapshot freezes stage order,
+labels, localized copy, and the small runtime transition contract used by that
+research record. The workspace cards render durable `progress` entries through this
+snapshot; they do not contain a second hard-coded phase list. Therefore a new package
+version can change a future process without silently reinterpreting an existing
+canvas.
 
 For a new document-derived workflow, the implementation sequence is:
 

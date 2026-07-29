@@ -11,6 +11,8 @@ from copy import deepcopy
 from datetime import datetime, timezone
 import uuid
 
+from server.workflow_registry import workflow_runtime_contract
+
 
 CONTROL_POLICIES = {"manual", "propose", "confirm", "auto"}
 SCOPE_MODES = {"live", "snapshot"}
@@ -19,7 +21,7 @@ COMMAND_ACTIONS = {"create_node", "patch_node", "connect_nodes", "create_scope"}
 COMMAND_STATUSES = {"proposed", "approved", "rejected", "applied", "superseded"}
 EXECUTION_STATUSES = {"queued", "running", "awaiting_input", "succeeded", "failed", "cancelled"}
 PROGRESS_STATUSES = {"pending", "active", "succeeded", "failed", "stale"}
-WORKFLOW_STATUSES = {"active", "awaiting_selection", "discussion", "stale", "complete"}
+WORKFLOW_STATUSES = {"active", "awaiting_selection", "tools", "scenario", "discussion", "stale", "complete"}
 MESSAGE_KINDS = {"message", "guide", "activity"}
 MESSAGE_STATES = {"active", "superseded", "removed"}
 MAX_CONVERSATION_FEEDBACK_CHARS = 200
@@ -29,9 +31,12 @@ GUIDE_STAGE_IDS = {
     "frame_assumptions",
     "frame_stakeholders",
     "frame_tensions",
+    "input",
     "keywords",
     "four_futures",
     "choose_future",
+    "tools",
+    "scenario",
     "discussion",
     "stale",
 }
@@ -466,6 +471,9 @@ def normalize_workflow(workflow: dict, canvas: dict) -> dict:
     discussion_node_id = str(workflow.get("discussion_node_id") or "")
     if discussion_node_id not in known_node_ids:
         discussion_node_id = ""
+    active_scenario_node_id = str(workflow.get("active_scenario_node_id") or "")
+    if active_scenario_node_id not in known_node_ids:
+        active_scenario_node_id = ""
     input_edge_ids = normalize_reference_ids(workflow.get("input_edge_ids"))
     if not input_edge_ids:
         # Additive migration for foundation instances created before explicit input
@@ -499,6 +507,12 @@ def normalize_workflow(workflow: dict, canvas: dict) -> dict:
         "label": str(raw_snapshot.get("label") or workflow.get("label") or "Guided workflow")[:96],
         "stages": snapshot_stages,
         "locales": deepcopy(snapshot_locales),
+        "runtime": workflow_runtime_contract(raw_snapshot),
+        "discussion_tool_policy": deepcopy(
+            raw_snapshot.get("discussion_tool_policy")
+            if isinstance(raw_snapshot.get("discussion_tool_policy"), dict)
+            else {}
+        ),
     }
 
     return {
@@ -522,6 +536,7 @@ def normalize_workflow(workflow: dict, canvas: dict) -> dict:
         "branch_scope_ids": branch_scope_ids,
         "selected_branch_node_id": selected_branch_node_id,
         "discussion_node_id": discussion_node_id,
+        "active_scenario_node_id": active_scenario_node_id,
         "input_revision": int(workflow.get("input_revision") or canvas.get("revision") or 0),
         "created_at": workflow.get("created_at") or utc_now(),
         "updated_at": workflow.get("updated_at") or utc_now(),
@@ -886,6 +901,7 @@ def record_workflow_futures(
     workflow = workflow_for_operation(canvas, operation_node_id)
     if not workflow:
         return None
+    runtime = workflow_runtime_contract(workflow.get("definition_snapshot"))
 
     previous_branch_ids = list(workflow.get("branch_node_ids", []))
     branch_node_ids = [node["id"] for node in output_nodes]
@@ -909,7 +925,7 @@ def record_workflow_futures(
     workflow.update(
         {
             "status": "awaiting_selection",
-            "stage": "choose_future",
+            "stage": runtime["future_stage_id"],
             "comparison_scope_id": comparison_scope["id"],
             "branch_node_ids": branch_node_ids,
             "branch_scope_ids": branch_scope_ids,
@@ -922,12 +938,13 @@ def record_workflow_futures(
     session = next((item for item in canvas.get("conversation_sessions", []) if item.get("id") == workflow.get("session_id")), None)
     if session:
         session["active_scope_id"] = comparison_scope["id"]
-        _set_progress(session, "four_futures", "succeeded", scope_id=comparison_scope["id"])
-        _set_progress(session, "choose_future", "active", scope_id=comparison_scope["id"])
-        _set_progress(session, "discussion", "pending", scope_id=comparison_scope["id"])
+        _set_progress(session, runtime["input_stage_id"], "succeeded", scope_id=comparison_scope["id"])
+        _set_progress(session, runtime["future_stage_id"], "active", scope_id=comparison_scope["id"])
+        _set_progress(session, runtime["tools_stage_id"], "pending", scope_id=comparison_scope["id"])
+        _set_progress(session, runtime["scenario_stage_id"], "pending", scope_id=comparison_scope["id"])
         set_session_guide(
             session,
-            "choose_future",
+            "four_futures",
             workflow_instance_id=workflow["id"],
             pending_field="",
         )
@@ -967,11 +984,39 @@ def select_workflow_branch(canvas: dict, workflow_id: str, branch_node_id: str) 
     scenario = (branch or {}).get("payload", {}).get("scenario_branch", {})
     opening_question = str((scenario.get("facilitation") or {}).get("opening_question") or "")
     branch_title = str((branch or {}).get("title") or "selected future")
+    runtime = workflow_runtime_contract(workflow.get("definition_snapshot"))
+    previous_branch_id = str(workflow.get("selected_branch_node_id") or "")
+    previous_discussion_id = str(workflow.get("discussion_node_id") or "")
+    if previous_branch_id and previous_branch_id != branch_node_id:
+        stale_run_ids = {
+            str(run.get("id"))
+            for run in canvas.get("runs", [])
+            if run.get("node_id") == previous_discussion_id
+        }
+        superseded_ids = [
+            previous_branch_id,
+            *[
+                node.get("id")
+                for node in canvas.get("nodes", [])
+                if node.get("produced_by_run_id") in stale_run_ids
+            ],
+        ]
+        for node in canvas.get("nodes", []):
+            if node.get("id") in superseded_ids:
+                node["status"] = "stale"
+        mark_messages_inactive(
+            canvas,
+            related_node_ids=superseded_ids,
+            state="superseded",
+            reason="A different What-if branch is now the only active line of this workflow.",
+            workflow_id=str(workflow.get("id") or ""),
+        )
     workflow.update(
         {
-            "status": "discussion",
-            "stage": "discussion",
+            "status": "tools",
+            "stage": runtime["tools_stage_id"],
             "selected_branch_node_id": branch_node_id,
+            "active_scenario_node_id": "",
             "updated_at": utc_now(),
         }
     )
@@ -979,11 +1024,12 @@ def select_workflow_branch(canvas: dict, workflow_id: str, branch_node_id: str) 
     session = next((item for item in canvas.get("conversation_sessions", []) if item.get("id") == workflow.get("session_id")), None)
     if session:
         session["active_scope_id"] = scope_id
-        _set_progress(session, "choose_future", "succeeded", scope_id=scope_id)
-        _set_progress(session, "discussion", "active", scope_id=scope_id)
+        _set_progress(session, runtime["future_stage_id"], "succeeded", scope_id=scope_id)
+        _set_progress(session, runtime["tools_stage_id"], "active", scope_id=scope_id)
+        _set_progress(session, runtime["scenario_stage_id"], "pending", scope_id=scope_id)
         set_session_guide(
             session,
-            "discussion",
+            "tools",
             workflow_instance_id=workflow["id"],
             pending_field="",
         )
