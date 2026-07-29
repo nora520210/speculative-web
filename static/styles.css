@@ -218,76 +218,6 @@ button:disabled:focus-visible {
   color: var(--muted);
 }
 
-.foundation-workflow-dialog {
-  width: min(860px, calc(100vw - 32px));
-  max-height: min(760px, calc(100vh - 32px));
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 0;
-  background: var(--bg);
-  color: var(--ink);
-  overflow: auto;
-}
-
-.foundation-workflow-dialog::backdrop {
-  background: color-mix(in srgb, var(--bg) 72%, transparent);
-}
-
-.foundation-workflow-form {
-  display: grid;
-  gap: 14px;
-  padding: 16px;
-}
-
-.foundation-workflow-form header,
-.foundation-workflow-form footer {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
-}
-
-.foundation-workflow-form header {
-  margin: -16px -16px 0;
-  border-bottom: 1px solid var(--line);
-  padding: 16px;
-}
-
-.foundation-workflow-form h2 {
-  font-size: 18px;
-}
-
-.foundation-workflow-form label {
-  display: grid;
-  gap: 7px;
-  font-size: 12px;
-}
-
-.foundation-workflow-form textarea,
-.foundation-workflow-form select {
-  width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 9px;
-  background: var(--bg);
-  color: var(--ink);
-  line-height: 1.45;
-  resize: vertical;
-}
-
-.foundation-workflow-intro {
-  margin: 0;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.foundation-workflow-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
 .project-list {
   margin-top: 26px;
 }
@@ -5391,6 +5321,181 @@ textarea:focus-visible {
   min-height: 30px;
   border-radius: 7px;
   padding: 0 10px;
+}
+
+/* The research brief is the first workflow card, not a second control in the
+   sidebar. Its form writes the same canonical workflow request as conversation. */
+.canvas-shell.active .stage-presentation:has(.foundation-entry-card) {
+  display: block;
+  block-size: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+}
+
+.foundation-entry-card {
+  min-height: 0;
+  border: 1px solid var(--chrome-focus, var(--ink));
+  border-radius: 12px;
+  background: var(--chrome-surface, var(--bg));
+  overflow: hidden;
+}
+
+.foundation-entry-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px 18px 14px;
+  border-bottom: 1px solid var(--chrome-border, var(--soft-line));
+}
+
+/* The entry form lives inside the same bounded workspace region as the
+   workflow cards. Its own scroll area prevents the conversation dock from
+   covering lower fields on short laptop viewports. */
+.canvas-shell.active .workflow-panel:has(.foundation-entry-card) {
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.foundation-entry-header > div {
+  display: grid;
+  gap: 4px;
+}
+
+.foundation-entry-header .stage-index {
+  justify-self: start;
+}
+
+.foundation-entry-header p,
+.foundation-entry-header h4,
+.foundation-entry-header small {
+  margin: 0;
+}
+
+.foundation-entry-header h4 {
+  font-size: 22px;
+  line-height: 1.18;
+}
+
+.foundation-entry-header p,
+.foundation-entry-header small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.foundation-entry-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 16px 18px 18px;
+}
+
+.foundation-entry-form > label,
+.foundation-entry-grid > label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.foundation-entry-form select,
+.foundation-entry-form textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--chrome-border, var(--soft-line));
+  border-radius: 7px;
+  padding: 9px 10px;
+  color: var(--ink);
+  background: var(--chrome-input, var(--bg));
+  font: inherit;
+  font-weight: 400;
+  resize: vertical;
+}
+
+.foundation-entry-form select:focus,
+.foundation-entry-form textarea:focus {
+  outline: 2px solid var(--chrome-focus, var(--ink));
+  outline-offset: 1px;
+}
+
+.foundation-entry-intro,
+.foundation-entry-topic,
+.foundation-entry-focus,
+.foundation-entry-grid,
+.foundation-entry-form footer {
+  grid-column: 1 / -1;
+}
+
+.foundation-entry-intro {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.foundation-entry-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.foundation-entry-form footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.foundation-entry-form footer span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.foundation-entry-form footer button {
+  min-height: 34px;
+  border: 1px solid var(--ink);
+  border-radius: 7px;
+  padding: 0 12px;
+  color: var(--bg);
+  background: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+@media (max-height: 820px) and (min-width: 861px) {
+  .foundation-entry-header {
+    padding: 12px 14px 10px;
+  }
+
+  .foundation-entry-header h4 {
+    font-size: 19px;
+  }
+
+  .foundation-entry-form {
+    gap: 8px;
+    padding: 12px 14px 14px;
+  }
+
+  .foundation-entry-grid {
+    gap: 8px;
+  }
+
+  .foundation-entry-form select,
+  .foundation-entry-form textarea {
+    padding: 7px 8px;
+  }
+}
+
+@media (max-width: 860px) {
+  .foundation-entry-form,
+  .foundation-entry-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .stage-branch-choices {

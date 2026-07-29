@@ -65,10 +65,6 @@ const commandProposals = document.querySelector("#command-proposals");
 const navigatorRevision = document.querySelector("#navigator-revision");
 const toolSidebarList = document.querySelector("#tool-sidebar-list");
 const returnLocalScope = document.querySelector("#return-local-scope");
-const startFoundationWorkflow = document.querySelector("#start-foundation-workflow");
-const foundationWorkflowDialog = document.querySelector("#foundation-workflow-dialog");
-const foundationWorkflowForm = document.querySelector("#foundation-workflow-form");
-const closeFoundationWorkflow = document.querySelector("#close-foundation-workflow");
 const canvasFocusLayer = document.querySelector("#canvas-focus-layer");
 const canvasFocusTitle = document.querySelector("#canvas-focus-title");
 const closeCanvasFocusButton = document.querySelector("#close-canvas-focus");
@@ -197,6 +193,10 @@ const translations = {
     "status.stale": "stale",
     "status.generated": "generated",
     "status.orphaned": "orphaned",
+    "status.pending": "pending",
+    "status.active": "active",
+    "status.succeeded": "succeeded",
+    "status.complete": "complete",
     "inspector.canvasSnapshot": "Canvas Snapshot",
     "inspector.openCanvas": "Open a canvas to inspect its graph state.",
     "inspector.modelApi": "Model API",
@@ -419,6 +419,10 @@ const translations = {
     "status.stale": "待更新",
     "status.generated": "已生成",
     "status.orphaned": "已脱离原节点",
+    "status.pending": "等待中",
+    "status.active": "进行中",
+    "status.succeeded": "已完成",
+    "status.complete": "已完成",
     "inspector.canvasSnapshot": "画布快照",
     "inspector.openCanvas": "打开一个画布以查看图谱状态。",
     "inspector.modelApi": "模型 API",
@@ -600,6 +604,10 @@ function localizedReferenceTitle(title) {
     "Keywords to confirm": "待确认关键词",
     "Guided Scenario": "引导情境",
     "Discussion tools": "讨论工具",
+    "Growth": "增长",
+    "Collapse": "崩塌",
+    "Discipline": "约束",
+    "Transformation": "转型",
     "Growth scenario": "增长情境",
     "Collapse scenario": "崩塌情境",
     "Discipline scenario": "约束情境",
@@ -635,6 +643,19 @@ function localizedReferenceTitle(title) {
     "Guided process": "引导流程",
   };
   return labels[title] || title;
+}
+
+function localizedWorkflowScopeLabel(scope, fallback = "") {
+  const nodeIds = new Set(scope?.selector?.node_ids || []);
+  const branchNode = (activeCanvas?.nodes || []).find((node) =>
+    nodeIds.has(node.id) && node.payload?.scenario_branch,
+  );
+  const strategy = branchNode?.payload?.scenario_branch?.strategy_label || "";
+  if (strategy) {
+    const localizedStrategy = localizedReferenceTitle(strategy);
+    return locale === "zh" ? `${localizedStrategy}情境` : `${localizedStrategy} scenario`;
+  }
+  return localizedReferenceTitle(scope?.label || fallback);
 }
 
 function localizedConversationBody(body) {
@@ -1113,6 +1134,12 @@ function renderWorkflowStrip(session) {
   const stages = workflowStages(session);
   renderStagePresentation(stages);
   if (!workflowStrip) return;
+  if (!activeWorkflow()) {
+    workflowStrip.hidden = true;
+    workflowStrip.innerHTML = "";
+    return;
+  }
+  workflowStrip.hidden = false;
   workflowStrip.innerHTML = stages.map((stage, index) => `
     <button class="workflow-card ${stage.active ? "active" : ""} ${stage.scopeId === activeScopeId ? "in-scope" : ""}" type="button" data-workflow-scope="${escapeHtml(stage.scopeId)}">
       <span class="workflow-card-index">${String(index + 1).padStart(2, "0")}</span>
@@ -1169,6 +1196,11 @@ function activeStageTools() {
 
 function renderStagePresentation(stages) {
   if (!stagePresentation) return;
+  const workflow = activeWorkflow();
+  if (!workflow) {
+    renderFoundationEntryCard();
+    return;
+  }
   const activeStage = stages.find((stage) => stage.active)
     || stages.find((stage) => stage.scopeId === activeScopeId)
     || stages[0];
@@ -1178,7 +1210,6 @@ function renderStagePresentation(stages) {
   }
   const activeIndex = Math.max(0, stages.indexOf(activeStage));
   const tools = activeStageTools();
-  const workflow = activeWorkflow();
   const readyOutputs = (activeCanvas?.nodes || []).filter((node) =>
     ["generated", "ready"].includes(node.status) && ["image", "multimodal"].includes(node.type),
   ).length;
@@ -1224,7 +1255,7 @@ function renderStagePresentation(stages) {
       <p>${escapeHtml(activeStage.state)}</p>
       <div class="stage-focus-meta">
         <span>${escapeHtml(t("stagePresentation.scope"))}</span>
-        <strong>${escapeHtml(localizedReferenceTitle(scope?.label || activeStage.label))}</strong>
+        <strong>${escapeHtml(localizedWorkflowScopeLabel(scope, activeStage.label))}</strong>
       </div>
     </article>
     ${inputCards}
@@ -1238,6 +1269,57 @@ function renderStagePresentation(stages) {
   stagePresentation.querySelectorAll("[data-open-foundation-input]").forEach((button) => {
     button.addEventListener("click", openFoundationWorkflowDialog);
   });
+}
+
+function renderFoundationEntryCard() {
+  stagePresentation.innerHTML = `
+    <section class="foundation-entry-card" aria-label="${escapeHtml(t("workflow.dialogTitle"))}">
+      <header class="foundation-entry-header">
+        <div>
+          <span class="stage-index">01</span>
+          <p>${escapeHtml(t("stagePresentation.current"))}</p>
+          <h4>${escapeHtml(t("workflow.dialogTitle"))}</h4>
+        </div>
+        <small>${escapeHtml(t("workflow.eyebrow"))}</small>
+      </header>
+      <form class="foundation-entry-form" data-foundation-input-form>
+        <p class="foundation-entry-intro">${escapeHtml(t("workflow.dialogIntro"))}</p>
+        <label>
+          <span>${escapeHtml(t("workflow.startMode"))}</span>
+          <select name="start_mode">
+            <option value="research">${escapeHtml(t("workflow.modeResearch"))}</option>
+            <option value="design">${escapeHtml(t("workflow.modeDesign"))}</option>
+          </select>
+        </label>
+        <label class="foundation-entry-topic">
+          <span>${escapeHtml(t("workflow.topic"))}</span>
+          <textarea name="topic" rows="3" required placeholder="${escapeHtml(t("workflow.topicPlaceholder"))}"></textarea>
+        </label>
+        <label class="foundation-entry-focus">
+          <span>${escapeHtml(t("workflow.focus"))}</span>
+          <textarea name="research_focus" rows="2" placeholder="${escapeHtml(t("workflow.focusPlaceholder"))}"></textarea>
+        </label>
+        <div class="foundation-entry-grid">
+          <label>
+            <span>${escapeHtml(t("workflow.assumptions"))}</span>
+            <textarea name="assumptions" rows="3" placeholder="${escapeHtml(t("workflow.listPlaceholder"))}"></textarea>
+          </label>
+          <label>
+            <span>${escapeHtml(t("workflow.stakeholders"))}</span>
+            <textarea name="stakeholders" rows="3" placeholder="${escapeHtml(t("workflow.listPlaceholder"))}"></textarea>
+          </label>
+          <label>
+            <span>${escapeHtml(t("workflow.tensions"))}</span>
+            <textarea name="tensions" rows="3" placeholder="${escapeHtml(t("workflow.listPlaceholder"))}"></textarea>
+          </label>
+        </div>
+        <footer>
+          <span>${escapeHtml(t("workflow.inputConversation"))}</span>
+          <button type="button" data-foundation-create>${escapeHtml(t("workflow.create"))}</button>
+        </footer>
+      </form>
+    </section>
+  `;
 }
 
 function renderStageInputCards(workflow, activeStage) {
@@ -2029,21 +2111,10 @@ async function addNode(type, options = {}) {
 }
 
 function openFoundationWorkflowDialog() {
-  if (!activeProject) return;
-  if (typeof foundationWorkflowDialog.showModal === "function") {
-    foundationWorkflowDialog.showModal();
-  } else {
-    foundationWorkflowDialog.setAttribute("open", "");
-  }
-  foundationWorkflowForm.elements.topic.focus();
-}
-
-function closeFoundationWorkflowDialog() {
-  if (typeof foundationWorkflowDialog.close === "function") {
-    foundationWorkflowDialog.close();
-  } else {
-    foundationWorkflowDialog.removeAttribute("open");
-  }
+  const form = stagePresentation?.querySelector("[data-foundation-input-form]");
+  if (!form) return;
+  form.scrollIntoView({ behavior: "smooth", block: "center" });
+  form.elements.topic?.focus();
 }
 
 function workflowListValue(value) {
@@ -2053,10 +2124,9 @@ function workflowListValue(value) {
     .filter(Boolean);
 }
 
-async function submitFoundationWorkflow(event) {
-  event.preventDefault();
-  if (!activeProject) return;
-  const form = new FormData(foundationWorkflowForm);
+async function submitFoundationWorkflow(sourceForm) {
+  if (!activeProject || !sourceForm) return;
+  const form = new FormData(sourceForm);
   const payload = {
     definition_id: "workflow.four-futures-foundation",
     start_mode: form.get("start_mode"),
@@ -2071,8 +2141,7 @@ async function submitFoundationWorkflow(event) {
     method: "POST",
     body: JSON.stringify(withExpectedRevision(payload)),
   });
-  foundationWorkflowForm.reset();
-  closeFoundationWorkflowDialog();
+  sourceForm.reset();
   activeSessionId = result.conversation?.id || activeSessionId;
   activeScopeId = result.scope?.id || activeScopeId;
   await loadCanvas({ preserveView: false });
@@ -2993,17 +3062,16 @@ document.querySelectorAll("[data-add-operation-definition]").forEach((button) =>
   }));
 });
 
-startFoundationWorkflow.addEventListener("click", openFoundationWorkflowDialog);
-closeFoundationWorkflow.addEventListener("click", closeFoundationWorkflowDialog);
-foundationWorkflowDialog.addEventListener("click", (event) => {
-  if (event.target === foundationWorkflowDialog) closeFoundationWorkflowDialog();
-});
-foundationWorkflowForm.addEventListener("submit", (event) => {
-  submitFoundationWorkflow(event).catch((error) => {
+stagePresentation?.addEventListener("click", (event) => {
+  const action = event.target.closest("[data-foundation-create]");
+  if (!action) return;
+  const form = action.closest("[data-foundation-input-form]");
+  submitFoundationWorkflow(form).catch((error) => {
     setStatus(canvasStatus, "error");
     canvasOutput.textContent = error.message;
   });
 });
+
 
 conversationForm.addEventListener("submit", (event) => {
   submitConversationMessage(event).catch((error) => {

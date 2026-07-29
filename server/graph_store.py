@@ -915,22 +915,38 @@ def synchronize_keyword_scaffold_from_brief(canvas: dict, workflow: dict, source
 
 def render_foundation_brief(brief: dict) -> str:
     start_mode = str(brief.get("start_mode") or "research")
+    values = [
+        str(brief.get("topic") or ""),
+        str(brief.get("research_focus") or ""),
+        *[str(value) for value in brief.get("assumptions", [])],
+        *[str(value) for value in brief.get("stakeholders", [])],
+        *[str(value) for value in brief.get("tensions", [])],
+    ]
+    chinese = bool(re.search(r"[\u4e00-\u9fff]", " ".join(values)))
+    if chinese:
+        start_label = "真实研究／研究者主导" if start_mode == "research" else "设计命题／设计者主导"
+        labels = ("起点类型", "研究议题", "研究关注点", "默认假设", "利益相关者", "核心张力")
+    else:
+        start_label = "Real research / researcher-led" if start_mode == "research" else "Design proposition / designer-led"
+        labels = ("Starting point", "Topic", "Research focus", "Default assumptions", "Stakeholders", "Core tensions")
     lines = [
-        f"Starting point: {'Real research / researcher-led' if start_mode == 'research' else 'Design proposition / designer-led'}",
-        f"Topic: {str(brief.get('topic') or '').strip()}",
+        f"{labels[0]}: {start_label}",
+        f"{labels[1]}: {str(brief.get('topic') or '').strip()}",
     ]
     if brief.get("research_focus"):
-        lines.append(f"Research focus: {brief['research_focus']}")
-    for label, values in (("Default assumptions", brief.get("assumptions", [])), ("Stakeholders", brief.get("stakeholders", [])), ("Core tensions", brief.get("tensions", []))):
-        if values:
-            lines.append(f"{label}: " + "; ".join(values))
+        lines.append(f"{labels[2]}: {brief['research_focus']}")
+    for label, items in zip(labels[3:], (brief.get("assumptions", []), brief.get("stakeholders", []), brief.get("tensions", []))):
+        if items:
+            lines.append(f"{label}: " + "; ".join(items))
     return "\n".join(lines)
 
 
 def render_keyword_scaffold(keywords: list[str]) -> str:
+    chinese = bool(re.search(r"[\u4e00-\u9fff]", " ".join(str(keyword) for keyword in keywords)))
+    title = "待确认关键词" if chinese else "Keywords to confirm"
     if not keywords:
-        return "Keywords to confirm\n\nAdd the concepts, trends, and tensions that should seed the four futures."
-    return "Keywords to confirm\n\n" + "\n".join(f"- {keyword}" for keyword in keywords)
+        return f"{title}\n\n" + ("补充将用于生成四个未来的概念、趋势与张力。" if chinese else "Add the concepts, trends, and tensions that should seed the four futures.")
+    return f"{title}\n\n" + "\n".join(f"- {keyword}" for keyword in keywords)
 
 
 def add_command_proposal(project_id: str, payload: dict, expected_revision=None) -> dict:

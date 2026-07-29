@@ -311,7 +311,15 @@ def clean_strings(value, *, minimum: int, maximum: int, item_limit: int) -> list
 
 
 def fallback_topic(source_context: list[dict]) -> str:
-    text = " ".join(str(item.get("text") or "").strip() for item in source_context if item.get("text"))
+    texts = [str(item.get("text") or "").strip() for item in source_context if item.get("text")]
+    # Structured foundation nodes keep their topic on a dedicated line. Prefer it
+    # over the full brief so deterministic branches remain concise and do not leak
+    # internal field labels into a user-facing What-if premise.
+    for text in texts:
+        match = re.search(r"^(?:Topic|研究议题)\s*:\s*(.+)$", text, flags=re.MULTILINE)
+        if match:
+            return clean_text(match.group(1), 180)
+    text = " ".join(texts)
     return clean_text(text, 180) or "the current research condition"
 
 
