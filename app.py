@@ -16,6 +16,7 @@ from server.config import (
     MAX_JSON_BODY_BYTES,
     MAX_UPLOAD_BYTES,
     MAX_USER_API_KEY_CHARS,
+    TOOL_PACKAGE_DIR,
     UPLOAD_DIR,
     storage_mode,
     user_api_key_required,
@@ -76,6 +77,14 @@ class AppHandler(SimpleHTTPRequestHandler):
             static_root = STATIC_DIR.resolve()
             if candidate == static_root or static_root in candidate.parents:
                 return str(candidate)
+            return str(STATIC_DIR / "__not_found__")
+        if clean.startswith("tool-assets/"):
+            parts = clean.split("/", 2)
+            if len(parts) == 3 and parts[1] and parts[2]:
+                package_root = (TOOL_PACKAGE_DIR / parts[1]).resolve()
+                candidate = (package_root / parts[2]).resolve()
+                if package_root.parent == TOOL_PACKAGE_DIR.resolve() and package_root in candidate.parents:
+                    return str(candidate)
             return str(STATIC_DIR / "__not_found__")
         if clean.startswith("generated/"):
             candidate = (GENERATED_IMAGE_DIR / clean.removeprefix("generated/")).resolve()

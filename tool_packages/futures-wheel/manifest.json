@@ -106,6 +106,14 @@
     "For text outputs, return the package text_blocks sequence, including a consequence table and a priority chart that is explicitly not a forecast.",
     "Preserve the required tool information structure while using the package output_budget; remove repeated framing and keep evidence, tables, and questions concise."
   ],
+  "presentation": {
+    "card_kind": "method",
+    "icon_token": "futures-wheel",
+    "accent_token": "asset",
+    "asset": {"kind": "package-relative", "path": "assets/default.svg"},
+    "summary_fields": ["description", "recommendation.best_when"],
+    "interaction_hint": "Follow a change through layered consequences, without treating the chain as certain."
+  },
   "executor": {
     "kind": "placeholder",
     "entrypoint": ""

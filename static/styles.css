@@ -1791,6 +1791,306 @@ pre {
   }
 }
 
+/* Four-stage deck: one visual representation for navigation and content.
+   The deck is intentionally driven only by stage/registry data; extra tools or
+   outputs simply become scrollable cards inside their own stage column. */
+@media (min-width: 761px) {
+  .canvas-shell.active .workflow-panel:has(.stage-deck) {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .canvas-shell.active .stage-presentation:has(.stage-deck) {
+    display: block;
+    min-height: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 18px 0 8px;
+    scroll-snap-type: x proximity;
+    scrollbar-gutter: stable;
+  }
+
+  .canvas-shell.active .stage-presentation:has(.stage-deck),
+  .canvas-shell.active .stage-card-track,
+  .canvas-shell.active .stage-deck .stage-input-cards {
+    scrollbar-width: thin;
+    scrollbar-color: var(--soft-line) transparent;
+  }
+
+  .canvas-shell.active .stage-presentation:has(.stage-deck)::-webkit-scrollbar,
+  .canvas-shell.active .stage-card-track::-webkit-scrollbar {
+    height: 7px;
+  }
+
+  .canvas-shell.active .stage-deck .stage-input-cards::-webkit-scrollbar {
+    width: 7px;
+  }
+
+  .canvas-shell.active .stage-presentation:has(.stage-deck)::-webkit-scrollbar-thumb,
+  .canvas-shell.active .stage-card-track::-webkit-scrollbar-thumb,
+  .canvas-shell.active .stage-deck .stage-input-cards::-webkit-scrollbar-thumb {
+    background: var(--soft-line);
+    border-radius: 999px;
+  }
+
+  .canvas-shell.active .stage-deck {
+    display: flex;
+    min-width: max-content;
+    height: 100%;
+    align-items: stretch;
+    gap: 12px;
+    padding-right: 18px;
+  }
+
+  .canvas-shell.active .stage-deck-card {
+    display: grid;
+    flex: 0 0 clamp(272px, 28vw, 352px);
+    min-width: 272px;
+    min-height: 360px;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    border: 1px solid var(--chrome-border);
+    border-radius: 10px;
+    background: var(--chrome-card);
+    overflow: hidden;
+    scroll-snap-align: start;
+  }
+
+  .canvas-shell.active .stage-deck-card.is-current {
+    border-color: var(--line);
+  }
+
+  .canvas-shell.active .stage-deck-header {
+    display: grid;
+    width: 100%;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    gap: 10px;
+    border: 0;
+    border-bottom: 1px solid var(--soft-line);
+    border-radius: 0;
+    padding: 14px;
+    background: transparent;
+    color: var(--ink);
+    text-align: left;
+  }
+
+  .canvas-shell.active .stage-deck-header:hover,
+  .canvas-shell.active .stage-deck-header:focus-visible {
+    background: var(--faint);
+  }
+
+  .canvas-shell.active .stage-deck-heading {
+    display: grid;
+    min-width: 0;
+    gap: 4px;
+  }
+
+  .canvas-shell.active .stage-deck-heading strong {
+    overflow: hidden;
+    font-size: 14px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .canvas-shell.active .stage-deck-heading small,
+  .canvas-shell.active .stage-current-marker {
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.3;
+  }
+
+  .canvas-shell.active .stage-current-marker {
+    grid-column: 2;
+    font-style: italic;
+  }
+
+  .canvas-shell.active .stage-deck-body {
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    padding: 12px;
+  }
+
+  .canvas-shell.active .stage-deck-footer {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px;
+    border-top: 1px solid var(--soft-line);
+    padding: 10px 12px;
+    color: var(--muted);
+    font-size: 10px;
+  }
+
+  .canvas-shell.active .stage-deck-footer strong {
+    overflow: hidden;
+    color: var(--ink);
+    font-weight: 500;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .canvas-shell.active .stage-deck .stage-input-cards,
+  .canvas-shell.active .stage-deck .stage-branch-choices {
+    display: grid;
+    height: 100%;
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+
+  .canvas-shell.active .stage-deck .stage-input-cards {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    overflow: auto;
+  }
+
+  .canvas-shell.active .stage-deck .stage-input-cards article {
+    display: grid;
+    gap: 4px;
+    border-bottom: 1px solid var(--soft-line);
+    padding: 0 0 9px;
+  }
+
+  .canvas-shell.active .stage-deck .stage-input-cards small,
+  .canvas-shell.active .stage-deck .stage-input-cards p,
+  .canvas-shell.active .stage-deck .stage-branch-choices > header {
+    margin: 0;
+    color: var(--muted);
+    font-size: 10px;
+  }
+
+  .canvas-shell.active .stage-deck .stage-input-cards article strong {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.45;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+
+  .canvas-shell.active .stage-card-track {
+    display: flex;
+    height: 100%;
+    min-width: 0;
+    gap: 8px;
+    overflow: auto hidden;
+    padding-bottom: 3px;
+    scroll-snap-type: x proximity;
+  }
+
+  .canvas-shell.active .stage-card-track > .stage-tool-card,
+  .canvas-shell.active .stage-card-track > .stage-branch-card,
+  .canvas-shell.active .stage-card-track > .stage-output-card,
+  .canvas-shell.active .stage-card-track > .stage-empty-state {
+    flex: 0 0 min(180px, 82%);
+    min-width: 0;
+    min-height: 152px;
+    scroll-snap-align: start;
+  }
+
+  .canvas-shell.active .stage-card-track > .stage-tool-card {
+    grid-template-columns: 1fr;
+    align-content: space-between;
+    min-height: 132px;
+  }
+
+  .canvas-shell.active .stage-card-track > .stage-tool-card .stage-tool-glyph {
+    width: 26px;
+    height: 26px;
+  }
+
+  .canvas-shell.active .stage-branch-card,
+  .canvas-shell.active .stage-output-card {
+    display: grid;
+    align-content: start;
+    gap: 8px;
+    border: 1px solid var(--chrome-border);
+    border-radius: 8px;
+    padding: 11px;
+    background: var(--chrome-surface);
+    color: var(--ink);
+    text-align: left;
+  }
+
+  .canvas-shell.active button.stage-branch-card:hover,
+  .canvas-shell.active button.stage-branch-card:focus-visible,
+  .canvas-shell.active .stage-branch-card.is-selected {
+    border-color: var(--line);
+    background: var(--faint);
+  }
+
+  .canvas-shell.active .stage-branch-card strong,
+  .canvas-shell.active .stage-output-card strong {
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .canvas-shell.active .stage-branch-card small,
+  .canvas-shell.active .stage-output-card span,
+  .canvas-shell.active .stage-output-card small {
+    display: -webkit-box;
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.45;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 5;
+  }
+
+  .canvas-shell.active .stage-output-card.is-stale {
+    opacity: 0.48;
+  }
+
+  .canvas-shell.active .stage-track-more,
+  .canvas-shell.active .stage-card-note {
+    display: grid;
+    min-width: 150px;
+    align-content: center;
+    margin: 0;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.5;
+  }
+}
+
+@media (max-width: 760px) {
+  .canvas-shell.active .stage-presentation:has(.stage-deck) {
+    display: block;
+    overflow-x: auto;
+  }
+
+  .canvas-shell.active .stage-deck {
+    display: flex;
+    min-width: max-content;
+    gap: 10px;
+    padding: 8px 0;
+  }
+
+  .canvas-shell.active .stage-deck-card {
+    display: grid;
+    width: min(78vw, 300px);
+    min-height: 320px;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    border: 1px solid var(--chrome-border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .canvas-shell.active .stage-deck-header,
+  .canvas-shell.active .stage-deck-footer,
+  .canvas-shell.active .stage-deck-body {
+    padding: 10px;
+  }
+
+  .canvas-shell.active .stage-card-track {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+  }
+}
+
 /* Process workspace revision: readable navigation, a single workflow row, and a separate node canvas. */
 @media (min-width: 761px) {
   .canvas-shell.active {
@@ -4664,9 +4964,9 @@ pre {
   --chrome-selected-ink: #ffffff;
   --chrome-border: #e2e2de;
   --chrome-input: #ffffff;
-  --chrome-focus: #10a37f;
-  --chrome-accent: #10a37f;
-  --chrome-accent-soft: #e7f6f0;
+  --chrome-focus: #242424;
+  --chrome-accent: #242424;
+  --chrome-accent-soft: #ececea;
   --chrome-card: #fafaf9;
   --font: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
@@ -4690,9 +4990,9 @@ pre {
   --chrome-selected-ink: #202020;
   --chrome-border: #3b3b38;
   --chrome-input: #242424;
-  --chrome-focus: #5fd2ae;
-  --chrome-accent: #5fd2ae;
-  --chrome-accent-soft: #173d32;
+  --chrome-focus: #f0f0ed;
+  --chrome-accent: #f0f0ed;
+  --chrome-accent-soft: #383836;
   --chrome-card: #2d2d2b;
 }
 
@@ -5592,4 +5892,91 @@ textarea:focus-visible {
     height: calc(100% - 70px);
     padding: 12px 14px 20px;
   }
+}
+
+/* Readability pass for the four-stage deck.  The rails stay compact so the
+   concurrent stage cards keep enough width; long source material remains
+   available through each card's own scroll area instead of being ellipsized. */
+@media (min-width: 761px) {
+  .canvas-shell.active .workspace-layout {
+    grid-template-columns: 184px minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .canvas-shell.active .workspace-sidebar {
+    width: 184px;
+    padding-inline: 8px;
+  }
+
+  .canvas-shell.active .workspace-main {
+    padding-inline: 16px;
+  }
+
+  .canvas-shell.active .workspace-top-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(250px, 0.32fr);
+    gap: 14px;
+  }
+
+  .canvas-shell.active .stage-deck .stage-input-cards article strong {
+    display: block;
+    overflow: visible;
+    overflow-wrap: anywhere;
+    -webkit-box-orient: initial;
+    -webkit-line-clamp: initial;
+  }
+
+  .canvas-shell.active .stage-card-track > .stage-tool-card,
+  .canvas-shell.active .stage-card-track > .stage-branch-card,
+  .canvas-shell.active .stage-card-track > .stage-output-card,
+  .canvas-shell.active .stage-card-track > .stage-empty-state {
+    flex-basis: min(210px, 92%);
+  }
+
+  .canvas-shell.active .stage-branch-card small,
+  .canvas-shell.active .stage-output-card span,
+  .canvas-shell.active .stage-output-card small {
+    display: block;
+    overflow: auto;
+    overflow-wrap: anywhere;
+    -webkit-box-orient: initial;
+    -webkit-line-clamp: initial;
+  }
+}
+
+/* Final neutral palette override. Only package SVG artwork may carry colour. */
+:root {
+  --chrome-focus: #242424;
+  --chrome-accent: #242424;
+  --chrome-accent-soft: #ececea;
+}
+
+:root[data-theme="dark"] {
+  --chrome-focus: #f0f0ed;
+  --chrome-accent: #f0f0ed;
+  --chrome-accent-soft: #383836;
+}
+
+.canvas-shell.active .workspace-sidebar .tool-sidebar-row {
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+}
+
+.tool-sidebar-asset {
+  display: block;
+  width: 22px;
+  height: 16px;
+  object-fit: contain;
+}
+
+.canvas-shell.active .stage-tool-card.has-graphic {
+  grid-template-columns: minmax(0, 1fr);
+  align-content: space-between;
+}
+
+.stage-tool-asset {
+  display: block;
+  width: 100%;
+  min-height: 66px;
+  max-height: 112px;
+  object-fit: contain;
+  object-position: center;
 }

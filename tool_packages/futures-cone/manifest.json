@@ -40,8 +40,8 @@
   "presentation": {
     "card_kind": "futures-cone",
     "icon_token": "futures-cone",
-    "accent_token": "neutral",
-    "asset": {"kind": "none", "path": ""},
+    "accent_token": "asset",
+    "asset": {"kind": "package-relative", "path": "assets/default.svg"},
     "summary_fields": ["description", "recommendation.best_when"],
     "interaction_hint": "Compare ranges before committing to one branch."
   },

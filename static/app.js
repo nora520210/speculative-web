@@ -570,6 +570,15 @@ function localizedToolCopy(tool, field) {
   return String(tool?.[field] || tool?.id || "");
 }
 
+function toolAssetUrl(tool) {
+  const asset = tool?.presentation?.asset;
+  const toolId = String(tool?.id || "").trim();
+  const assetPath = String(asset?.path || "").trim();
+  if (!toolId || asset?.kind !== "package-relative" || !assetPath) return "";
+  const safePath = assetPath.split("/").filter(Boolean).map((part) => encodeURIComponent(part)).join("/");
+  return safePath ? `/tool-assets/${encodeURIComponent(toolId)}/${safePath}` : "";
+}
+
 function localizedOperationCopy(definition, field) {
   const localCopy = locale === "zh" ? definition?.locales?.zh : null;
   const localized = localCopy?.[field];
@@ -1134,21 +1143,11 @@ function renderWorkflowStrip(session) {
   const stages = workflowStages(session);
   renderStagePresentation(stages);
   if (!workflowStrip) return;
-  if (!activeWorkflow()) {
-    workflowStrip.hidden = true;
-    workflowStrip.innerHTML = "";
-    return;
-  }
-  workflowStrip.hidden = false;
-  workflowStrip.innerHTML = stages.map((stage, index) => `
-    <button class="workflow-card ${stage.active ? "active" : ""} ${stage.scopeId === activeScopeId ? "in-scope" : ""}" type="button" data-workflow-scope="${escapeHtml(stage.scopeId)}">
-      <span class="workflow-card-index">${String(index + 1).padStart(2, "0")}</span>
-      <span class="workflow-card-copy"><strong>${escapeHtml(stage.label)}</strong><small>${escapeHtml(stage.state)}</small></span>
-    </button>
-  `).join("");
-  workflowStrip.querySelectorAll("[data-workflow-scope]").forEach((button) => {
-    button.addEventListener("click", () => setActiveScope(button.dataset.workflowScope));
-  });
+  // Stage navigation now lives in the same four-card deck as stage content.
+  // Keep this legacy element empty so the visual layer cannot create a second,
+  // divergent workflow representation below the cards.
+  workflowStrip.hidden = true;
+  workflowStrip.innerHTML = "";
 }
 
 function workflowStages(session) {
@@ -1201,70 +1200,62 @@ function renderStagePresentation(stages) {
     renderFoundationEntryCard();
     return;
   }
-  const activeStage = stages.find((stage) => stage.active)
-    || stages.find((stage) => stage.scopeId === activeScopeId)
-    || stages[0];
-  if (!activeStage) {
+  if (!stages.length) {
     stagePresentation.innerHTML = "";
     return;
   }
-  const activeIndex = Math.max(0, stages.indexOf(activeStage));
   const tools = activeStageTools();
-  const readyOutputs = (activeCanvas?.nodes || []).filter((node) =>
-    ["generated", "ready"].includes(node.status) && ["image", "multimodal"].includes(node.type),
-  ).length;
   const visibleTools = tools.slice(0, 3);
-  const scope = activeProjection?.scope || (activeInteraction?.scopes || []).find((item) => item.id === activeScopeId);
+  const focusedStage = stages.find((stage) => stage.active)
+    || stages.find((stage) => stage.scopeId === activeScopeId)
+    || stages[0];
   const methodCards = visibleTools.length
     ? visibleTools.map((tool) => {
       const presentation = tool.presentation || {};
+      const assetUrl = toolAssetUrl(tool);
       return `
-        <article class="stage-tool-card" data-card-kind="${escapeHtml(presentation.card_kind || "tool")}" data-icon-token="${escapeHtml(presentation.icon_token || tool.id || "tool")}" data-accent-token="${escapeHtml(presentation.accent_token || "neutral")}">
-          <span class="stage-tool-glyph" aria-hidden="true"><i></i><i></i><i></i></span>
+        <article class="stage-tool-card ${assetUrl ? "has-graphic" : ""}" data-card-kind="${escapeHtml(presentation.card_kind || "tool")}" data-icon-token="${escapeHtml(presentation.icon_token || tool.id || "tool")}" data-accent-token="${escapeHtml(presentation.accent_token || "neutral")}">
+          ${assetUrl
+    ? `<img class="stage-tool-asset" src="${escapeHtml(assetUrl)}" alt="" aria-hidden="true" />`
+    : `<span class="stage-tool-glyph" aria-hidden="true"><i></i><i></i><i></i></span>`}
           <span class="stage-tool-copy"><strong>${escapeHtml(localizedToolCopy(tool, "label"))}</strong><small>${escapeHtml(presentation.card_kind || t("stagePresentation.methods"))}</small></span>
         </article>
       `;
     }).join("")
     : `<p class="stage-empty-state">${escapeHtml(t("stagePresentation.noMethods"))}</p>`;
-  const remainingTools = tools.length - visibleTools.length;
-  const inputCards = renderStageInputCards(workflow, activeStage);
-  const branchChoices = renderStageBranchChoices(workflow, activeStage);
-  const stageHint = activeStage.id === "tools"
-    ? `<p class="stage-flow-hint">${escapeHtml(t("workflow.toolsHint"))}</p>`
-    : activeStage.id === "scenario"
-      ? `<p class="stage-flow-hint">${escapeHtml(t("workflow.scenarioReady"))}</p>`
-      : "";
-  const methodsPanel = ["tools", "scenario"].includes(activeStage.id)
-    ? `<section class="stage-methods-card" aria-label="${escapeHtml(t("stagePresentation.methods"))}">
-      <header>
-        <span>${escapeHtml(t("stagePresentation.methods"))}</span>
-        <span>${tools.length}</span>
-      </header>
-      <div class="stage-tool-grid">${methodCards}</div>
-      ${remainingTools > 0 ? `<span class="stage-more-tools">${escapeHtml(t("stagePresentation.moreMethods", { count: remainingTools }))}</span>` : ""}
-      <footer><span>${escapeHtml(t("stagePresentation.outputs"))}</span><strong>${readyOutputs}</strong></footer>
-    </section>`
-    : "";
-  stagePresentation.innerHTML = `
-    <article class="stage-focus-card ${activeStage.active ? "is-active" : ""}">
-      <div class="stage-focus-topline">
-        <span class="stage-index">${String(activeIndex + 1).padStart(2, "0")}</span>
-        <span>${escapeHtml(t("stagePresentation.current"))}</span>
-      </div>
-      <h4>${escapeHtml(activeStage.label)}</h4>
-      <p>${escapeHtml(activeStage.state)}</p>
-      <div class="stage-focus-meta">
-        <span>${escapeHtml(t("stagePresentation.scope"))}</span>
-        <strong>${escapeHtml(localizedWorkflowScopeLabel(scope, activeStage.label))}</strong>
-      </div>
-    </article>
-    ${inputCards}
-    ${methodsPanel}
-    ${branchChoices}
-    ${stageHint}
-  `;
+  const stageBody = (stage) => {
+    if (stage.id === "input") return renderStageInputCards(workflow, stage);
+    if (stage.id === "four_futures") return renderStageBranchChoices(workflow, stage);
+    if (stage.id === "tools") return `<section class="stage-card-track" aria-label="${escapeHtml(t("stagePresentation.methods"))}">
+      ${methodCards}
+      ${tools.length > visibleTools.length ? `<span class="stage-track-more">${escapeHtml(t("stagePresentation.moreMethods", { count: tools.length - visibleTools.length }))}</span>` : ""}
+    </section>
+    <p class="stage-card-note">${escapeHtml(t("workflow.toolsHint"))}</p>`;
+    if (stage.id === "scenario") return renderStageOutputCards();
+    return `<p class="stage-card-note">${escapeHtml(stage.state)}</p>`;
+  };
+  stagePresentation.innerHTML = `<div class="stage-deck" aria-label="${escapeHtml(t("stagePresentation.current"))}">
+    ${stages.map((stage, index) => {
+      const scope = (activeInteraction?.scopes || []).find((item) => item.id === stage.scopeId);
+      const isCurrent = stage === focusedStage;
+      return `<section class="stage-deck-card ${isCurrent ? "is-current" : ""}" data-stage-id="${escapeHtml(stage.id)}">
+        <button class="stage-deck-header" type="button" data-stage-scope="${escapeHtml(stage.scopeId)}" aria-pressed="${isCurrent ? "true" : "false"}">
+          <span class="stage-index">${String(index + 1).padStart(2, "0")}</span>
+          <span class="stage-deck-heading"><strong>${escapeHtml(stage.label)}</strong><small>${escapeHtml(stage.state)}</small></span>
+          ${isCurrent ? `<span class="stage-current-marker">${escapeHtml(t("stagePresentation.current"))}</span>` : ""}
+        </button>
+        <div class="stage-deck-body">
+          ${stageBody(stage)}
+        </div>
+        <footer class="stage-deck-footer"><span>${escapeHtml(t("stagePresentation.scope"))}</span><strong>${escapeHtml(localizedWorkflowScopeLabel(scope, stage.label))}</strong></footer>
+      </section>`;
+    }).join("")}
+  </div>`;
   stagePresentation.querySelectorAll("[data-stage-branch-id]").forEach((button) => {
     button.addEventListener("click", () => selectWorkflowBranch(button.dataset.stageWorkflowId, button.dataset.stageBranchId));
+  });
+  stagePresentation.querySelectorAll("[data-stage-scope]").forEach((button) => {
+    button.addEventListener("click", () => setActiveScope(button.dataset.stageScope));
   });
   stagePresentation.querySelectorAll("[data-open-foundation-input]").forEach((button) => {
     button.addEventListener("click", openFoundationWorkflowDialog);
@@ -1341,20 +1332,39 @@ function renderStageInputCards(workflow, activeStage) {
     [t("workflow.tensions"), Array.isArray(brief.tensions) ? brief.tensions.join(" · ") : ""],
   ].filter(([, value]) => String(value || "").trim());
   return `<section class="stage-input-cards" aria-label="${escapeHtml(t("workflow.inputManual"))}">
-    ${fields.map(([label, value]) => `<article><small>${escapeHtml(label)}</small><strong>${escapeHtml(compactConversationText(value, 112))}</strong></article>`).join("")}
+    ${fields.map(([label, value]) => `<article><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong></article>`).join("")}
     <p>${escapeHtml(t("workflow.inputReady"))}</p>
   </section>`;
 }
 
 function renderStageBranchChoices(workflow, activeStage) {
-  if (activeStage?.id !== "four_futures" || !workflow?.branch_node_ids?.length || workflow.status !== "awaiting_selection") return "";
+  if (activeStage?.id !== "four_futures" || !workflow?.branch_node_ids?.length) return `<p class="stage-card-note">${escapeHtml(t("workflowStrip.awaiting"))}</p>`;
+  const selectable = workflow.status === "awaiting_selection";
   return `<section class="stage-branch-choices" aria-label="${escapeHtml(t("workflow.chooseOne"))}">
-    <header><strong>${escapeHtml(t("workflow.chooseOne"))}</strong></header>
-    <div>${workflow.branch_node_ids.map((nodeId) => {
+    <header><strong>${escapeHtml(selectable ? t("workflow.chooseOne") : activeStage.state)}</strong></header>
+    <div class="stage-card-track">${workflow.branch_node_ids.map((nodeId) => {
       const node = findNode(nodeId);
       const branch = node?.payload?.scenario_branch || {};
-      return `<button type="button" data-stage-workflow-id="${escapeHtml(workflow.id)}" data-stage-branch-id="${escapeHtml(nodeId)}"><strong>${escapeHtml(localizedReferenceTitle(branch.strategy_label || node?.title || t("workflow.choose")))}</strong><small>${escapeHtml(compactConversationText(branch.what_if || "", 88))}</small></button>`;
+      const selected = nodeId === workflow.selected_branch_node_id;
+      const tag = selectable ? "button" : "article";
+      const action = selectable ? ` data-stage-workflow-id="${escapeHtml(workflow.id)}" data-stage-branch-id="${escapeHtml(nodeId)}"` : "";
+      const premise = branch.future_premise || branch.what_if || "";
+      return `<${tag} class="stage-branch-card ${selected ? "is-selected" : ""}"${selectable ? ' type="button"' : ""}${action}><strong>${escapeHtml(localizedReferenceTitle(branch.strategy_label || node?.title || t("workflow.choose")))}</strong><small>${escapeHtml(premise)}</small></${tag}>`;
     }).join("")}</div>
+  </section>`;
+}
+
+function renderStageOutputCards() {
+  const outputs = (activeCanvas?.nodes || []).filter((node) =>
+    node.payload?.requested_output_type || node.payload?.model_output || node.payload?.image_url,
+  );
+  if (!outputs.length) return `<p class="stage-card-note">${escapeHtml(t("workflow.scenarioReady"))}</p>`;
+  return `<section class="stage-card-track" aria-label="${escapeHtml(t("stagePresentation.outputs"))}">
+    ${outputs.map((node) => `<article class="stage-output-card ${node.status === "stale" ? "is-stale" : ""}">
+      <small>${escapeHtml(statusLabel(node.status || "pending"))}</small>
+      <strong>${escapeHtml(localizedReferenceTitle(node.title || t("workflowStrip.outcomes")))}</strong>
+      <span>${escapeHtml(node.payload?.semantic_summary || node.payload?.text || node.payload?.model_output || "")}</span>
+    </article>`).join("")}
   </section>`;
 }
 
@@ -1425,7 +1435,9 @@ function renderToolSidebar() {
     return `
       <section class="tool-sidebar-group">
         ${minimumSelected > selectedCount ? `<p class="tool-sidebar-policy">${escapeHtml(t("toolSidebar.required"))}</p>` : ""}
-        ${tools.map((tool) => `
+        ${tools.map((tool) => {
+          const assetUrl = toolAssetUrl(tool);
+          return `
           <button
             class="tool-sidebar-row ${tool.selected ? "selected" : ""} ${recommendedIds.has(tool.id) ? "recommended" : ""}"
             type="button"
@@ -1433,8 +1445,11 @@ function renderToolSidebar() {
             data-sidebar-tool-id="${escapeHtml(tool.id)}"
             data-card-kind="${escapeHtml(tool.presentation?.card_kind || "tool")}"
             title="${escapeHtml(localizedToolCopy(tool, "description"))}"
-          ><span class="tool-card-mark" aria-hidden="true"></span><span>${escapeHtml(localizedToolCopy(tool, "label"))}</span>${recommendedIds.has(tool.id) ? `<small>${escapeHtml(t("toolSidebar.recommended"))}</small>` : ""}</button>
-        `).join("")}
+          >${assetUrl
+    ? `<img class="tool-sidebar-asset" src="${escapeHtml(assetUrl)}" alt="" aria-hidden="true" />`
+    : `<span class="tool-card-mark" aria-hidden="true"></span>`}<span>${escapeHtml(localizedToolCopy(tool, "label"))}</span>${recommendedIds.has(tool.id) ? `<small>${escapeHtml(t("toolSidebar.recommended"))}</small>` : ""}</button>
+        `;
+        }).join("")}
       </section>
     `;
   }).join("");

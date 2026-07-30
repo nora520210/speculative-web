@@ -70,6 +70,14 @@
     "Test whether investment and public trust follow demonstrated task value or the story of human resemblance; make a plausible bubble or correction legible through who is left holding the maintenance, data, or care burden.",
     "Preserve the required tool information structure while using the package output_budget; remove repeated framing and keep evidence, tables, and questions concise."
   ],
+  "presentation": {
+    "card_kind": "narrative",
+    "icon_token": "cautionary-tales",
+    "accent_token": "asset",
+    "asset": {"kind": "package-relative", "path": "assets/default.svg"},
+    "summary_fields": ["description", "recommendation.best_when"],
+    "interaction_hint": "Trace an everyday warning consequence before proposing a response."
+  },
   "executor": {
     "kind": "placeholder",
     "entrypoint": ""

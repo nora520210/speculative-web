@@ -110,6 +110,14 @@
     "For text outputs, return the package text_blocks sequence with force tables and explicitly non-predictive discussion-weight charts.",
     "Preserve the required tool information structure while using the package output_budget; remove repeated framing and keep evidence, tables, and questions concise."
   ],
+  "presentation": {
+    "card_kind": "method",
+    "icon_token": "future-triangle",
+    "accent_token": "asset",
+    "asset": {"kind": "package-relative", "path": "assets/default.svg"},
+    "summary_fields": ["description", "recommendation.best_when"],
+    "interaction_hint": "Make the future pull, present push, and historical weight legible together."
+  },
   "executor": {
     "kind": "placeholder",
     "entrypoint": ""

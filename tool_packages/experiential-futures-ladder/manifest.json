@@ -69,6 +69,14 @@
     "Keep the artifact grounded in the earlier ladder levels.",
     "Preserve the required tool information structure while using the package output_budget; remove repeated framing and keep evidence, tables, and questions concise."
   ],
+  "presentation": {
+    "card_kind": "visual",
+    "icon_token": "experiential-futures-ladder",
+    "accent_token": "asset",
+    "asset": {"kind": "package-relative", "path": "assets/default.svg"},
+    "summary_fields": ["description", "recommendation.best_when"],
+    "interaction_hint": "Move from future context to an inspectable situation and tangible thing."
+  },
   "executor": {
     "kind": "placeholder",
     "entrypoint": ""
