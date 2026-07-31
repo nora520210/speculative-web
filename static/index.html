@@ -45,18 +45,22 @@
           <div class="canvas-identity">
             <p class="eyebrow" data-i18n="canvas.active">Active Canvas</p>
             <h2 id="canvas-title">Speculative Canvas</h2>
+            <span class="current-step-pill" data-i18n="workflow.currentStep">Current step</span>
           </div>
           <div class="top-actions">
-            <button id="back-home" type="button" data-i18n="common.index">Index</button>
-            <button id="delete-active-project" class="canvas-delete" type="button" data-i18n="canvas.delete">Delete Canvas</button>
+            <button id="back-home" type="button" data-i18n="toolbar.library">Library</button>
+            <button type="button" data-open-canvas-focus data-i18n="toolbar.fullView">Full view</button>
+            <button type="button" data-open-foundation-input data-i18n="toolbar.organize">Organize</button>
+            <button type="button" data-add-operation-definition="operation.guided-scenario" data-i18n="toolbar.example">Example</button>
             <button class="language-toggle" type="button" data-language-toggle>中文</button>
             <button class="theme-toggle" type="button" data-theme-toggle>Dark</button>
             <form id="document-form" class="document-form">
-              <label class="file-control" for="document-file" data-i18n="common.chooseFile">Choose File</label>
+              <label class="file-control" for="document-file" data-i18n="toolbar.materials">Materials</label>
               <input id="document-file" type="file" name="file" accept=".pdf,.docx,.txt,.md" />
               <span id="document-file-name" class="file-name" data-i18n="common.noFile">No file selected</span>
-              <button type="submit" data-i18n="common.read">Read</button>
+              <button type="submit" data-i18n="toolbar.import">Import</button>
             </form>
+            <button id="delete-active-project" class="canvas-delete" type="button" data-i18n="toolbar.reset">Reset</button>
           </div>
         </header>
 
@@ -72,11 +76,6 @@
               <button type="button" data-add-node="operation" data-i18n="sidebar.operationNode" data-i18n-title="sidebar.operationNode" title="Operation node">Operation node</button>
               <button type="button" data-add-operation-definition="operation.guided-scenario" data-i18n="sidebar.scenarioNode" data-i18n-title="sidebar.scenarioNode" title="Guided scenario">Guided scenario</button>
             </nav>
-
-            <section class="tool-sidebar" aria-labelledby="tool-sidebar-title">
-              <h3 id="tool-sidebar-title" data-i18n="toolSidebar.title">Method tools</h3>
-              <div id="tool-sidebar-list" class="tool-sidebar-list"></div>
-            </section>
           </aside>
 
           <main class="workspace-main">
@@ -128,13 +127,22 @@
               </header>
               <div id="conversation-progress" class="conversation-progress"></div>
               <div id="conversation-guide-actions" class="conversation-guide-actions" aria-live="polite"></div>
-              <div class="conversation-dock-body">
-                <div id="conversation-messages" class="conversation-messages" role="log" aria-live="polite" aria-relevant="additions text" data-i18n-aria-label="conversation.history" aria-label="Conversation history"></div>
-                <form id="conversation-form" class="conversation-form">
-                  <label class="sr-only" for="conversation-input" data-i18n="conversation.inputLabel">Add to conversation</label>
-                  <textarea id="conversation-input" rows="3" data-i18n-placeholder="conversation.placeholder" placeholder="Add a research instruction for this scope"></textarea>
-                  <button type="submit" data-i18n="conversation.send">Add</button>
-                </form>
+              <div class="agent-workbench">
+                <div class="conversation-dock-body">
+                  <div id="conversation-messages" class="conversation-messages" role="log" aria-live="polite" aria-relevant="additions text" data-i18n-aria-label="conversation.history" aria-label="Conversation history"></div>
+                  <form id="conversation-form" class="conversation-form">
+                    <label class="sr-only" for="conversation-input" data-i18n="conversation.inputLabel">Add to conversation</label>
+                    <textarea id="conversation-input" rows="3" data-i18n-placeholder="conversation.placeholder" placeholder="Add a research instruction for this scope"></textarea>
+                    <button type="submit" data-i18n="conversation.send">Add</button>
+                  </form>
+                </div>
+                <section class="tool-sidebar" aria-labelledby="tool-sidebar-title">
+                  <header class="tool-sidebar-header">
+                    <h3 id="tool-sidebar-title" data-i18n="toolSidebar.title">Method tools</h3>
+                    <span data-i18n="toolSidebar.applyHint">Apply to current node</span>
+                  </header>
+                  <div id="tool-sidebar-list" class="tool-sidebar-list"></div>
+                </section>
               </div>
             </section>
 
