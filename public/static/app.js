@@ -1669,8 +1669,10 @@ function renderCanvasPreview() {
     }).join("")}
     ${visibleIds.map((nodeId) => {
       const point = points.get(nodeId);
+      const node = nodesById.get(nodeId);
       const current = nodeId === selectedId || nodeId === activeOutputId;
-      return `<circle class="${current ? "current" : ""}" cx="${point.x}" cy="${point.y}" r="${current ? 2.5 : 1.7}" />`;
+      const label = localizedReferenceTitle(node?.title || node?.type || nodeId);
+      return `<g class="workflow-tree-preview-node"><title>${escapeHtml(label)}</title><circle class="${current ? "current" : ""}" cx="${point.x}" cy="${point.y}" r="${current ? 2.5 : 1.7}" /></g>`;
     }).join("")}
   </svg>`;
 }
