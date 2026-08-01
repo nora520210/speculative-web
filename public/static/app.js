@@ -1490,8 +1490,11 @@ function renderStageBranchChoices(workflow, activeStage) {
       const action = "";
       const premise = branch.future_premise || branch.what_if || "";
       const actors = Array.isArray(branch.key_actors) ? branch.key_actors.slice(0, 3).join(" · ") : "";
+      const imageUrl = branch.image_url || node?.payload?.image_url || "";
       return `<${tag} class="stage-branch-card ${selected ? "is-selected" : ""}" data-branch-strategy="${escapeHtml(branch.strategy || "")}"${action}>
-        <span class="stage-branch-visual" aria-hidden="true"><i></i><b></b><em></em></span>
+        ${imageUrl
+    ? `<img class="stage-branch-image" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(branch.visual_brief || branch.what_if || "")}" loading="lazy" />`
+    : `<span class="stage-branch-visual" aria-hidden="true"><i></i><b></b><em></em></span>`}
         <strong>${escapeHtml(localizedReferenceTitle(branch.strategy_label || node?.title || t("workflow.choose")))}</strong>
         <p>${escapeHtml(localizedReferenceTitle(branch.what_if || ""))}</p>
         <small>${escapeHtml(premise)}</small>
@@ -1509,9 +1512,11 @@ function renderStageOutputCards() {
   if (!outputs.length) return `<p class="stage-card-note">${escapeHtml(t("workflow.scenarioReady"))}</p>`;
   return `<section class="stage-card-track" aria-label="${escapeHtml(t("stagePresentation.outputs"))}">
     ${outputs.map((node) => `<article class="stage-output-card ${node.status === "stale" ? "is-stale" : ""}">
+      ${node.payload?.image_url ? `<img class="stage-output-image" src="${escapeHtml(node.payload.image_url)}" alt="${escapeHtml(node.payload?.semantic_summary || node.title || "")}" loading="lazy" />` : ""}
       <small>${escapeHtml(statusLabel(node.status || "pending"))}</small>
       <strong>${escapeHtml(localizedReferenceTitle(node.title || t("workflowStrip.outcomes")))}</strong>
       <span>${escapeHtml(node.payload?.semantic_summary || node.payload?.text || node.payload?.model_output || "")}</span>
+      ${node.payload?.image_error ? `<small class="stage-output-error">${escapeHtml(node.payload.image_error)}</small>` : ""}
     </article>`).join("")}
   </section>`;
 }
@@ -1542,6 +1547,13 @@ function selectedQuickInputs(session = activeSession()) {
 
 function clearQuickInputs(session = activeSession()) {
   quickInputSelections.delete(quickSelectionKey(session));
+  if (conversationInput) conversationInput.value = "";
+}
+
+function syncQuickInputsToComposer(session = activeSession()) {
+  if (!conversationInput) return;
+  const selected = selectedQuickInputs(session);
+  conversationInput.value = selected.map((option) => option.body && !["select_branch", "tool_select"].includes(option.action) ? option.body : option.label).filter(Boolean).join("\n");
 }
 
 function toggleQuickInputSelection(option) {
@@ -1560,6 +1572,7 @@ function toggleQuickInputSelection(option) {
   }
   if (selected.size) quickInputSelections.set(key, selected);
   else quickInputSelections.delete(key);
+  syncQuickInputsToComposer(session);
 }
 
 function localizedQuickOptions(stage, guide, workflow) {
@@ -2018,6 +2031,7 @@ async function submitConversationMessage(event) {
     const toolIds = selectedOptions.filter((option) => option.action === "tool_select").map((option) => option.body).filter(Boolean);
     clearQuickInputs(session);
     await applySelectedDiscussionTools(toolIds);
+    await runSelectedDiscussionNode();
     return;
   }
   if (selectedActions.has("run_scenario")) {
@@ -2026,7 +2040,7 @@ async function submitConversationMessage(event) {
     return;
   }
   const selectedBody = selectedOptions.map((option) => option.body || option.label).filter(Boolean).join("\n");
-  const body = [typedBody, selectedBody].filter(Boolean).join("\n").trim();
+  const body = (typedBody || selectedBody).trim();
   if (!body) return;
   const stage = session.guide?.stage_id || "";
   const isGuidedEntry = stage === "start" || ["frame_focus", "frame_assumptions", "frame_stakeholders", "frame_tensions"].includes(stage);

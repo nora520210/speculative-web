@@ -7140,3 +7140,100 @@ body {
   width: 48px;
   height: 48px;
 }
+
+@media (min-width: 761px) {
+  .canvas-shell.active .conversation-dock {
+    grid-template-columns: minmax(390px, 1.18fr) minmax(280px, 0.82fr);
+  }
+
+  .canvas-shell.active .conversation-dock-body {
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  .canvas-shell.active .conversation-dock .conversation-messages {
+    padding-bottom: 10px;
+  }
+
+  .canvas-shell.active .conversation-dock .conversation-form {
+    grid-template-columns: minmax(0, 1fr) 54px;
+    gap: 7px;
+    padding: 8px 12px 10px;
+  }
+
+  .canvas-shell.active .conversation-dock .conversation-form textarea {
+    min-height: 44px;
+    max-height: 68px;
+    padding: 9px 10px;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .canvas-shell.active .conversation-dock .conversation-form > button {
+    min-width: 54px;
+    min-height: 44px;
+  }
+}
+
+.canvas-shell.active .stage-deck-body {
+  overflow: auto;
+}
+
+.canvas-shell.active .stage-card-track {
+  overflow: auto;
+}
+
+.canvas-shell.active .stage-card-track > .stage-branch-card {
+  flex-basis: min(330px, 94%);
+  min-height: 372px;
+}
+
+.canvas-shell.active .stage-branch-card {
+  align-content: start;
+  grid-template-rows: 116px auto auto auto auto auto;
+  overflow: auto;
+}
+
+.canvas-shell.active .stage-branch-visual {
+  height: 116px;
+}
+
+.canvas-shell.active .stage-branch-image {
+  width: 100%;
+  height: 116px;
+  border: 1px solid rgba(20, 24, 28, 0.12);
+  border-radius: 7px;
+  object-fit: cover;
+  background: #f6f7f7;
+}
+
+.canvas-shell.active .stage-branch-card small,
+.canvas-shell.active .stage-branch-meta,
+.canvas-shell.active .stage-branch-visual-brief,
+.canvas-shell.active .stage-output-card span,
+.canvas-shell.active .stage-output-card small {
+  display: block;
+  max-height: none;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+  -webkit-box-orient: initial;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.canvas-shell.active .stage-output-card {
+  min-height: 304px;
+  overflow: auto;
+}
+
+.canvas-shell.active .stage-output-image {
+  width: 100%;
+  height: 120px;
+  border: 1px solid rgba(20, 24, 28, 0.12);
+  border-radius: 7px;
+  object-fit: cover;
+  background: #f6f7f7;
+}
+
+.canvas-shell.active .stage-output-error {
+  color: #b42318;
+}

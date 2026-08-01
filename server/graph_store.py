@@ -461,17 +461,6 @@ def start_four_futures_workflow(project_id: str, payload: dict, expected_revisio
         canvas,
         session["id"],
         {
-            "role": "system",
-            "kind": "guide",
-            "scope_id": scope["id"],
-            "related_node_ids": [source_node["id"], keyword_node["id"], operation_node["id"]],
-            "body": "This conversation writes to the canonical research nodes. You can also edit those nodes directly; both routes update the same workflow record.",
-        },
-    )
-    append_conversation_message(
-        canvas,
-        session["id"],
-        {
             "role": "assistant",
             "kind": "guide",
             "scope_id": scope["id"],
@@ -572,7 +561,7 @@ def _ensure_discussion_tool_node(canvas: dict, workflow: dict | None, branch_nod
                 },
                 "status": "ready",
                 "config": {
-                    "output_type": "text",
+                    "output_type": "multimodal",
                     "tools": [
                         {"id": tool["id"], "selected": False}
                         for tool in default_modifier_tools()
@@ -708,16 +697,6 @@ def advance_conversation_guide(project_id: str, session_id: str, payload: dict, 
             raise ValueError("start_mode must be research or design.")
         guide["start_mode"] = start_mode
         session["guide"] = guide
-        append_conversation_message(
-            canvas,
-            session_id,
-            {
-                "role": "assistant",
-                "kind": "guide",
-                "scope_id": session.get("active_scope_id", "scope-global"),
-                "body": "Start from a real research inquiry." if start_mode == "research" else "Start from a design proposition.",
-            },
-        )
         record_graph_event(canvas, "conversation.guide.start_mode_set", {"session_id": session_id, "start_mode": start_mode})
         write_canvas(project_id, canvas)
         return {"conversation": session}
@@ -1714,6 +1693,9 @@ def run_operation(project_id: str, node_id: str, api_key: str | None = None, exp
     scopes = []
     base_position = operation.get("position", {})
     for index, branch in enumerate(branches):
+        branch_image = image_payload_for_branch(project_id, run_id, branch, api_key=api_key)
+        if branch_image:
+            branch = {**branch, **branch_image}
         output_node = normalize_node(
             {
                 "type": "text",
@@ -1725,6 +1707,11 @@ def run_operation(project_id: str, node_id: str, api_key: str | None = None, exp
                 "payload": {
                     "text": render_branch_text(branch),
                     "scenario_branch": branch,
+                    "image_prompt": branch.get("image_prompt", ""),
+                    "image_url": branch.get("image_url", ""),
+                    "image_file": branch.get("image_file", ""),
+                    "image_error": branch.get("image_error", ""),
+                    "semantic_summary": branch.get("visual_brief", ""),
                     "provenance": [{"produced_by_run_id": run_id}],
                 },
                 "status": "success",
@@ -2096,6 +2083,33 @@ def image_payload_for_output(
         "image_file": "",
         "image_api": result["api"],
         "image_model": result["model"],
+    }
+
+
+def image_payload_for_branch(project_id: str, run_id: str, branch: dict, api_key: str | None = None) -> dict:
+    visual_brief = str(branch.get("visual_brief") or "").strip()
+    semantic_basis = " ".join(
+        str(branch.get(key) or "").strip()
+        for key in ("what_if", "future_premise", "core_tension")
+        if str(branch.get(key) or "").strip()
+    )
+    if not visual_brief:
+        return {}
+    image_prompt = constrained_image_prompt(visual_brief, semantic_basis)
+    payload = image_payload_for_output(
+        project_id,
+        f"{run_id}-{str(branch.get('strategy') or 'branch')}",
+        image_prompt,
+        "image",
+        api_key=api_key,
+    )
+    return {
+        "image_prompt": image_prompt,
+        "image_url": payload.get("image_url", ""),
+        "image_file": payload.get("image_file", ""),
+        "image_error": payload.get("image_error", ""),
+        "image_api": payload.get("image_api", ""),
+        "image_model": payload.get("image_model", ""),
     }
 
 
