@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Speculative Web</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20260801-reference-palette" />
+    <link rel="stylesheet" href="/static/styles.css?v=20260801-layout-rail" />
   </head>
   <body>
     <main id="app-shell" class="app-shell">
@@ -61,24 +61,6 @@
         </header>
 
         <div class="workspace-layout">
-          <aside class="workspace-sidebar" data-i18n-aria-label="canvas.tools" aria-label="Workspace tools">
-            <nav class="canvas-tools" data-i18n-aria-label="canvas.tools" aria-label="Canvas tools">
-              <p class="sidebar-section-label" data-i18n="sidebar.create">Create</p>
-              <button type="button" data-add-node="text" data-i18n="sidebar.textNode" data-i18n-title="sidebar.textNode" title="Text node">Text node</button>
-              <button type="button" data-add-node="conversation" data-i18n="sidebar.conversationNode" data-i18n-title="sidebar.conversationNode" title="Conversation node">Conversation node</button>
-              <button type="button" data-add-node="upload" data-i18n="sidebar.uploadSource" data-i18n-title="sidebar.uploadSource" title="Upload source">Upload source</button>
-              <button type="button" data-add-node="image" data-i18n="sidebar.imageNode" data-i18n-title="sidebar.imageNode" title="Image node">Image node</button>
-              <button type="button" data-add-node="modify" data-i18n="sidebar.methodNode" data-i18n-title="sidebar.methodNode" title="Method node">Method node</button>
-              <button type="button" data-add-node="operation" data-i18n="sidebar.operationNode" data-i18n-title="sidebar.operationNode" title="Operation node">Operation node</button>
-              <button type="button" data-add-operation-definition="operation.guided-scenario" data-i18n="sidebar.scenarioNode" data-i18n-title="sidebar.scenarioNode" title="Guided scenario">Guided scenario</button>
-            </nav>
-
-            <section class="tool-sidebar" aria-labelledby="tool-sidebar-title">
-              <h3 id="tool-sidebar-title" data-i18n="toolSidebar.title">Method tools</h3>
-              <div id="tool-sidebar-list" class="tool-sidebar-list"></div>
-            </section>
-          </aside>
-
           <main class="workspace-main">
             <div class="workspace-top-grid">
               <section class="workflow-panel" aria-labelledby="scope-view-title">
@@ -111,6 +93,18 @@
                     </div>
                   </div>
                 </div>
+                <details class="overview-create-panel">
+                  <summary data-i18n="sidebar.create">Create nodes</summary>
+                  <nav class="canvas-tools" data-i18n-aria-label="canvas.tools" aria-label="Canvas tools">
+                    <button type="button" data-add-node="text" data-i18n="sidebar.textNode" data-i18n-title="sidebar.textNode" title="Text node">Text node</button>
+                    <button type="button" data-add-node="conversation" data-i18n="sidebar.conversationNode" data-i18n-title="sidebar.conversationNode" title="Conversation node">Conversation node</button>
+                    <button type="button" data-add-node="upload" data-i18n="sidebar.uploadSource" data-i18n-title="sidebar.uploadSource" title="Upload source">Upload source</button>
+                    <button type="button" data-add-node="image" data-i18n="sidebar.imageNode" data-i18n-title="sidebar.imageNode" title="Image node">Image node</button>
+                    <button type="button" data-add-node="modify" data-i18n="sidebar.methodNode" data-i18n-title="sidebar.methodNode" title="Method node">Method node</button>
+                    <button type="button" data-add-node="operation" data-i18n="sidebar.operationNode" data-i18n-title="sidebar.operationNode" title="Operation node">Operation node</button>
+                    <button type="button" data-add-operation-definition="operation.guided-scenario" data-i18n="sidebar.scenarioNode" data-i18n-title="sidebar.scenarioNode" title="Guided scenario">Guided scenario</button>
+                  </nav>
+                </details>
                 <div class="navigator-section overview-scope-switcher">
                   <div id="scope-list" class="scope-list"></div>
                 </div>
@@ -118,29 +112,36 @@
               </aside>
             </div>
 
-            <section class="conversation-dock" aria-labelledby="conversation-title">
-              <header class="panel-header">
-                <div>
-                  <h3 id="conversation-title" data-i18n="conversation.emptyTitle">Working thread</h3>
-                </div>
-                <span id="conversation-scope-indicator" class="conversation-scope-indicator"></span>
-                <span id="conversation-policy" class="panel-status">confirm</span>
-              </header>
-              <div id="conversation-progress" class="conversation-progress"></div>
-              <div id="conversation-guide-actions" class="conversation-guide-actions" aria-live="polite"></div>
-              <div class="conversation-dock-body">
-                <div id="conversation-messages" class="conversation-messages" role="log" aria-live="polite" aria-relevant="additions text" data-i18n-aria-label="conversation.history" aria-label="Conversation history"></div>
-                <form id="conversation-form" class="conversation-form">
-                  <label class="sr-only" for="conversation-input" data-i18n="conversation.inputLabel">Add to conversation</label>
-                  <div class="conversation-perspective" aria-label="Input perspective">
-                    <button type="button" data-conversation-perspective="research" aria-pressed="true" data-i18n="conversation.scientistInput">Scientist input</button>
-                    <button type="button" data-conversation-perspective="design" aria-pressed="false" data-i18n="conversation.designerInput">Designer input</button>
+            <div class="conversation-workbench">
+              <section class="conversation-dock" aria-labelledby="conversation-title">
+                <header class="panel-header">
+                  <div>
+                    <h3 id="conversation-title" data-i18n="conversation.emptyTitle">Working thread</h3>
                   </div>
-                  <textarea id="conversation-input" rows="3" data-i18n-placeholder="conversation.placeholder" placeholder="Add a research instruction for this scope"></textarea>
-                  <button type="submit" data-i18n="conversation.send">Add</button>
-                </form>
-              </div>
-            </section>
+                  <span id="conversation-scope-indicator" class="conversation-scope-indicator"></span>
+                  <span id="conversation-policy" class="panel-status">confirm</span>
+                </header>
+                <div id="conversation-progress" class="conversation-progress"></div>
+                <div id="conversation-guide-actions" class="conversation-guide-actions" aria-live="polite"></div>
+                <div class="conversation-dock-body">
+                  <div id="conversation-messages" class="conversation-messages" role="log" aria-live="polite" aria-relevant="additions text" data-i18n-aria-label="conversation.history" aria-label="Conversation history"></div>
+                  <form id="conversation-form" class="conversation-form">
+                    <label class="sr-only" for="conversation-input" data-i18n="conversation.inputLabel">Add to conversation</label>
+                    <div class="conversation-perspective" aria-label="Input perspective">
+                      <button type="button" data-conversation-perspective="research" aria-pressed="true" data-i18n="conversation.scientistInput">Scientist input</button>
+                      <button type="button" data-conversation-perspective="design" aria-pressed="false" data-i18n="conversation.designerInput">Designer input</button>
+                    </div>
+                    <textarea id="conversation-input" rows="3" data-i18n-placeholder="conversation.placeholder" placeholder="Add a research instruction for this scope"></textarea>
+                    <button type="submit" data-i18n="conversation.send">Add</button>
+                  </form>
+                </div>
+              </section>
+
+              <section class="tool-sidebar" aria-labelledby="tool-sidebar-title">
+                <h3 id="tool-sidebar-title" data-i18n="toolSidebar.title">Method tools</h3>
+                <div id="tool-sidebar-list" class="tool-sidebar-list"></div>
+              </section>
+            </div>
 
             <dialog id="conversation-history-dialog" class="conversation-history-dialog" aria-labelledby="conversation-history-dialog-title">
               <header class="conversation-history-dialog-header">

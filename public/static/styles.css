@@ -6330,3 +6330,325 @@ body {
   background: var(--chrome-selected);
   color: #ffffff;
 }
+
+/* Layout rail update: node creation moves into the overview panel, and method
+   tools sit beside the conversation dock. The controls and data bindings are
+   unchanged; only their presentation is rearranged. */
+@media (min-width: 761px) {
+  .canvas-shell.active .workspace-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .canvas-shell.active .workspace-main {
+    grid-template-rows: minmax(0, 1fr) clamp(260px, 34vh, 360px);
+    gap: 18px;
+  }
+
+  .canvas-shell.active .workspace-main.is-entry {
+    grid-template-rows: minmax(0, 1fr) clamp(260px, 34vh, 360px);
+  }
+
+  .canvas-shell.active .workspace-top-grid {
+    grid-template-columns: minmax(0, 1fr) clamp(320px, 34vw, 500px);
+    gap: 16px;
+  }
+
+  .canvas-shell.active .overview-panel {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 12px;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .canvas-shell.active .canvas-preview-shell {
+    margin: 0;
+  }
+
+  .canvas-shell.active .overview-create-panel {
+    border: 1px solid var(--chrome-border);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.76);
+    overflow: hidden;
+  }
+
+  .canvas-shell.active .overview-create-panel summary {
+    display: flex;
+    min-height: 34px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 0 12px;
+    color: var(--ink);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+    list-style: none;
+  }
+
+  .canvas-shell.active .overview-create-panel summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .canvas-shell.active .overview-create-panel summary::after {
+    content: "+";
+    display: grid;
+    width: 20px;
+    height: 20px;
+    place-items: center;
+    border-radius: 5px;
+    background: var(--chrome-selected);
+    color: #ffffff;
+    font-size: 14px;
+    line-height: 1;
+  }
+
+  .canvas-shell.active .overview-create-panel[open] summary::after {
+    content: "-";
+  }
+
+  .canvas-shell.active .overview-create-panel .canvas-tools {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+    margin: 0;
+    border-top: 1px solid var(--chrome-border);
+    padding: 10px;
+  }
+
+  .canvas-shell.active .overview-create-panel .canvas-tools > button {
+    min-width: 0;
+    min-height: 32px;
+    border: 1px solid var(--chrome-border);
+    border-radius: 6px;
+    padding: 0 8px;
+    background: #ffffff;
+    color: var(--ink);
+    font-size: 11px;
+    line-height: 1.2;
+  }
+
+  .canvas-shell.active .overview-create-panel .canvas-tools > button:hover,
+  .canvas-shell.active .overview-create-panel .canvas-tools > button:focus-visible {
+    border-color: var(--chrome-selected);
+    background: var(--chrome-accent-soft);
+    color: var(--chrome-selected);
+  }
+
+  .canvas-shell.active .conversation-workbench {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(300px, 30vw, 470px);
+    gap: 16px;
+    min-height: 0;
+  }
+
+  .canvas-shell.active .conversation-workbench .conversation-dock,
+  .canvas-shell.active .conversation-workbench .tool-sidebar {
+    min-height: 0;
+    border: 1px solid rgba(17, 21, 23, 0.18);
+    border-radius: 8px;
+    background: var(--chrome-surface);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.68) inset;
+    overflow: hidden;
+  }
+
+  .canvas-shell.active .conversation-workbench .tool-sidebar {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    padding: 14px;
+  }
+
+  .canvas-shell.active .conversation-workbench .tool-sidebar h3 {
+    margin: 0 0 12px;
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .canvas-shell.active .conversation-workbench .tool-sidebar-list {
+    display: grid;
+    min-height: 0;
+    grid-auto-rows: min-content;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    overflow: auto;
+  }
+
+  .canvas-shell.active .conversation-workbench .tool-sidebar-group {
+    display: contents;
+  }
+
+  .canvas-shell.active .conversation-workbench .tool-sidebar-policy,
+  .canvas-shell.active .conversation-workbench .tool-sidebar .empty-panel {
+    grid-column: 1 / -1;
+    margin: 0;
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  .canvas-shell.active .conversation-workbench .tool-sidebar-row {
+    display: grid;
+    min-width: 0;
+    min-height: 92px;
+    grid-template-rows: auto minmax(0, 1fr);
+    justify-items: center;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid rgba(240, 42, 12, 0.42);
+    border-radius: 7px;
+    padding: 12px 8px;
+    background: rgba(255, 255, 255, 0.68);
+    color: var(--ink);
+    text-align: center;
+  }
+
+  .canvas-shell.active .conversation-workbench .tool-sidebar-row:hover,
+  .canvas-shell.active .conversation-workbench .tool-sidebar-row:focus-visible,
+  .canvas-shell.active .conversation-workbench .tool-sidebar-row.selected {
+    border-color: var(--chrome-selected);
+    background: var(--chrome-accent-soft);
+    color: var(--chrome-selected);
+  }
+
+  .canvas-shell.active .conversation-workbench .tool-sidebar-row > span:last-child {
+    display: block;
+    overflow-wrap: anywhere;
+    color: currentColor;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+
+  .canvas-shell.active .conversation-workbench .tool-card-mark {
+    width: 30px;
+    height: 30px;
+    border: 2px solid currentColor;
+    border-radius: 999px;
+    background: transparent;
+  }
+
+  .canvas-shell.active .conversation-workbench .tool-sidebar-asset {
+    width: 42px;
+    height: 34px;
+  }
+
+  .canvas-shell.active .conversation-workbench .tool-sidebar-row small {
+    color: currentColor;
+    font-size: 10px;
+  }
+
+  .canvas-shell.active .conversation-dock {
+    grid-template-rows: auto auto minmax(0, 1fr);
+  }
+
+  .canvas-shell.active .conversation-dock .panel-header {
+    min-height: 40px;
+    padding: 0 16px;
+  }
+
+  .canvas-shell.active .conversation-guide-actions {
+    gap: 8px;
+    padding: 10px 16px 8px;
+  }
+
+  .canvas-shell.active .conversation-dock .conversation-messages {
+    padding: 14px 16px 8px;
+  }
+
+  .canvas-shell.active .conversation-dock .conversation-message {
+    max-width: 820px;
+    padding: 8px 12px;
+  }
+
+  .canvas-shell.active .conversation-dock .conversation-message p {
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  .canvas-shell.active .conversation-dock .conversation-form {
+    gap: 10px;
+    padding: 12px 16px 14px;
+  }
+
+  .canvas-shell.active .conversation-dock .conversation-form textarea {
+    min-height: 68px;
+    max-height: 110px;
+    padding: 13px 14px;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  .canvas-shell.active .conversation-dock .conversation-form button {
+    min-height: 68px;
+    min-width: 66px;
+  }
+
+  .canvas-shell.active .conversation-dock .conversation-form > button {
+    min-height: 68px;
+    min-width: 66px;
+  }
+
+  .canvas-shell.active .conversation-dock .conversation-perspective button {
+    min-height: 28px;
+    min-width: 0;
+    border-radius: 5px;
+    padding: 0 12px;
+    background: transparent;
+    color: var(--ink);
+  }
+
+  .canvas-shell.active .conversation-dock .conversation-perspective button.active,
+  .canvas-shell.active .conversation-dock .conversation-perspective button[aria-pressed="true"] {
+    background: var(--chrome-selected);
+    color: #ffffff;
+  }
+
+  .canvas-shell.active .conversation-dock.is-entry .conversation-messages {
+    display: block;
+  }
+
+  .canvas-shell.active .stage-presentation:has(.foundation-start-deck) {
+    overflow: hidden;
+  }
+
+  .foundation-start-deck {
+    display: flex;
+    gap: 12px;
+    min-height: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+  }
+
+  .foundation-start-card {
+    flex: 0 0 clamp(176px, 19vw, 250px);
+    scroll-snap-align: start;
+  }
+}
+
+@media (max-width: 760px) {
+  .canvas-shell.active .conversation-workbench {
+    display: grid;
+    gap: 12px;
+  }
+
+  .canvas-shell.active .overview-create-panel {
+    margin-top: 10px;
+  }
+
+  .canvas-shell.active .overview-create-panel .canvas-tools {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+    padding: 10px 0 0;
+  }
+
+  .canvas-shell.active .conversation-workbench .tool-sidebar {
+    border: 1px solid var(--chrome-border);
+    border-radius: 8px;
+    padding: 12px;
+    background: var(--chrome-surface);
+  }
+}
