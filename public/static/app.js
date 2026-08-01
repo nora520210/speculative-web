@@ -725,6 +725,7 @@ function localizedConversationBody(body) {
     "Who is affected, involved, or able to act? Add stakeholders or skip.": "谁会受到影响、参与其中或有能力行动？请补充利益相关者，也可以跳过。",
     "What is the central tension or trade-off? Add one or more, or skip.": "核心张力或权衡是什么？请补充一项或多项，也可以跳过。",
     "Keywords are confirmed. The four What-if stage is ready; run the Guided Scenario node when you want to generate the four directions.": "关键词已确认。现在可以运行“引导情境”节点，生成四条假设情境方向。",
+    "The input cards are complete. The four What-if stage is ready; run the Guided Scenario node to generate growth, collapse, balance, and transformation directions.": "信息卡片已完成。现在直接进入 What-if 阶段，可以运行“引导情境”生成增长、崩溃、平衡、转变四条方向。",
     "Start from a real research inquiry.": "从一个真实研究问题开始。",
     "Start from a design proposition.": "从一个设计命题开始。",
     "This conversation writes to the canonical research nodes. You can also edit those nodes directly; both routes update the same workflow record.": "这段对话会写入规范研究节点。你也可以直接编辑节点；两种方式都会更新同一条流程记录。",
@@ -740,7 +741,7 @@ function localizedConversationBody(body) {
     "A workflow input changed. Its generated futures are now stale.": "流程输入已改变；此前生成的未来方向现已失效。",
     "Connected two nodes.": "已连接两个节点。",
     "Removed a connection between two nodes.": "已移除两个节点之间的连接。",
-    "The inquiry frame is complete. Review the editable keyword node, then confirm the keywords here to unlock the four What-if stage.": "研究框架已完成。请检查可编辑的关键词节点，然后在这里确认关键词以进入四条假设情境阶段。",
+    "The inquiry frame is complete. Review the editable keyword node, then confirm the keywords here to unlock the four What-if stage.": "研究框架已完成。系统会直接进入四条 What-if 阶段；你仍可回看并编辑关键词节点。",
     "Updated Discussion tools.": "讨论工具已更新。",
     "Added Guided Scenario.": "已添加引导情境。",
   };

@@ -713,6 +713,8 @@ def advance_conversation_guide(project_id: str, session_id: str, payload: dict, 
         raise ValueError("This workflow is stale. Reframe the inquiry before continuing.")
 
     if action == "confirm_keywords":
+        if guide.get("stage_id") == "four_futures":
+            return {"workflow": workflow, "conversation": session}
         if guide.get("stage_id") != "keywords":
             raise ValueError("Keywords can only be confirmed after the inquiry frame is complete.")
         workflow.update({"status": "active", "stage": runtime["future_stage_id"], "updated_at": utc_now()})
@@ -799,14 +801,10 @@ def advance_conversation_guide(project_id: str, session_id: str, payload: dict, 
             },
         )
     else:
-        # Keep the input stage active until the researcher reviews the generated
-        # keyword scaffold and explicitly confirms it. The frontend already
-        # exposes this confirmation step, and running the operation before it
-        # should remain blocked by the workflow stage contract.
-        workflow.update({"stage": runtime["input_stage_id"], "status": "active", "updated_at": utc_now()})
-        _set_workflow_progress(session, runtime["input_stage_id"], "active")
-        _set_workflow_progress(session, runtime["future_stage_id"], "pending")
-        set_session_guide(session, "keywords", workflow_instance_id=workflow_id, pending_field="")
+        workflow.update({"stage": runtime["future_stage_id"], "status": "active", "updated_at": utc_now()})
+        _set_workflow_progress(session, runtime["input_stage_id"], "succeeded")
+        _set_workflow_progress(session, runtime["future_stage_id"], "active")
+        set_session_guide(session, "four_futures", workflow_instance_id=workflow_id, pending_field="")
         append_conversation_message(
             canvas,
             session_id,
@@ -815,7 +813,7 @@ def advance_conversation_guide(project_id: str, session_id: str, payload: dict, 
                 "kind": "guide",
                 "scope_id": scope_id,
                 "related_node_ids": [source_node["id"], keyword_node["id"]],
-                "body": "The input cards are complete. Review the editable keyword node, then confirm the keywords to unlock the four What-if stage.",
+                "body": "The input cards are complete. The four What-if stage is ready; run the Guided Scenario node to generate growth, collapse, balance, and transformation directions.",
             },
         )
     record_graph_event(

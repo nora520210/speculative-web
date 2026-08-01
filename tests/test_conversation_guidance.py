@@ -58,8 +58,7 @@ def _finish_guided_frame(session_id: str) -> dict:
     advance_conversation_guide("project-a", session_id, {"action": "answer", "body": "公共空间中的拒绝权"})
     advance_conversation_guide("project-a", session_id, {"action": "answer", "body": "便利优先\n持续监听"})
     advance_conversation_guide("project-a", session_id, {"action": "answer", "body": "路人\n管理者"})
-    advance_conversation_guide("project-a", session_id, {"action": "answer", "body": "安全与沉默"})
-    return advance_conversation_guide("project-a", session_id, {"action": "confirm_keywords"})
+    return advance_conversation_guide("project-a", session_id, {"action": "answer", "body": "安全与沉默"})
 
 
 def test_conversation_guide_updates_canonical_nodes_without_tool_configuration():

@@ -126,8 +126,7 @@ def main() -> int:
         post_json(guide_url, {"action": "answer", "body": "A focused question"})
         post_json(guide_url, {"action": "skip"})
         post_json(guide_url, {"action": "skip"})
-        post_json(guide_url, {"action": "answer", "body": "Care and control"})
-        guided_result = post_json(guide_url, {"action": "confirm_keywords"})
+        guided_result = post_json(guide_url, {"action": "answer", "body": "Care and control"})
         if guided_result.get("workflow", {}).get("stage") != "four_futures":
             print("conversation guide API failed")
             return 1
