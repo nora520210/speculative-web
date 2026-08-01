@@ -6944,12 +6944,46 @@ body {
   overflow: hidden;
   text-align: center;
   text-overflow: ellipsis;
-  white-space: normal;
-  word-break: keep-all;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
   line-height: 1.25;
 }
 
 .canvas-shell.active .conversation-workbench .tool-sidebar-row > small {
   display: none;
+}
+
+.canvas-shell.active .conversation-workbench .tool-sidebar {
+  display: grid;
+  min-height: 0;
+  visibility: visible;
+}
+
+.canvas-shell.active .conversation-workbench .tool-sidebar-list {
+  min-height: 116px;
+  grid-template-columns: repeat(2, minmax(120px, 1fr));
+}
+
+.canvas-shell.active .conversation-workbench .tool-sidebar .empty-panel {
+  grid-column: 1 / -1;
+  align-self: stretch;
+  min-height: 96px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed rgba(20, 24, 28, 0.18);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.62);
+  color: #737980;
+  text-align: center;
+}
+
+.ui-action-busy .canvas-shell.active [data-quick-action],
+.ui-action-busy .canvas-shell.active [data-guide-action],
+.ui-action-busy .canvas-shell.active [data-guide-branch-id],
+.ui-action-busy .canvas-shell.active [data-stage-branch-id],
+.ui-action-busy .canvas-shell.active [data-conversation-perspective],
+.ui-action-busy .canvas-shell.active [data-sidebar-tool-id] {
+  cursor: wait;
+  opacity: 0.68;
 }

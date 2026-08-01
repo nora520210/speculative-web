@@ -85,6 +85,7 @@ let zoom = 1;
 let spacePressed = false;
 let tabApiKey = "";
 let conversationPerspective = "research";
+let uiActionInFlight = false;
 const agentGuideCache = new Map();
 const agentGuideInFlight = new Set();
 let modelAccess = {
@@ -609,6 +610,38 @@ function t(key, values = {}) {
 
 function setStatus(element, key) {
   element.textContent = t(`status.${key}`);
+}
+
+function setUiActionBusy(pending) {
+  uiActionInFlight = Boolean(pending);
+  document.documentElement.classList.toggle("ui-action-busy", uiActionInFlight);
+  document
+    .querySelectorAll("[data-quick-action], [data-guide-action], [data-guide-branch-id], [data-stage-branch-id], [data-conversation-perspective], [data-sidebar-tool-id]")
+    .forEach((button) => {
+      button.disabled = uiActionInFlight;
+      button.setAttribute("aria-busy", String(uiActionInFlight));
+    });
+}
+
+function isRevisionConflict(error) {
+  return /revision conflict/i.test(String(error?.message || ""));
+}
+
+async function runUiAction(task) {
+  if (uiActionInFlight) return;
+  setUiActionBusy(true);
+  setStatus(canvasStatus, "running");
+  try {
+    await task();
+  } catch (error) {
+    setStatus(canvasStatus, "error");
+    canvasOutput.textContent = error.message;
+    if (isRevisionConflict(error)) {
+      await loadCanvas({ preserveView: false });
+    }
+  } finally {
+    setUiActionBusy(false);
+  }
 }
 
 function statusLabel(value) {
@@ -1347,7 +1380,7 @@ function renderStagePresentation(stages) {
     }).join("")}
   </div>`;
   stagePresentation.querySelectorAll("[data-stage-branch-id]").forEach((button) => {
-    button.addEventListener("click", () => selectWorkflowBranch(button.dataset.stageWorkflowId, button.dataset.stageBranchId));
+    button.addEventListener("click", () => runUiAction(() => selectWorkflowBranch(button.dataset.stageWorkflowId, button.dataset.stageBranchId)));
   });
   stagePresentation.querySelectorAll("[data-stage-scope]").forEach((button) => {
     button.addEventListener("click", () => setActiveScope(button.dataset.stageScope));
@@ -1692,17 +1725,18 @@ function renderConversationGuide(session) {
     conversationGuideActions.innerHTML = "";
   }
   conversationGuideActions.querySelectorAll("[data-guide-start-mode]").forEach((button) => {
-    button.addEventListener("click", () => advanceConversationGuide({ action: "set_start_mode", start_mode: button.dataset.guideStartMode }));
+    button.addEventListener("click", () => runUiAction(() => advanceConversationGuide({ action: "set_start_mode", start_mode: button.dataset.guideStartMode })));
   });
   conversationGuideActions.querySelectorAll("[data-guide-action]").forEach((button) => {
-    button.addEventListener("click", () => advanceConversationGuide({ action: button.dataset.guideAction }));
+    button.addEventListener("click", () => runUiAction(() => advanceConversationGuide({ action: button.dataset.guideAction })));
   });
   conversationGuideActions.querySelectorAll("[data-guide-branch-id]").forEach((button) => {
-    button.addEventListener("click", () => selectWorkflowBranch(button.dataset.guideWorkflowId, button.dataset.guideBranchId));
+    button.addEventListener("click", () => runUiAction(() => selectWorkflowBranch(button.dataset.guideWorkflowId, button.dataset.guideBranchId)));
   });
   conversationGuideActions.querySelectorAll("[data-quick-action]").forEach((button) => {
-    button.addEventListener("click", () => handleQuickInput(button.dataset.quickAction, button.dataset.quickBody));
+    button.addEventListener("click", () => runUiAction(() => handleQuickInput(button.dataset.quickAction, button.dataset.quickBody)));
   });
+  if (uiActionInFlight) setUiActionBusy(true);
 }
 
 function renderToolSidebar() {
@@ -1740,16 +1774,14 @@ function renderToolSidebar() {
     `;
   }).join("");
   toolSidebarList.querySelectorAll("[data-sidebar-tool-id]").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", () => runUiAction(async () => {
       const modifyNode = activeCanvas?.nodes.find((node) => node.id === button.dataset.sidebarModifyId);
       if (!modifyNode) return;
       const tool = (modifyNode.config?.tools || []).find((item) => item.id === button.dataset.sidebarToolId);
-      setToolSelection(modifyNode, button.dataset.sidebarToolId, !tool?.selected).catch((error) => {
-        setStatus(canvasStatus, "error");
-        canvasOutput.textContent = error.message;
-      });
-    });
+      await setToolSelection(modifyNode, button.dataset.sidebarToolId, !tool?.selected);
+    }));
   });
+  if (uiActionInFlight) setUiActionBusy(true);
 }
 
 function renderCanvasPreview() {
@@ -2113,10 +2145,7 @@ function renderNode(node) {
   article.querySelectorAll("[data-select-workflow-branch]").forEach((button) => {
     button.addEventListener("click", (event) => {
       event.stopPropagation();
-      selectWorkflowBranch(button.dataset.selectWorkflowBranch, node.id).catch((error) => {
-        setStatus(canvasStatus, "error");
-        canvasOutput.textContent = error.message;
-      });
+      runUiAction(() => selectWorkflowBranch(button.dataset.selectWorkflowBranch, node.id));
     });
   });
   article.querySelectorAll("[data-open-image]").forEach((button) => {
@@ -3381,10 +3410,8 @@ document.querySelectorAll("[data-add-operation-definition]").forEach((button) =>
 
 
 conversationForm.addEventListener("submit", (event) => {
-  submitConversationMessage(event).catch((error) => {
-    setStatus(canvasStatus, "error");
-    canvasOutput.textContent = error.message;
-  });
+  event.preventDefault();
+  runUiAction(() => submitConversationMessage(event));
 });
 
 canvasPreview.addEventListener("click", openCanvasFocus);
@@ -3408,7 +3435,7 @@ conversationPerspectiveButtons.forEach((button) => {
     renderConversationPerspective(activeSession());
     const session = activeSession();
     if (session?.guide?.stage_id === "start" && !session?.guide?.workflow_instance_id) {
-      await advanceConversationGuide({ action: "set_start_mode", start_mode: nextMode });
+      await runUiAction(() => advanceConversationGuide({ action: "set_start_mode", start_mode: nextMode }));
     } else {
       conversationInput?.focus();
     }

@@ -51,6 +51,7 @@ from server.graph_store import (
     update_node,
     update_project,
 )
+from server.interaction_runtime import RevisionConflict
 from server.model_service import model_environment_status
 from server.modifier_registry import list_output_types, public_modifier_tools
 from server.operation_registry import list_operation_definitions
@@ -226,6 +227,12 @@ class AppHandler(SimpleHTTPRequestHandler):
                 try:
                     session_id = str(payload.pop("session_id", "") or "")
                     edge = add_edge(project_id, payload, expected_revision=self.expected_revision(payload), session_id=session_id)
+                except RevisionConflict as exc:
+                    self.send_json({"error": str(exc)}, status=HTTPStatus.CONFLICT)
+                    return
+                except RevisionConflict as exc:
+                    self.send_json({"error": str(exc)}, status=HTTPStatus.CONFLICT)
+                    return
                 except (KeyError, ValueError) as exc:
                     self.send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
                     return
@@ -236,6 +243,12 @@ class AppHandler(SimpleHTTPRequestHandler):
                 payload = self.read_json_body()
                 try:
                     scope = add_scope(project_id, payload, expected_revision=self.expected_revision(payload))
+                except RevisionConflict as exc:
+                    self.send_json({"error": str(exc)}, status=HTTPStatus.CONFLICT)
+                    return
+                except RevisionConflict as exc:
+                    self.send_json({"error": str(exc)}, status=HTTPStatus.CONFLICT)
+                    return
                 except (KeyError, ValueError) as exc:
                     self.send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
                     return
@@ -246,6 +259,12 @@ class AppHandler(SimpleHTTPRequestHandler):
                 payload = self.read_json_body()
                 try:
                     session = add_conversation(project_id, payload, expected_revision=self.expected_revision(payload))
+                except RevisionConflict as exc:
+                    self.send_json({"error": str(exc)}, status=HTTPStatus.CONFLICT)
+                    return
+                except RevisionConflict as exc:
+                    self.send_json({"error": str(exc)}, status=HTTPStatus.CONFLICT)
+                    return
                 except (KeyError, ValueError) as exc:
                     self.send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
                     return
@@ -260,6 +279,9 @@ class AppHandler(SimpleHTTPRequestHandler):
                         payload,
                         expected_revision=self.expected_revision(payload),
                     )
+                except RevisionConflict as exc:
+                    self.send_json({"error": str(exc)}, status=HTTPStatus.CONFLICT)
+                    return
                 except (KeyError, ValueError) as exc:
                     self.send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
                     return
