@@ -379,6 +379,7 @@ def normalize_session(session: dict, canvas: dict) -> dict:
                     message.get("related_node_ids"),
                 ),
                 "execution_id": str(message.get("execution_id") or ""),
+                "input_perspective": normalize_input_perspective(message.get("input_perspective")),
                 "activity": normalize_activity(message.get("activity")),
                 "state": normalize_message_state(message.get("state")),
                 "inactive_reason": compact_conversation_feedback(message.get("inactive_reason") or ""),
@@ -416,6 +417,11 @@ def normalize_activity(value) -> dict:
 
 def normalize_message_state(value: object) -> str:
     return str(value or "active") if str(value or "active") in MESSAGE_STATES else "active"
+
+
+def normalize_input_perspective(value: object) -> str:
+    perspective = str(value or "").strip().lower()
+    return perspective if perspective in {"research", "design"} else ""
 
 
 def normalize_message_node_refs(value, canvas: dict, related_node_ids) -> list[dict]:
@@ -753,6 +759,7 @@ def append_message(canvas: dict, session_id: str, payload: dict) -> dict:
             related_node_ids,
         ),
         "execution_id": str(payload.get("execution_id") or ""),
+        "input_perspective": normalize_input_perspective(payload.get("input_perspective")),
         "activity": normalize_activity(payload.get("activity")),
         "state": normalize_message_state(payload.get("state")),
         "inactive_reason": compact_conversation_feedback(payload.get("inactive_reason") or ""),

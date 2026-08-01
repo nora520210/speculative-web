@@ -277,6 +277,10 @@ const translations = {
     "conversation.system": "system",
     "conversation.scientistInput": "Scientist input",
     "conversation.designerInput": "Designer input",
+    "conversation.startResearch": "Start with real research",
+    "conversation.startDesign": "Start with a design proposition",
+    "conversation.perspectiveStart": "Starting point",
+    "conversation.perspectiveInput": "This input",
     "conversation.quickPrefix": "Quick input option",
     "conversation.agentIntro": "AI host: describe a research condition or design proposition. I will keep asking who uses it, who is affected, and where uncertainty appears.",
     "conversation.agentPrompt": "AI host",
@@ -523,6 +527,10 @@ const translations = {
     "conversation.system": "系统",
     "conversation.scientistInput": "科学家输入",
     "conversation.designerInput": "设计师输入",
+    "conversation.startResearch": "从真实研究开始",
+    "conversation.startDesign": "从设计设想开始",
+    "conversation.perspectiveStart": "选择起点",
+    "conversation.perspectiveInput": "本次输入",
     "conversation.quickPrefix": "快捷输入选项",
     "conversation.agentIntro": "AI 主持人：请描述一个研究条件或设计设想。我会继续追问谁在使用、谁受影响，以及哪里出现不确定。",
     "conversation.agentPrompt": "AI 主持人",
@@ -1046,15 +1054,27 @@ function renderCanvas() {
 }
 
 function renderConversationPerspective(session) {
+  const isStartChoice = session?.guide?.stage_id === "start" && !session?.guide?.workflow_instance_id;
   const guideMode = session?.guide?.start_mode;
-  if (guideMode === "research" || guideMode === "design") {
+  if (isStartChoice && (guideMode === "research" || guideMode === "design")) {
     conversationPerspective = guideMode;
   }
+  const labels = isStartChoice
+    ? { research: t("conversation.startResearch"), design: t("conversation.startDesign") }
+    : { research: t("conversation.scientistInput"), design: t("conversation.designerInput") };
+  const groupLabel = isStartChoice ? t("conversation.perspectiveStart") : t("conversation.perspectiveInput");
   conversationPerspectiveButtons.forEach((button) => {
-    const selected = button.dataset.conversationPerspective === conversationPerspective;
+    const perspective = button.dataset.conversationPerspective === "design" ? "design" : "research";
+    const selected = perspective === conversationPerspective;
+    button.textContent = labels[perspective];
     button.classList.toggle("active", selected);
     button.setAttribute("aria-pressed", String(selected));
   });
+  const group = conversationPerspectiveButtons[0]?.closest(".conversation-perspective");
+  if (group) {
+    group.dataset.modeLabel = groupLabel;
+    group.classList.toggle("is-start-choice", Boolean(isStartChoice));
+  }
 }
 
 function renderInteraction() {
@@ -1186,12 +1206,15 @@ conversationMessages.addEventListener("scroll", () => {
 function renderConversationMessage(message) {
   const messageState = message.state === "removed" ? "removed" : (message.state === "superseded" ? "superseded" : "active");
   const meta = conversationMessageMeta(message, messageState);
+  const perspectiveLabel = message.role === "user" && message.input_perspective
+    ? t(message.input_perspective === "design" ? "conversation.designerInput" : "conversation.scientistInput")
+    : "";
   const refs = message.related_node_refs?.length
     ? message.related_node_refs
     : (message.related_node_ids || []).map((nodeId) => ({ id: nodeId, title: findNode(nodeId)?.title || nodeId }));
   return `
     <article class="conversation-message ${escapeHtml(message.role)} ${escapeHtml(message.kind || "message")} is-${messageState}">
-      <span class="message-role">${escapeHtml(t(`conversation.${message.role}`))}</span>
+      <span class="message-role">${escapeHtml(t(`conversation.${message.role}`))}${perspectiveLabel ? `<em>${escapeHtml(perspectiveLabel)}</em>` : ""}</span>
       <p>${escapeHtml(message.role === "user" ? message.body : compactConversationText(localizedConversationBody(message.body)))}</p>
       ${meta ? `<small class="message-activity-state">${escapeHtml(meta)}</small>` : ""}
       ${refs.length ? `<small class="message-node-refs">${escapeHtml(refs.map((ref) => localizedReferenceTitle(ref.title || ref.id)).join(" · "))}</small>` : ""}
@@ -1465,11 +1488,11 @@ function localizedQuickOptions(stage, guide, workflow) {
     : (mode === "design" ? "design proposition" : "research condition");
   if (stage === "start") {
     return [
-      quickButton(zh ? "换个角度追问" : "Ask from another angle", zh ? `谁正在使用这个${materialLabel}？谁会被它影响？哪里开始不确定？` : `Who uses this ${materialLabel}, who is affected, and where does uncertainty begin?`, "draft"),
-      quickButton(zh ? "补充研究背景" : "Add research background", zh ? "研究背景：" : "Research background:", "draft"),
-      quickButton(zh ? "生成争议点" : "Generate a tension", zh ? "这个议题最值得讨论的争议是：" : "The tension worth discussing is:", "draft"),
-      quickButton(zh ? "把它变成 What-if" : "Turn it into What-if", zh ? "如果这个条件进入日常现场，会怎样？" : "What if this condition entered everyday use?", "draft"),
-      quickButton(zh ? "加入反例" : "Add a counterexample", zh ? "一个可能推翻默认设想的反例是：" : "A counterexample that might break the default assumption is:", "draft"),
+      quickButton(zh ? "从使用现场开始" : "Start from a use scene", zh ? `一个${materialLabel}进入具体使用现场，使用者、受影响者和不确定边界需要被同时讨论。` : `A ${materialLabel} enters a concrete use scene where users, affected people, and uncertain boundaries must be discussed.`, "begin"),
+      quickButton(zh ? "从研究背景开始" : "Start from background", zh ? `这个${materialLabel}的背景来自一组真实条件、限制边界和可争议的应用语境。` : `This ${materialLabel} begins from real conditions, limits, and a debatable application context.`, "begin"),
+      quickButton(zh ? "从争议点开始" : "Start from a tension", zh ? `这个议题最值得讨论的是技术承诺、实际使用和影响承担者之间的张力。` : `The key issue is the tension between technical promise, real use, and those who carry the impact.`, "begin"),
+      quickButton(zh ? "从 What-if 开始" : "Start with What-if", zh ? `如果这个条件成为未来现场里的默认设置，会怎样？` : `What if this condition became a default setting in a future context?`, "begin"),
+      quickButton(zh ? "从反例开始" : "Start from a counterexample", zh ? `一个可能推翻默认设想的反例进入现场，使原本稳定的判断变得不确定。` : `A counterexample enters the scene and makes a previously stable assumption uncertain.`, "begin"),
     ];
   }
   if (stage === "frame_focus") {
@@ -1501,24 +1524,22 @@ function localizedQuickOptions(stage, guide, workflow) {
   if (stage === "keywords") {
     return [
       quickButton(zh ? "把它变成 What-if" : "Turn it into What-if", "", "confirm_keywords"),
-      quickButton(zh ? "补充研究背景" : "Add research background", zh ? `补充 ${topic} 的实验条件、限制边界或使用语境。` : `Add experimental conditions, limits, or use context for ${topic}.`, "draft"),
     ];
   }
   if (stage === "four_futures" && !workflow?.branch_node_ids?.length) {
     return [
       quickButton(zh ? "把它变成 What-if" : "Turn it into What-if", "", "run_four_futures"),
-      quickButton(zh ? "换个角度追问" : "Ask from another angle", zh ? `先回看 ${topic} 的默认假设，再生成四条未来线路。` : `Review the default assumptions of ${topic}, then generate four future lines.`, "draft"),
     ];
   }
   return [
-    quickButton(zh ? "换个角度追问" : "Ask from another angle", zh ? `围绕 ${topic} 重新追问角色、依据和不确定性。` : `Revisit roles, evidence, and uncertainty around ${topic}.`, "draft"),
-    quickButton(zh ? "加入反例" : "Add a counterexample", zh ? `一个反例或边界情况是：` : "A counterexample or boundary case is:", "draft"),
+    quickButton(zh ? "换个角度追问" : "Ask from another angle", zh ? `围绕 ${topic} 重新追问角色、依据和不确定性。` : `Revisit roles, evidence, and uncertainty around ${topic}.`, "answer"),
+    quickButton(zh ? "加入反例" : "Add a counterexample", zh ? `一个反例或边界情况会改变 ${topic} 的默认判断。` : `A counterexample or boundary case changes the default judgment around ${topic}.`, "answer"),
   ];
 }
 
 function renderQuickOptions(options) {
   return `<div class="quick-input-options">
-    ${options.map((option) => `<button type="button" data-quick-action="${escapeHtml(option.action)}" data-quick-body="${escapeHtml(option.body)}">${escapeHtml(t("conversation.quickPrefix"))}：${escapeHtml(option.label)}</button>`).join("")}
+    ${options.map((option) => `<button type="button" data-quick-action="${escapeHtml(option.action)}" data-quick-body="${escapeHtml(option.body)}" aria-label="${escapeHtml(`${t("conversation.quickPrefix")}: ${option.label}`)}">${escapeHtml(option.label)}</button>`).join("")}
   </div>`;
 }
 
@@ -1548,6 +1569,7 @@ function agentGuidePayload(session, stage, workflow) {
     stage,
     pending_field: guide.pending_field || "",
     start_mode: guide.start_mode || conversationPerspective,
+    input_perspective: conversationPerspective,
     locale,
     brief,
     topic: brief.topic || "",
@@ -1559,21 +1581,22 @@ function agentGuidePayload(session, stage, workflow) {
       role: message.role,
       body: message.body,
       kind: message.kind,
+      input_perspective: message.input_perspective || "",
     })),
   };
 }
 
 function agentOptionAction(stage, option) {
   const text = String(option || "");
-  if (stage === "start") return "draft";
+  if (stage === "start") return "begin";
   if (["frame_focus", "frame_assumptions", "frame_stakeholders", "frame_tensions"].includes(stage)) return "answer";
   if (stage === "keywords") {
-    return /确认|进入|what-if|what if|unlock|confirm/i.test(text) ? "confirm_keywords" : "draft";
+    return "confirm_keywords";
   }
   if (stage === "four_futures") {
-    return /生成|四条|what-if|what if|growth|collapse|balance|transformation/i.test(text) ? "run_four_futures" : "draft";
+    return "run_four_futures";
   }
-  return "draft";
+  return "answer";
 }
 
 function agentQuickOptions(stage, fallbackOptions, agentGuide) {
@@ -1582,7 +1605,7 @@ function agentQuickOptions(stage, fallbackOptions, agentGuide) {
   return options.map((option) => {
     const label = String(option).trim();
     const action = agentOptionAction(stage, label);
-    return quickButton(label, action === "draft" || action === "answer" ? label : "", action);
+    return quickButton(label, action === "begin" || action === "answer" ? label : "", action);
   });
 }
 
@@ -1625,7 +1648,7 @@ function renderConversationGuide(session) {
   requestAgentGuide(session, stage, workflow, agentKey);
   if (stage === "start") {
     conversationGuideActions.innerHTML = `
-      <span>${escapeHtml(liveQuestion || (localized ? "当前步骤：研究议题。先选择输入视角，再描述一个可讨论的起点。" : "Current step: research issue. Choose a perspective, then describe a discussable starting point."))}</span>
+      <span>${escapeHtml(liveQuestion || (localized ? "当前步骤：研究议题。先选择从真实研究还是设计设想开始，再描述一个可讨论的起点。" : "Current step: research issue. Choose whether to start from research or a design proposition, then describe a discussable starting point."))}</span>
       ${liveHint || loadingHint ? `<small class="agent-guide-hint">${escapeHtml(liveHint || loadingHint)}</small>` : ""}
       ${renderQuickOptions(quickOptions)}
     `;
@@ -1857,11 +1880,12 @@ async function submitConversationMessage(event) {
   if (!activeProject || !session || !body) return;
   const stage = session.guide?.stage_id || "";
   const isGuidedEntry = stage === "start" || ["frame_focus", "frame_assumptions", "frame_stakeholders", "frame_tensions"].includes(stage);
+  const payload = isGuidedEntry
+    ? { action: stage === "start" ? "begin" : "answer", body, input_perspective: conversationPerspective }
+    : { body, scope_id: activeScopeId, input_perspective: conversationPerspective };
   await requestJson(`/api/projects/${activeProject.id}/conversations/${session.id}/${isGuidedEntry ? "guide-actions" : "messages"}`, {
     method: "POST",
-    body: JSON.stringify(withExpectedRevision(isGuidedEntry
-      ? { action: stage === "start" ? "begin" : "answer", body }
-      : { body, scope_id: activeScopeId })),
+    body: JSON.stringify(withExpectedRevision(payload)),
   });
   conversationInput.value = "";
   await loadCanvas();
@@ -1871,13 +1895,20 @@ async function handleQuickInput(action, body = "") {
   const session = activeSession();
   if (!session) return;
   if (action === "draft") {
-    conversationInput.value = body || "";
-    conversationInput.focus();
+    const stage = session.guide?.stage_id || "";
+    if (body) {
+      await advanceConversationGuide({ action: stage === "start" ? "begin" : "answer", body, input_perspective: conversationPerspective });
+    }
+    return;
+  }
+  if (action === "begin") {
+    if (!body) return;
+    await advanceConversationGuide({ action: "begin", body, input_perspective: conversationPerspective });
     return;
   }
   if (action === "answer") {
     if (!body) return;
-    await advanceConversationGuide({ action: "answer", body });
+    await advanceConversationGuide({ action: "answer", body, input_perspective: conversationPerspective });
     return;
   }
   if (action === "confirm_keywords") {

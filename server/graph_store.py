@@ -245,6 +245,11 @@ def add_conversation_message(project_id: str, session_id: str, payload: dict, ex
     return message
 
 
+def guide_input_perspective(value: object, fallback: str = "research") -> str:
+    perspective = str(value or fallback or "research").strip().lower()
+    return perspective if perspective in {"research", "design"} else "research"
+
+
 def start_four_futures_workflow(project_id: str, payload: dict, expected_revision=None) -> dict:
     """Materialise the document's low-friction foundation as graph-owned references.
 
@@ -266,6 +271,7 @@ def start_four_futures_workflow(project_id: str, payload: dict, expected_revisio
     start_mode = str(payload.get("start_mode") or "research").strip().lower()
     if start_mode not in {"research", "design"}:
         raise ValueError("start_mode must be research or design.")
+    input_perspective = guide_input_perspective(payload.get("input_perspective"), start_mode)
     topic = str(payload.get("topic") or "").strip()
     if not topic:
         raise ValueError("A research topic is required to start the Four Futures workflow.")
@@ -277,6 +283,7 @@ def start_four_futures_workflow(project_id: str, payload: dict, expected_revisio
         "assumptions": workflow_text_list(payload.get("assumptions")),
         "stakeholders": workflow_text_list(payload.get("stakeholders")),
         "tensions": workflow_text_list(payload.get("tensions")),
+        "input_sources": {"topic": input_perspective},
     }
     keywords = foundation_keywords(brief)
     offset = len(canvas.get("nodes", [])) * 20
@@ -437,6 +444,18 @@ def start_four_futures_workflow(project_id: str, payload: dict, expected_revisio
         "frame_focus" if guided else "four_futures",
         workflow_instance_id=workflow_id,
         pending_field="research_focus" if guided else "",
+    )
+    append_conversation_message(
+        canvas,
+        session["id"],
+        {
+            "role": "user",
+            "kind": "guide",
+            "scope_id": scope["id"],
+            "related_node_ids": [source_node["id"]],
+            "body": topic,
+            "input_perspective": input_perspective,
+        },
     )
     append_conversation_message(
         canvas,
@@ -668,6 +687,7 @@ def advance_conversation_guide(project_id: str, session_id: str, payload: dict, 
                 "guided": True,
                 "session_id": session_id,
                 "start_mode": guide.get("start_mode") or "research",
+                "input_perspective": payload.get("input_perspective") or guide.get("start_mode") or "research",
                 "topic": str(payload.get("body") or "").strip(),
             },
             expected_revision=expected_revision,
@@ -751,10 +771,14 @@ def advance_conversation_guide(project_id: str, session_id: str, payload: dict, 
     if not isinstance(brief, dict):
         raise ValueError("The research brief was changed outside the guided flow. Continue by editing nodes directly and restart this workflow when ready.")
     if action == "answer":
+        input_perspective = guide_input_perspective(payload.get("input_perspective"), "research")
         if field in {"assumptions", "stakeholders", "tensions"}:
             brief[field] = workflow_text_list(body)
         else:
             brief[field] = body[:1200]
+        sources = brief.get("input_sources") if isinstance(brief.get("input_sources"), dict) else {}
+        sources[field] = input_perspective
+        brief["input_sources"] = sources
         append_conversation_message(
             canvas,
             session_id,
@@ -764,6 +788,7 @@ def advance_conversation_guide(project_id: str, session_id: str, payload: dict, 
                 "scope_id": workflow.get("foundation_scope_id") or session.get("active_scope_id", "scope-global"),
                 "related_node_ids": [source_node["id"]],
                 "body": body,
+                "input_perspective": input_perspective,
             },
         )
     else:
@@ -917,6 +942,7 @@ def synchronize_keyword_scaffold_from_brief(canvas: dict, workflow: dict, source
 
 def render_foundation_brief(brief: dict) -> str:
     start_mode = str(brief.get("start_mode") or "research")
+    input_sources = brief.get("input_sources") if isinstance(brief.get("input_sources"), dict) else {}
     values = [
         str(brief.get("topic") or ""),
         str(brief.get("research_focus") or ""),
@@ -928,18 +954,26 @@ def render_foundation_brief(brief: dict) -> str:
     if chinese:
         start_label = "真实研究／研究者主导" if start_mode == "research" else "设计命题／设计者主导"
         labels = ("起点类型", "研究议题", "研究关注点", "默认假设", "利益相关者", "核心张力")
+        perspective_labels = {"research": "科学家输入", "design": "设计师输入"}
     else:
         start_label = "Real research / researcher-led" if start_mode == "research" else "Design proposition / designer-led"
         labels = ("Starting point", "Topic", "Research focus", "Default assumptions", "Stakeholders", "Core tensions")
+        perspective_labels = {"research": "Scientist input", "design": "Designer input"}
+
+    def source_suffix(field: str) -> str:
+        perspective = str(input_sources.get(field) or "").strip().lower()
+        label = perspective_labels.get(perspective)
+        return f" ({label})" if label else ""
+
     lines = [
         f"{labels[0]}: {start_label}",
-        f"{labels[1]}: {str(brief.get('topic') or '').strip()}",
+        f"{labels[1]}{source_suffix('topic')}: {str(brief.get('topic') or '').strip()}",
     ]
     if brief.get("research_focus"):
-        lines.append(f"{labels[2]}: {brief['research_focus']}")
-    for label, items in zip(labels[3:], (brief.get("assumptions", []), brief.get("stakeholders", []), brief.get("tensions", []))):
+        lines.append(f"{labels[2]}{source_suffix('research_focus')}: {brief['research_focus']}")
+    for field, label, items in zip(("assumptions", "stakeholders", "tensions"), labels[3:], (brief.get("assumptions", []), brief.get("stakeholders", []), brief.get("tensions", []))):
         if items:
-            lines.append(f"{label}: " + "; ".join(items))
+            lines.append(f"{label}{source_suffix(field)}: " + "; ".join(items))
     return "\n".join(lines)
 
 

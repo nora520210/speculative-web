@@ -6847,3 +6847,109 @@ body {
   font-size: 11px;
   line-height: 1.45;
 }
+
+.canvas-shell.active .conversation-perspective {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 18px 6px 6px;
+  border: 1px solid rgba(20, 24, 28, 0.12);
+  border-radius: 8px;
+  background: #f7f8f8;
+}
+
+.canvas-shell.active .conversation-perspective::before {
+  content: attr(data-mode-label);
+  position: absolute;
+  top: 4px;
+  left: 8px;
+  color: #6d747b;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.canvas-shell.active .conversation-dock .conversation-perspective button {
+  min-height: 30px;
+  border: 1px solid rgba(20, 24, 28, 0.16);
+  border-radius: 6px;
+  background: #ffffff;
+  color: #20262b;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.canvas-shell.active .conversation-dock .conversation-perspective button[data-conversation-perspective="research"][aria-pressed="true"] {
+  border-color: #15191d;
+  background: #15191d;
+  color: #ffffff;
+}
+
+.canvas-shell.active .conversation-dock .conversation-perspective button[data-conversation-perspective="design"][aria-pressed="true"] {
+  border-color: #f02a0c;
+  background: #f02a0c;
+  color: #ffffff;
+}
+
+.canvas-shell.active .conversation-dock .message-role {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.canvas-shell.active .conversation-dock .message-role em {
+  border: 1px solid rgba(240, 42, 12, 0.28);
+  border-radius: 999px;
+  padding: 2px 6px;
+  background: rgba(240, 42, 12, 0.08);
+  color: #e12a11;
+  font-style: normal;
+  font-size: 9.5px;
+  font-weight: 900;
+}
+
+.canvas-shell.active .conversation-workbench .tool-sidebar-list {
+  grid-auto-rows: 96px;
+  grid-template-columns: repeat(2, minmax(84px, 1fr));
+  gap: 10px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.canvas-shell.active .conversation-workbench .tool-sidebar-row {
+  display: grid;
+  grid-template-rows: 48px minmax(0, 1fr);
+  align-items: center;
+  justify-items: center;
+  min-height: 96px;
+  padding: 10px 8px 9px;
+  gap: 5px;
+}
+
+.canvas-shell.active .conversation-workbench .tool-sidebar-row .tool-card-mark,
+.canvas-shell.active .conversation-workbench .tool-sidebar-asset {
+  grid-row: 1;
+  align-self: center;
+  justify-self: center;
+  margin: 0;
+}
+
+.canvas-shell.active .conversation-workbench .tool-sidebar-row > span:last-child {
+  grid-row: 2;
+  align-self: start;
+  justify-self: stretch;
+  min-height: 0;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+}
+
+.canvas-shell.active .conversation-workbench .tool-sidebar-row > small {
+  display: none;
+}

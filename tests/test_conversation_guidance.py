@@ -88,6 +88,37 @@ def test_conversation_guide_updates_canonical_nodes_without_tool_configuration()
         _restore_project(tmp, graph_store, original)
 
 
+def test_guided_conversation_preserves_input_perspective_in_messages_and_brief():
+    tmp, graph_store, original = _temporary_project()
+    try:
+        canvas = read_canvas("project-a")
+        session_id = canvas["conversation_sessions"][0]["id"]
+        advance_conversation_guide(
+            "project-a",
+            session_id,
+            {"action": "begin", "body": "可穿戴材料进入护理场景", "input_perspective": "design"},
+        )
+        result = advance_conversation_guide(
+            "project-a",
+            session_id,
+            {"action": "answer", "body": "材料行为与护理判断之间的边界", "input_perspective": "research"},
+        )
+        workflow = result["workflow"]
+        saved = read_canvas("project-a")
+        source = next(node for node in saved["nodes"] if node["id"] == workflow["source_node_ids"][0])
+        brief = source["payload"]["workflow_brief"]
+        session = next(item for item in saved["conversation_sessions"] if item["id"] == session_id)
+
+        assert brief["input_sources"]["topic"] == "design"
+        assert brief["input_sources"]["research_focus"] == "research"
+        assert "研究议题 (设计师输入): 可穿戴材料进入护理场景" in source["payload"]["text"]
+        assert "研究关注点 (科学家输入): 材料行为与护理判断之间的边界" in source["payload"]["text"]
+        user_messages = [message for message in session["messages"] if message["role"] == "user"]
+        assert [message["input_perspective"] for message in user_messages[-2:]] == ["design", "research"]
+    finally:
+        _restore_project(tmp, graph_store, original)
+
+
 def test_deleting_a_selected_branch_invalidates_workflow_and_records_activity():
     original_runs = os.environ.get("SPEC_WEB_ENABLE_OPENAI_RUNS")
     os.environ["SPEC_WEB_ENABLE_OPENAI_RUNS"] = "0"
