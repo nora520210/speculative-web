@@ -88,6 +88,7 @@ let conversationPerspective = "research";
 let uiActionInFlight = false;
 const agentGuideCache = new Map();
 const agentGuideInFlight = new Set();
+const quickInputSelections = new Map();
 let modelAccess = {
   openaiApiKeyConfigured: false,
   openaiRunsEnabled: true,
@@ -283,6 +284,9 @@ const translations = {
     "conversation.perspectiveStart": "Starting point",
     "conversation.perspectiveInput": "This input",
     "conversation.quickPrefix": "Quick input option",
+    "conversation.quickSelected": "selected",
+    "conversation.quickConfirmHint": "Select one or more options, then press Send.",
+    "conversation.generateScenario": "Generate text-image scenario",
     "conversation.agentIntro": "AI host: describe a research condition or design proposition. I will keep asking who uses it, who is affected, and where uncertainty appears.",
     "conversation.agentPrompt": "AI host",
     "conversation.runWhatIf": "Generate four What-if lines",
@@ -533,6 +537,9 @@ const translations = {
     "conversation.perspectiveStart": "选择起点",
     "conversation.perspectiveInput": "本次输入",
     "conversation.quickPrefix": "快捷输入选项",
+    "conversation.quickSelected": "已选",
+    "conversation.quickConfirmHint": "可多选快捷输入，最后点击发送确认。",
+    "conversation.generateScenario": "生成图文情境",
     "conversation.agentIntro": "AI 主持人：请描述一个研究条件或设计设想。我会继续追问谁在使用、谁受影响，以及哪里出现不确定。",
     "conversation.agentPrompt": "AI 主持人",
     "conversation.runWhatIf": "生成四条 What-if 线路",
@@ -705,12 +712,12 @@ function localizedReferenceTitle(title) {
     "Discussion tools": "讨论工具",
     "Growth": "增长",
     "Collapse": "崩塌",
-    "Discipline": "约束",
-    "Transformation": "转型",
+    "Discipline": "平衡",
+    "Transformation": "转变",
     "Growth scenario": "增长情境",
     "Collapse scenario": "崩塌情境",
-    "Discipline scenario": "约束情境",
-    "Transformation scenario": "转型情境",
+    "Discipline scenario": "平衡情境",
+    "Transformation scenario": "转变情境",
     "Text Output": "文本输出",
     "Image Output": "图像输出",
     "Text+Image Output": "文本与图像输出",
@@ -1474,15 +1481,23 @@ function renderStageBranchChoices(workflow, activeStage) {
   if (activeStage?.id !== "four_futures" || !workflow?.branch_node_ids?.length) return `<p class="stage-card-note">${escapeHtml(t("workflowStrip.awaiting"))}</p>`;
   const selectable = workflow.status === "awaiting_selection";
   return `<section class="stage-branch-choices" aria-label="${escapeHtml(t("workflow.chooseOne"))}">
-    <header><strong>${escapeHtml(selectable ? t("workflow.chooseOne") : activeStage.state)}</strong></header>
+    <header><strong>${escapeHtml(selectable ? t("workflow.chooseOne") : activeStage.state)}</strong><small>${escapeHtml(t("conversation.quickConfirmHint"))}</small></header>
     <div class="stage-card-track">${workflow.branch_node_ids.map((nodeId) => {
       const node = findNode(nodeId);
       const branch = node?.payload?.scenario_branch || {};
       const selected = nodeId === workflow.selected_branch_node_id;
-      const tag = selectable ? "button" : "article";
-      const action = selectable ? ` data-stage-workflow-id="${escapeHtml(workflow.id)}" data-stage-branch-id="${escapeHtml(nodeId)}"` : "";
+      const tag = "article";
+      const action = "";
       const premise = branch.future_premise || branch.what_if || "";
-      return `<${tag} class="stage-branch-card ${selected ? "is-selected" : ""}"${selectable ? ' type="button"' : ""}${action}><strong>${escapeHtml(localizedReferenceTitle(branch.strategy_label || node?.title || t("workflow.choose")))}</strong><small>${escapeHtml(premise)}</small></${tag}>`;
+      const actors = Array.isArray(branch.key_actors) ? branch.key_actors.slice(0, 3).join(" · ") : "";
+      return `<${tag} class="stage-branch-card ${selected ? "is-selected" : ""}" data-branch-strategy="${escapeHtml(branch.strategy || "")}"${action}>
+        <span class="stage-branch-visual" aria-hidden="true"><i></i><b></b><em></em></span>
+        <strong>${escapeHtml(localizedReferenceTitle(branch.strategy_label || node?.title || t("workflow.choose")))}</strong>
+        <p>${escapeHtml(localizedReferenceTitle(branch.what_if || ""))}</p>
+        <small>${escapeHtml(premise)}</small>
+        <span class="stage-branch-meta">${escapeHtml(actors || branch.core_tension || "")}</span>
+        <span class="stage-branch-visual-brief">${escapeHtml(branch.visual_brief || "")}</span>
+      </${tag}>`;
     }).join("")}</div>
   </section>`;
 }
@@ -1509,6 +1524,42 @@ function activeWorkflowBrief(workflow) {
 
 function quickButton(label, body, action = "answer") {
   return { label, body, action };
+}
+
+function quickSelectionKey(session = activeSession()) {
+  const guide = session?.guide || {};
+  return [
+    session?.id || "session",
+    guide.stage_id || "message",
+    guide.pending_field || "",
+    guide.workflow_instance_id || session?.workflow_instance_id || "",
+  ].join("::");
+}
+
+function selectedQuickInputs(session = activeSession()) {
+  return [...(quickInputSelections.get(quickSelectionKey(session)) || new Map()).values()];
+}
+
+function clearQuickInputs(session = activeSession()) {
+  quickInputSelections.delete(quickSelectionKey(session));
+}
+
+function toggleQuickInputSelection(option) {
+  const session = activeSession();
+  if (!session || !option?.label) return;
+  const key = quickSelectionKey(session);
+  const selected = new Map(quickInputSelections.get(key) || []);
+  const id = `${option.action || "answer"}::${option.body || option.label}`;
+  if (selected.has(id)) {
+    selected.delete(id);
+  } else {
+    if (option.action === "select_branch" || option.action === "run_four_futures" || option.action === "run_scenario" || option.action === "confirm_keywords") {
+      selected.clear();
+    }
+    selected.set(id, option);
+  }
+  if (selected.size) quickInputSelections.set(key, selected);
+  else quickInputSelections.delete(key);
 }
 
 function localizedQuickOptions(stage, guide, workflow) {
@@ -1564,6 +1615,24 @@ function localizedQuickOptions(stage, guide, workflow) {
       quickButton(zh ? "把它变成 What-if" : "Turn it into What-if", "", "run_four_futures"),
     ];
   }
+  if (stage === "four_futures" && workflow?.branch_node_ids?.length) {
+    return workflow.branch_node_ids.map((nodeId) => {
+      const node = findNode(nodeId);
+      const branch = node?.payload?.scenario_branch || {};
+      const label = localizedReferenceTitle(branch.strategy_label || node?.title || (zh ? "未来方向" : "Future direction"));
+      const whatIf = localizedReferenceTitle(branch.what_if || "");
+      return quickButton(whatIf ? `${label}：${whatIf}` : label, nodeId, "select_branch");
+    });
+  }
+  if (stage === "tools") {
+    const discussion = findNode(workflow?.discussion_node_id);
+    const tools = (discussion?.config?.tools || []).filter((tool) => tool.enabled !== false);
+    const selectedCount = tools.filter((tool) => tool.selected).length;
+    const toolOptions = tools.map((tool) => quickButton(localizedToolCopy(tool, "label"), tool.id, "tool_select"));
+    return selectedCount
+      ? [...toolOptions, quickButton(t("conversation.generateScenario"), "", "run_scenario")]
+      : toolOptions;
+  }
   return [
     quickButton(zh ? "换个角度追问" : "Ask from another angle", zh ? `围绕 ${topic} 重新追问角色、依据和不确定性。` : `Revisit roles, evidence, and uncertainty around ${topic}.`, "answer"),
     quickButton(zh ? "加入反例" : "Add a counterexample", zh ? `一个反例或边界情况会改变 ${topic} 的默认判断。` : `A counterexample or boundary case changes the default judgment around ${topic}.`, "answer"),
@@ -1571,8 +1640,14 @@ function localizedQuickOptions(stage, guide, workflow) {
 }
 
 function renderQuickOptions(options) {
+  const selected = new Set(selectedQuickInputs().map((option) => `${option.action || "answer"}::${option.body || option.label}`));
   return `<div class="quick-input-options">
-    ${options.map((option) => `<button type="button" data-quick-action="${escapeHtml(option.action)}" data-quick-body="${escapeHtml(option.body)}" aria-label="${escapeHtml(`${t("conversation.quickPrefix")}: ${option.label}`)}">${escapeHtml(option.label)}</button>`).join("")}
+    ${options.map((option) => {
+    const id = `${option.action || "answer"}::${option.body || option.label}`;
+    const isSelected = selected.has(id);
+    return `<button type="button" class="${isSelected ? "is-selected" : ""}" data-quick-action="${escapeHtml(option.action)}" data-quick-body="${escapeHtml(option.body)}" data-quick-label="${escapeHtml(option.label)}" aria-pressed="${isSelected ? "true" : "false"}" aria-label="${escapeHtml(`${t("conversation.quickPrefix")}: ${option.label}`)}">${isSelected ? `<span class="quick-selected-mark">${escapeHtml(t("conversation.quickSelected"))}</span>` : ""}${escapeHtml(option.label)}</button>`;
+  }).join("")}
+    <small class="quick-confirm-hint">${escapeHtml(t("conversation.quickConfirmHint"))}</small>
   </div>`;
 }
 
@@ -1632,7 +1707,10 @@ function agentOptionAction(stage, option) {
   return "answer";
 }
 
-function agentQuickOptions(stage, fallbackOptions, agentGuide) {
+function agentQuickOptions(stage, fallbackOptions, agentGuide, workflow) {
+  if ((stage === "four_futures" && workflow?.branch_node_ids?.length) || stage === "tools") {
+    return fallbackOptions;
+  }
   const options = Array.isArray(agentGuide?.options) ? agentGuide.options.filter(Boolean).slice(0, 5) : [];
   if (!options.length) return fallbackOptions;
   return options.map((option) => {
@@ -1674,7 +1752,7 @@ function renderConversationGuide(session) {
   const agentKey = agentGuideRequestKey(session, stage, workflow);
   const liveGuide = agentGuideCache.get(agentKey);
   const agentLoading = agentGuideInFlight.has(agentKey) || !agentGuideCache.has(agentKey);
-  const quickOptions = agentQuickOptions(stage, fallbackOptions, liveGuide);
+  const quickOptions = agentQuickOptions(stage, fallbackOptions, liveGuide, workflow);
   const liveQuestion = liveGuide?.question ? String(liveGuide.question) : "";
   const liveHint = liveGuide?.hint ? String(liveGuide.hint) : "";
   const loadingHint = agentLoading ? (localized ? "AI 正在根据当前材料生成追问..." : "AI is generating a contextual prompt...") : "";
@@ -1700,9 +1778,9 @@ function renderConversationGuide(session) {
     `;
   } else if (stage === "four_futures" && workflow?.branch_node_ids?.length && workflow?.status === "awaiting_selection") {
     conversationGuideActions.innerHTML = `
-      <span>${escapeHtml(liveQuestion || (localized ? "从四个方向中仅选择一个：" : "Choose exactly one of the four directions:"))}</span>
+      <span>${escapeHtml(liveQuestion || (localized ? "从四个方向中选择一条继续展开：" : "Choose one of the four directions to continue:"))}</span>
       ${liveHint || loadingHint ? `<small class="agent-guide-hint">${escapeHtml(liveHint || loadingHint)}</small>` : ""}
-      ${workflow.branch_node_ids.map((nodeId) => `<button type="button" data-guide-branch-id="${escapeHtml(nodeId)}" data-guide-workflow-id="${escapeHtml(workflow.id)}">${escapeHtml(localizedReferenceTitle(findNode(nodeId)?.title || (localized ? "未来方向" : "Future direction")))}</button>`).join("")}
+      ${renderQuickOptions(quickOptions)}
     `;
   } else if (stage === "four_futures") {
     conversationGuideActions.innerHTML = `
@@ -1711,7 +1789,11 @@ function renderConversationGuide(session) {
       ${renderQuickOptions(quickOptions)}
     `;
   } else if (stage === "tools") {
-    conversationGuideActions.innerHTML = `<span>${escapeHtml(liveQuestion || (localized ? "在右侧工具栏选择工具；你可以调整后重复生成，系统只保留当前一条有效情境线。" : "Choose tools in the right rail. You can revise and run again; only one current scenario line remains active."))}</span>${liveHint || loadingHint ? `<small class="agent-guide-hint">${escapeHtml(liveHint || loadingHint)}</small>` : ""}`;
+    conversationGuideActions.innerHTML = `
+      <span>${escapeHtml(liveQuestion || (localized ? "选择一个或多个工具介入当前情境线，再按发送确认。" : "Choose one or more tools for the current scenario line, then press Send."))}</span>
+      ${liveHint || loadingHint ? `<small class="agent-guide-hint">${escapeHtml(liveHint || loadingHint)}</small>` : ""}
+      ${renderQuickOptions(quickOptions)}
+    `;
   } else if (stage === "choose_future" && workflow?.branch_node_ids?.length) {
     // Legacy workflow snapshots retain their historical guide identifier.
     conversationGuideActions.innerHTML = `
@@ -1734,7 +1816,7 @@ function renderConversationGuide(session) {
     button.addEventListener("click", () => runUiAction(() => selectWorkflowBranch(button.dataset.guideWorkflowId, button.dataset.guideBranchId)));
   });
   conversationGuideActions.querySelectorAll("[data-quick-action]").forEach((button) => {
-    button.addEventListener("click", () => runUiAction(() => handleQuickInput(button.dataset.quickAction, button.dataset.quickBody)));
+    button.addEventListener("click", () => handleQuickInput(button.dataset.quickAction, button.dataset.quickBody, button.dataset.quickLabel));
   });
   if (uiActionInFlight) setUiActionBusy(true);
 }
@@ -1757,6 +1839,8 @@ function renderToolSidebar() {
         ${minimumSelected > selectedCount ? `<p class="tool-sidebar-policy">${escapeHtml(t("toolSidebar.required"))}</p>` : ""}
         ${tools.map((tool) => {
           const assetUrl = toolAssetUrl(tool);
+          const toolLabel = localizedToolCopy(tool, "label");
+          const toolDescription = localizedToolCopy(tool, "description");
           return `
           <button
             class="tool-sidebar-row ${tool.selected ? "selected" : ""} ${recommendedIds.has(tool.id) ? "recommended" : ""}"
@@ -1764,10 +1848,11 @@ function renderToolSidebar() {
             data-sidebar-modify-id="${escapeHtml(node.id)}"
             data-sidebar-tool-id="${escapeHtml(tool.id)}"
             data-card-kind="${escapeHtml(tool.presentation?.card_kind || "tool")}"
-            title="${escapeHtml(localizedToolCopy(tool, "description"))}"
+            title="${escapeHtml(toolLabel)}"
+            aria-label="${escapeHtml(toolDescription ? `${toolLabel}: ${toolDescription}` : toolLabel)}"
           >${assetUrl
     ? `<img class="tool-sidebar-asset" src="${escapeHtml(assetUrl)}" alt="" aria-hidden="true" />`
-    : `<span class="tool-card-mark" aria-hidden="true"></span>`}<span>${escapeHtml(localizedToolCopy(tool, "label"))}</span>${recommendedIds.has(tool.id) ? `<small>${escapeHtml(t("toolSidebar.recommended"))}</small>` : ""}</button>
+    : `<span class="tool-card-mark" aria-hidden="true"></span>`}${recommendedIds.has(tool.id) ? `<small>${escapeHtml(t("toolSidebar.recommended"))}</small>` : ""}</button>
         `;
         }).join("")}
       </section>
@@ -1908,8 +1993,41 @@ function closeCanvasFocus() {
 async function submitConversationMessage(event) {
   event.preventDefault();
   const session = activeSession();
-  const body = conversationInput.value.trim();
-  if (!activeProject || !session || !body) return;
+  const typedBody = conversationInput.value.trim();
+  const selectedOptions = selectedQuickInputs(session);
+  if (!activeProject || !session || (!typedBody && !selectedOptions.length)) return;
+  const selectedActions = new Set(selectedOptions.map((option) => option.action));
+  if (selectedActions.has("run_four_futures")) {
+    clearQuickInputs(session);
+    await runWorkflowOperation();
+    return;
+  }
+  if (selectedActions.has("confirm_keywords")) {
+    clearQuickInputs(session);
+    await advanceConversationGuide({ action: "confirm_keywords" });
+    return;
+  }
+  if (selectedActions.has("select_branch")) {
+    const workflow = activeWorkflow();
+    const selectedBranch = selectedOptions.find((option) => option.action === "select_branch" && option.body);
+    clearQuickInputs(session);
+    if (workflow?.id && selectedBranch?.body) await selectWorkflowBranch(workflow.id, selectedBranch.body);
+    return;
+  }
+  if (selectedActions.has("tool_select")) {
+    const toolIds = selectedOptions.filter((option) => option.action === "tool_select").map((option) => option.body).filter(Boolean);
+    clearQuickInputs(session);
+    await applySelectedDiscussionTools(toolIds);
+    return;
+  }
+  if (selectedActions.has("run_scenario")) {
+    clearQuickInputs(session);
+    await runSelectedDiscussionNode();
+    return;
+  }
+  const selectedBody = selectedOptions.map((option) => option.body || option.label).filter(Boolean).join("\n");
+  const body = [typedBody, selectedBody].filter(Boolean).join("\n").trim();
+  if (!body) return;
   const stage = session.guide?.stage_id || "";
   const isGuidedEntry = stage === "start" || ["frame_focus", "frame_assumptions", "frame_stakeholders", "frame_tensions"].includes(stage);
   const payload = isGuidedEntry
@@ -1920,36 +2038,15 @@ async function submitConversationMessage(event) {
     body: JSON.stringify(withExpectedRevision(payload)),
   });
   conversationInput.value = "";
+  clearQuickInputs(session);
   await loadCanvas();
 }
 
-async function handleQuickInput(action, body = "") {
+function handleQuickInput(action, body = "", label = "") {
   const session = activeSession();
   if (!session) return;
-  if (action === "draft") {
-    const stage = session.guide?.stage_id || "";
-    if (body) {
-      await advanceConversationGuide({ action: stage === "start" ? "begin" : "answer", body, input_perspective: conversationPerspective });
-    }
-    return;
-  }
-  if (action === "begin") {
-    if (!body) return;
-    await advanceConversationGuide({ action: "begin", body, input_perspective: conversationPerspective });
-    return;
-  }
-  if (action === "answer") {
-    if (!body) return;
-    await advanceConversationGuide({ action: "answer", body, input_perspective: conversationPerspective });
-    return;
-  }
-  if (action === "confirm_keywords") {
-    await advanceConversationGuide({ action: "confirm_keywords" });
-    return;
-  }
-  if (action === "run_four_futures") {
-    await runWorkflowOperation();
-  }
+  toggleQuickInputSelection({ action, body, label: label || body || action });
+  renderConversationGuide(session);
 }
 
 async function advanceConversationGuide(payload) {
@@ -1977,6 +2074,34 @@ async function runWorkflowOperation() {
     setStatus(canvasStatus, "error");
     canvasOutput.textContent = error.message;
   }
+}
+
+async function applySelectedDiscussionTools(toolIds) {
+  const workflow = activeWorkflow();
+  const discussion = findNode(workflow?.discussion_node_id);
+  const selectedToolIds = new Set(toolIds || []);
+  if (!activeProject || !discussion || !selectedToolIds.size) return;
+  const tools = (discussion.config?.tools || []).map((tool) =>
+    selectedToolIds.has(tool.id) ? { ...tool, selected: true } : tool,
+  );
+  await requestJson(`/api/projects/${activeProject.id}/nodes/${discussion.id}`, {
+    method: "PATCH",
+    body: JSON.stringify(withExpectedRevision({ config: { tools }, session_id: activeSessionId })),
+  });
+  await loadCanvas({ preserveView: false });
+}
+
+async function runSelectedDiscussionNode() {
+  const workflow = activeWorkflow();
+  const discussion = findNode(workflow?.discussion_node_id);
+  if (!activeProject || !discussion) return;
+  setStatus(canvasStatus, "running");
+  await requestJson(`/api/projects/${activeProject.id}/nodes/${discussion.id}/run`, {
+    method: "POST",
+    body: JSON.stringify(withExpectedRevision({ session_id: activeSessionId })),
+    requiresApiKey: true,
+  });
+  await loadCanvas({ preserveView: false });
 }
 
 async function resolveCommand(commandId, resolution) {

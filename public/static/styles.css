@@ -6987,3 +6987,156 @@ body {
   cursor: wait;
   opacity: 0.68;
 }
+
+.canvas-shell.active .quick-input-options button.is-selected,
+.canvas-shell.active .quick-input-options button[aria-pressed="true"] {
+  border-color: #f02a0c;
+  background: rgba(240, 42, 12, 0.1);
+  color: #15191d;
+}
+
+.canvas-shell.active .quick-selected-mark {
+  display: inline-block;
+  margin-right: 6px;
+  border-radius: 999px;
+  padding: 1px 5px;
+  background: #f02a0c;
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.canvas-shell.active .quick-confirm-hint {
+  grid-column: 1 / -1;
+  color: #737980;
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+
+.canvas-shell.active .stage-branch-choices header {
+  display: grid;
+  gap: 3px;
+}
+
+.canvas-shell.active .stage-branch-choices header small {
+  color: #737980;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.canvas-shell.active .stage-card-track > .stage-branch-card {
+  flex-basis: min(260px, 92%);
+  min-height: 260px;
+}
+
+.canvas-shell.active .stage-branch-card {
+  grid-template-rows: 86px auto auto minmax(54px, 1fr) auto auto;
+}
+
+.canvas-shell.active .stage-branch-visual {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  height: 86px;
+  border: 1px solid rgba(20, 24, 28, 0.12);
+  border-radius: 7px;
+  background:
+    linear-gradient(135deg, rgba(240, 42, 12, 0.12), rgba(255, 255, 255, 0.82)),
+    repeating-linear-gradient(90deg, rgba(20, 24, 28, 0.06) 0 1px, transparent 1px 18px);
+}
+
+.canvas-shell.active .stage-branch-visual i,
+.canvas-shell.active .stage-branch-visual b,
+.canvas-shell.active .stage-branch-visual em {
+  position: absolute;
+  display: block;
+  border: 2px solid #15191d;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.canvas-shell.active .stage-branch-visual i {
+  left: 14px;
+  top: 18px;
+  width: 42px;
+  height: 34px;
+  border-radius: 5px;
+}
+
+.canvas-shell.active .stage-branch-visual b {
+  right: 16px;
+  top: 16px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+}
+
+.canvas-shell.active .stage-branch-visual em {
+  left: 72px;
+  bottom: 16px;
+  width: 72px;
+  height: 16px;
+  border-radius: 999px;
+}
+
+.canvas-shell.active .stage-branch-card[data-branch-strategy="collapse"] .stage-branch-visual {
+  background:
+    linear-gradient(135deg, rgba(21, 25, 29, 0.22), rgba(255, 255, 255, 0.86)),
+    repeating-linear-gradient(-45deg, rgba(240, 42, 12, 0.16) 0 2px, transparent 2px 14px);
+}
+
+.canvas-shell.active .stage-branch-card[data-branch-strategy="discipline"] .stage-branch-visual {
+  background:
+    linear-gradient(135deg, rgba(30, 64, 175, 0.13), rgba(255, 255, 255, 0.86)),
+    repeating-linear-gradient(0deg, rgba(20, 24, 28, 0.06) 0 1px, transparent 1px 14px);
+}
+
+.canvas-shell.active .stage-branch-card[data-branch-strategy="transformation"] .stage-branch-visual {
+  background:
+    linear-gradient(135deg, rgba(15, 118, 110, 0.16), rgba(255, 255, 255, 0.86)),
+    radial-gradient(circle at 78% 24%, rgba(240, 42, 12, 0.18), transparent 26%);
+}
+
+.canvas-shell.active .stage-branch-card p {
+  margin: 0;
+  color: #15191d;
+  font-size: 11.5px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.canvas-shell.active .stage-branch-meta,
+.canvas-shell.active .stage-branch-visual-brief {
+  display: block;
+  overflow: hidden;
+  color: #5f666c;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.canvas-shell.active .stage-branch-meta {
+  color: #e12a11;
+  font-weight: 800;
+}
+
+.canvas-shell.active .conversation-workbench .tool-sidebar-list {
+  grid-auto-rows: 78px;
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+}
+
+.canvas-shell.active .conversation-workbench .tool-sidebar-row {
+  min-height: 78px;
+  grid-template-rows: 1fr;
+  padding: 9px;
+}
+
+.canvas-shell.active .conversation-workbench .tool-sidebar-row > span:last-child {
+  display: none;
+}
+
+.canvas-shell.active .conversation-workbench .tool-sidebar-row .tool-card-mark,
+.canvas-shell.active .conversation-workbench .tool-sidebar-asset {
+  grid-row: 1;
+  width: 48px;
+  height: 48px;
+}
