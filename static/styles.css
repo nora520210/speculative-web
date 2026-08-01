@@ -6100,3 +6100,233 @@ textarea:focus-visible {
   object-fit: contain;
   object-position: center;
 }
+
+/* Reference UI palette: dark chrome, pale work surfaces, orange-red active
+   controls. This stays at the end so it recolors the shell without touching
+   graph node structure or interaction logic. */
+:root {
+  --bg: #f7f8f8;
+  --ink: #111517;
+  --muted: #6f7478;
+  --line: #d7dcdf;
+  --soft-line: #e4e8ea;
+  --faint: #f2f4f5;
+  --chrome-bg: #2f3437;
+  --chrome-sidebar: #111619;
+  --chrome-surface: #f7f8f8;
+  --chrome-hover: #eceff1;
+  --chrome-selected: #f02a0c;
+  --chrome-selected-ink: #ffffff;
+  --chrome-border: #d7dcdf;
+  --chrome-input: #ffffff;
+  --chrome-focus: #f02a0c;
+  --chrome-accent: #f02a0c;
+  --chrome-accent-soft: #fff1ed;
+  --chrome-card: #f1f3f4;
+}
+
+:root[data-theme="dark"] {
+  --bg: #f7f8f8;
+  --ink: #111517;
+  --muted: #6f7478;
+  --line: #d7dcdf;
+  --soft-line: #e4e8ea;
+  --faint: #f2f4f5;
+  --chrome-bg: #0d1114;
+  --chrome-sidebar: #0d1114;
+  --chrome-surface: #f7f8f8;
+  --chrome-hover: #eceff1;
+  --chrome-selected: #ff3a18;
+  --chrome-selected-ink: #ffffff;
+  --chrome-border: #d7dcdf;
+  --chrome-input: #ffffff;
+  --chrome-focus: #ff3a18;
+  --chrome-accent: #ff3a18;
+  --chrome-accent-soft: #fff1ed;
+  --chrome-card: #f1f3f4;
+}
+
+body {
+  background: var(--chrome-bg);
+}
+
+.canvas-shell.active {
+  background:
+    linear-gradient(180deg, #0d1114 0, #11171a 58px, var(--chrome-bg) 58px);
+}
+
+.canvas-shell.active .canvas-bar {
+  min-height: 58px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: #0d1114;
+  color: #ffffff;
+}
+
+.canvas-shell.active .canvas-bar .eyebrow,
+.canvas-shell.active .canvas-bar .file-name,
+.canvas-shell.active .canvas-bar .zoom-level {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.canvas-shell.active #canvas-title {
+  color: #ffffff;
+}
+
+.canvas-shell.active #back-home,
+.canvas-shell.active .top-actions > button,
+.canvas-shell.active .document-form button,
+.canvas-shell.active .file-control {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.canvas-shell.active #back-home:hover,
+.canvas-shell.active #back-home:focus-visible,
+.canvas-shell.active .top-actions > button:hover,
+.canvas-shell.active .top-actions > button:focus-visible,
+.canvas-shell.active .document-form button:hover,
+.canvas-shell.active .document-form button:focus-visible,
+.canvas-shell.active .file-control:hover,
+.canvas-shell.active .file-control:focus-within {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+
+.canvas-shell.active .canvas-delete {
+  border-color: transparent;
+  background: var(--chrome-selected);
+  color: #ffffff;
+}
+
+.canvas-shell.active .workspace-layout {
+  background: var(--chrome-bg);
+}
+
+.canvas-shell.active .workspace-main {
+  background: var(--chrome-bg);
+}
+
+.canvas-shell.active .workflow-panel,
+.canvas-shell.active .overview-panel,
+.canvas-shell.active .conversation-dock {
+  border-color: rgba(17, 21, 23, 0.18);
+  border-radius: 8px;
+  background: var(--chrome-surface);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.68) inset;
+}
+
+.canvas-shell.active .workflow-panel,
+.canvas-shell.active .overview-panel {
+  background:
+    radial-gradient(circle at 20% 12%, rgba(255, 255, 255, 0.9), transparent 30%),
+    var(--chrome-surface);
+}
+
+.canvas-shell.active .workflow-panel-header .eyebrow,
+.canvas-shell.active .overview-panel .eyebrow,
+.canvas-shell.active .conversation-dock .eyebrow {
+  color: var(--chrome-selected);
+  font-weight: 700;
+}
+
+.canvas-shell.active .workflow-card,
+.foundation-start-card {
+  border-color: var(--chrome-border);
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.canvas-shell.active .workflow-card.active,
+.canvas-shell.active .workflow-card.in-scope,
+.foundation-start-card.is-current {
+  border-color: transparent;
+  background: linear-gradient(180deg, #ff3d1a 0%, #e82107 100%);
+  color: #ffffff;
+}
+
+.canvas-shell.active .workflow-card.active *,
+.canvas-shell.active .workflow-card.in-scope *,
+.foundation-start-card.is-current * {
+  color: #ffffff;
+}
+
+.canvas-shell.active .workflow-card-index,
+.canvas-shell.active .stage-index {
+  border-color: rgba(17, 21, 23, 0.12);
+  background: #111517;
+  color: #ffffff;
+}
+
+.canvas-shell.active .workflow-card.active .workflow-card-index,
+.canvas-shell.active .workflow-card.in-scope .workflow-card-index,
+.foundation-start-card.is-current .stage-index {
+  background: #ffffff;
+  color: var(--chrome-selected);
+}
+
+.foundation-start-fields span {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.foundation-start-card:not(.is-current) .foundation-start-fields span {
+  border-color: var(--chrome-border);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.canvas-shell.active .conversation-guide-actions {
+  background: rgba(255, 255, 255, 0.46);
+  color: var(--muted);
+}
+
+.canvas-shell.active .conversation-guide-actions button,
+.canvas-shell.active .quick-input-options button {
+  min-height: 24px;
+  border: 1px solid var(--chrome-border);
+  border-radius: 5px;
+  background: #ffffff;
+  color: #555b5f;
+}
+
+.canvas-shell.active .conversation-guide-actions button:hover,
+.canvas-shell.active .conversation-guide-actions button:focus-visible,
+.canvas-shell.active .quick-input-options button:hover,
+.canvas-shell.active .quick-input-options button:focus-visible {
+  border-color: var(--chrome-selected);
+  background: var(--chrome-accent-soft);
+  color: var(--chrome-selected);
+}
+
+.canvas-shell.active .conversation-dock .conversation-message.assistant {
+  border-left-color: var(--chrome-selected);
+}
+
+.canvas-shell.active .conversation-dock .message-role {
+  color: var(--chrome-selected);
+}
+
+.canvas-shell.active .conversation-perspective {
+  border-color: var(--chrome-border);
+  background: #ffffff;
+}
+
+.canvas-shell.active .conversation-perspective button {
+  color: #15191c;
+  background: transparent;
+}
+
+.canvas-shell.active .conversation-perspective button.active,
+.canvas-shell.active .conversation-perspective button[aria-pressed="true"] {
+  background: var(--chrome-selected);
+  color: #ffffff;
+}
+
+.canvas-shell.active .conversation-dock .conversation-form textarea {
+  border-color: var(--chrome-border);
+  background: #ffffff;
+}
+
+.canvas-shell.active .conversation-dock .conversation-form button {
+  background: var(--chrome-selected);
+  color: #ffffff;
+}
