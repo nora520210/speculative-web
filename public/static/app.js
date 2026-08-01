@@ -85,6 +85,8 @@ let zoom = 1;
 let spacePressed = false;
 let tabApiKey = "";
 let conversationPerspective = "research";
+const agentGuideCache = new Map();
+const agentGuideInFlight = new Set();
 let modelAccess = {
   openaiApiKeyConfigured: false,
   openaiRunsEnabled: true,
@@ -1519,6 +1521,88 @@ function renderQuickOptions(options) {
   </div>`;
 }
 
+function agentGuideRequestKey(session, stage, workflow) {
+  const brief = activeWorkflowBrief(workflow);
+  return JSON.stringify({
+    project: activeProject?.id || "",
+    session: session?.id || "",
+    stage,
+    pending: session?.guide?.pending_field || "",
+    workflow: workflow?.id || "",
+    revision: activeInteraction?.revision ?? activeCanvas?.revision ?? 0,
+    locale,
+    topic: brief.topic || "",
+  });
+}
+
+function agentGuidePayload(session, stage, workflow) {
+  const guide = session?.guide || {};
+  const brief = activeWorkflowBrief(workflow);
+  const branchTitles = (workflow?.branch_node_ids || []).map((nodeId) => {
+    const node = findNode(nodeId);
+    const branch = node?.payload?.scenario_branch || {};
+    return localizedReferenceTitle(branch.strategy_label || branch.what_if || node?.title || "");
+  }).filter(Boolean);
+  return {
+    stage,
+    pending_field: guide.pending_field || "",
+    start_mode: guide.start_mode || conversationPerspective,
+    locale,
+    brief,
+    topic: brief.topic || "",
+    workflow_status: workflow?.status || "",
+    has_branches: Boolean(workflow?.branch_node_ids?.length),
+    branch_titles: branchTitles,
+    selected_branch: localizedReferenceTitle(findNode(workflow?.selected_branch_node_id)?.title || ""),
+    history: (session?.messages || []).slice(-8).map((message) => ({
+      role: message.role,
+      body: message.body,
+      kind: message.kind,
+    })),
+  };
+}
+
+function agentOptionAction(stage, option) {
+  const text = String(option || "");
+  if (stage === "start") return "draft";
+  if (["frame_focus", "frame_assumptions", "frame_stakeholders", "frame_tensions"].includes(stage)) return "answer";
+  if (stage === "keywords") {
+    return /确认|进入|what-if|what if|unlock|confirm/i.test(text) ? "confirm_keywords" : "draft";
+  }
+  if (stage === "four_futures") {
+    return /生成|四条|what-if|what if|growth|collapse|balance|transformation/i.test(text) ? "run_four_futures" : "draft";
+  }
+  return "draft";
+}
+
+function agentQuickOptions(stage, fallbackOptions, agentGuide) {
+  const options = Array.isArray(agentGuide?.options) ? agentGuide.options.filter(Boolean).slice(0, 5) : [];
+  if (!options.length) return fallbackOptions;
+  return options.map((option) => {
+    const label = String(option).trim();
+    const action = agentOptionAction(stage, label);
+    return quickButton(label, action === "draft" || action === "answer" ? label : "", action);
+  });
+}
+
+function requestAgentGuide(session, stage, workflow, key) {
+  if (!activeProject || !session?.id || agentGuideCache.has(key) || agentGuideInFlight.has(key)) return;
+  agentGuideInFlight.add(key);
+  requestJson(`/api/projects/${activeProject.id}/conversations/${session.id}/agent-guide`, {
+    method: "POST",
+    body: JSON.stringify(agentGuidePayload(session, stage, workflow)),
+    requiresApiKey: true,
+  }).then((payload) => {
+    agentGuideCache.set(key, payload);
+  }).catch((error) => {
+    agentGuideCache.set(key, { usedFallback: true, error: error.message });
+  }).finally(() => {
+    agentGuideInFlight.delete(key);
+    const currentSession = activeSession();
+    if (currentSession?.id === session.id) renderConversationGuide(currentSession);
+  });
+}
+
 function renderConversationGuide(session) {
   if (!conversationGuideActions) return;
   const guide = session?.guide;
@@ -1529,39 +1613,53 @@ function renderConversationGuide(session) {
   const workflow = (activeInteraction?.workflow_instances || []).find((item) => item.id === guide.workflow_instance_id);
   const stage = guide.stage_id || "start";
   const localized = locale === "zh";
-  const quickOptions = localizedQuickOptions(stage, guide, workflow);
+  const fallbackOptions = localizedQuickOptions(stage, guide, workflow);
+  const agentKey = agentGuideRequestKey(session, stage, workflow);
+  const liveGuide = agentGuideCache.get(agentKey);
+  const agentLoading = agentGuideInFlight.has(agentKey) || !agentGuideCache.has(agentKey);
+  const quickOptions = agentQuickOptions(stage, fallbackOptions, liveGuide);
+  const liveQuestion = liveGuide?.question ? String(liveGuide.question) : "";
+  const liveHint = liveGuide?.hint ? String(liveGuide.hint) : "";
+  const loadingHint = agentLoading ? (localized ? "AI 正在根据当前材料生成追问..." : "AI is generating a contextual prompt...") : "";
+  requestAgentGuide(session, stage, workflow, agentKey);
   if (stage === "start") {
     conversationGuideActions.innerHTML = `
-      <span>${escapeHtml(localized ? "当前步骤：研究议题。先选择输入视角，再描述一个可讨论的起点。" : "Current step: research issue. Choose a perspective, then describe a discussable starting point.")}</span>
+      <span>${escapeHtml(liveQuestion || (localized ? "当前步骤：研究议题。先选择输入视角，再描述一个可讨论的起点。" : "Current step: research issue. Choose a perspective, then describe a discussable starting point."))}</span>
+      ${liveHint || loadingHint ? `<small class="agent-guide-hint">${escapeHtml(liveHint || loadingHint)}</small>` : ""}
       ${renderQuickOptions(quickOptions)}
     `;
   } else if (["frame_focus", "frame_assumptions", "frame_stakeholders", "frame_tensions"].includes(stage)) {
     conversationGuideActions.innerHTML = `
-      <span>${escapeHtml(localized ? "AI 主持人正在推动补充：" : "The AI host is prompting the next detail:")}</span>
+      <span>${escapeHtml(liveQuestion || (localized ? "AI 主持人正在推动补充：" : "The AI host is prompting the next detail:"))}</span>
+      ${liveHint || loadingHint ? `<small class="agent-guide-hint">${escapeHtml(liveHint || loadingHint)}</small>` : ""}
       ${renderQuickOptions(quickOptions)}
       <button class="quiet-guide-action" type="button" data-guide-action="skip">${localized ? "跳过这一步" : "Skip this step"}</button>
     `;
   } else if (stage === "keywords") {
     conversationGuideActions.innerHTML = `
-      <span>${escapeHtml(localized ? "关键词、默认假设和利益相关者已汇合；确认后进入 What-if。" : "Keywords, assumptions, and stakeholders have converged; confirm to enter What-if.")}</span>
+      <span>${escapeHtml(liveQuestion || (localized ? "关键词、默认假设和利益相关者已汇合；确认后进入 What-if。" : "Keywords, assumptions, and stakeholders have converged; confirm to enter What-if."))}</span>
+      ${liveHint || loadingHint ? `<small class="agent-guide-hint">${escapeHtml(liveHint || loadingHint)}</small>` : ""}
       ${renderQuickOptions(quickOptions)}
     `;
   } else if (stage === "four_futures" && workflow?.branch_node_ids?.length && workflow?.status === "awaiting_selection") {
     conversationGuideActions.innerHTML = `
-      <span>${localized ? "从四个方向中仅选择一个：" : "Choose exactly one of the four directions:"}</span>
+      <span>${escapeHtml(liveQuestion || (localized ? "从四个方向中仅选择一个：" : "Choose exactly one of the four directions:"))}</span>
+      ${liveHint || loadingHint ? `<small class="agent-guide-hint">${escapeHtml(liveHint || loadingHint)}</small>` : ""}
       ${workflow.branch_node_ids.map((nodeId) => `<button type="button" data-guide-branch-id="${escapeHtml(nodeId)}" data-guide-workflow-id="${escapeHtml(workflow.id)}">${escapeHtml(localizedReferenceTitle(findNode(nodeId)?.title || (localized ? "未来方向" : "Future direction")))}</button>`).join("")}
     `;
   } else if (stage === "four_futures") {
     conversationGuideActions.innerHTML = `
-      <span>${escapeHtml(localized ? "下一步：生成增长、崩溃、平衡、转变四条 What-if 线路。" : "Next: generate growth, collapse, balance, and transformation What-if lines.")}</span>
+      <span>${escapeHtml(liveQuestion || (localized ? "下一步：生成增长、崩溃、平衡、转变四条 What-if 线路。" : "Next: generate growth, collapse, balance, and transformation What-if lines."))}</span>
+      ${liveHint || loadingHint ? `<small class="agent-guide-hint">${escapeHtml(liveHint || loadingHint)}</small>` : ""}
       ${renderQuickOptions(quickOptions)}
     `;
   } else if (stage === "tools") {
-    conversationGuideActions.innerHTML = `<span>${localized ? "在左侧选择工具；你可以调整后重复生成，系统只保留当前一条有效情境线。" : "Choose tools in the left rail. You can revise and run again; only one current scenario line remains active."}</span>`;
+    conversationGuideActions.innerHTML = `<span>${escapeHtml(liveQuestion || (localized ? "在右侧工具栏选择工具；你可以调整后重复生成，系统只保留当前一条有效情境线。" : "Choose tools in the right rail. You can revise and run again; only one current scenario line remains active."))}</span>${liveHint || loadingHint ? `<small class="agent-guide-hint">${escapeHtml(liveHint || loadingHint)}</small>` : ""}`;
   } else if (stage === "choose_future" && workflow?.branch_node_ids?.length) {
     // Legacy workflow snapshots retain their historical guide identifier.
     conversationGuideActions.innerHTML = `
-      <span>${localized ? "选择一个方向进入讨论：" : "Choose a direction to discuss:"}</span>
+      <span>${escapeHtml(liveQuestion || (localized ? "选择一个方向进入讨论：" : "Choose a direction to discuss:"))}</span>
+      ${liveHint || loadingHint ? `<small class="agent-guide-hint">${escapeHtml(liveHint || loadingHint)}</small>` : ""}
       ${workflow.branch_node_ids.map((nodeId) => `<button type="button" data-guide-branch-id="${escapeHtml(nodeId)}" data-guide-workflow-id="${escapeHtml(workflow.id)}">${escapeHtml(localizedReferenceTitle(findNode(nodeId)?.title || (localized ? "未来方向" : "Future direction")))}</button>`).join("")}
     `;
   } else if (stage === "stale") {

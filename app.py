@@ -22,6 +22,7 @@ from server.config import (
     user_api_key_required,
 )
 from server.documents import inspect_document
+from server.agent_guide import generate_agent_guide
 from server.graph_store import (
     add_edge,
     add_command_proposal,
@@ -307,6 +308,15 @@ class AppHandler(SimpleHTTPRequestHandler):
                 except (KeyError, ValueError) as exc:
                     self.send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
                     return
+                self.send_json(result)
+                return
+
+            if len(action) == 3 and action[0] == "conversations" and action[2] == "agent-guide":
+                payload = self.read_json_body()
+                if not get_project(project_id):
+                    self.send_json({"error": "Project not found."}, status=HTTPStatus.NOT_FOUND)
+                    return
+                result = generate_agent_guide(payload, api_key=self.user_api_key() or None)
                 self.send_json(result)
                 return
 

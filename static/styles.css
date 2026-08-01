@@ -6839,3 +6839,11 @@ body {
     cursor: help;
   }
 }
+
+.canvas-shell.active .agent-guide-hint {
+  display: block;
+  max-width: 40em;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}

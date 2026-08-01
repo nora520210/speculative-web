@@ -109,6 +109,18 @@ def main() -> int:
         guided_interaction = fetch_json(f"http://127.0.0.1:{port}/api/projects/{guided_project_id}/interaction").get("interaction", {})
         guided_session = (guided_interaction.get("conversation_sessions") or [{}])[0]
         session_id = guided_session.get("id")
+        agent_guide = post_json(
+            f"http://127.0.0.1:{port}/api/projects/{guided_project_id}/conversations/{session_id}/agent-guide",
+            {
+                "stage": "start",
+                "start_mode": "research",
+                "brief": {"topic": "Guided smoke inquiry"},
+                "history": [],
+            },
+        )
+        if not agent_guide.get("question") or not agent_guide.get("options"):
+            print("agent guide endpoint failed")
+            return 1
         guide_url = f"http://127.0.0.1:{port}/api/projects/{guided_project_id}/conversations/{session_id}/guide-actions"
         post_json(guide_url, {"action": "begin", "body": "Guided smoke inquiry"})
         post_json(guide_url, {"action": "answer", "body": "A focused question"})
