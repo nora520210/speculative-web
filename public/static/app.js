@@ -120,40 +120,6 @@ const translations = {
     "common.document": "document",
     "common.semanticImage": "semantic image",
     "common.generatedImage": "Generated speculative image",
-    "toolbar.library": "Library",
-    "toolbar.fullView": "Full view",
-    "toolbar.organize": "Organize",
-    "toolbar.example": "Example",
-    "toolbar.materials": "Materials",
-    "toolbar.import": "Import",
-    "toolbar.reset": "Reset",
-    "workflow.currentStep": "Current step",
-    "framework.eyebrow": "01 / Framework",
-    "framework.title": "Fill and visualize",
-    "framework.researchQuestion": "Research question",
-    "framework.keywords": "Keywords",
-    "framework.whatIf": "What-if",
-    "framework.tools": "Toolkit",
-    "framework.scenario": "Scenario",
-    "framework.pending": "Pending",
-    "framework.questionPrompt": "Define a question with room for discussion",
-    "framework.keywordsPrompt": "Technical conditions, affected actors, default assumptions",
-    "framework.whatIfPrompt": "Growth, collapse, discipline, transformation",
-    "framework.toolsPrompt": "Choose methods recommended by AI",
-    "framework.scenarioPrompt": "Conflicts, roles, scenes, visual tone",
-    "process.eyebrow": "02 / Process nodes",
-    "process.title": "Conversation process nodes",
-    "process.modify": "Question / revise",
-    "process.research": "Research question",
-    "process.keyword": "Keywords",
-    "process.assumption": "Default assumptions",
-    "process.stakeholders": "Stakeholders",
-    "process.whatIf": "What-if",
-    "process.growth": "Growth",
-    "process.collapse": "Collapse",
-    "process.discipline": "Discipline",
-    "process.transform": "Transform",
-    "toolSidebar.applyHint": "Apply to current node",
     "nodes.text": "Text",
     "nodes.conversation": "Conversation",
     "nodes.upload": "Upload",
@@ -380,40 +346,6 @@ const translations = {
     "common.document": "文档",
     "common.semanticImage": "语义图像",
     "common.generatedImage": "生成的思辨图像",
-    "toolbar.library": "材料库",
-    "toolbar.fullView": "全览",
-    "toolbar.organize": "整理",
-    "toolbar.example": "示例",
-    "toolbar.materials": "材料",
-    "toolbar.import": "导入",
-    "toolbar.reset": "重置",
-    "workflow.currentStep": "当前步骤",
-    "framework.eyebrow": "01 / Framework",
-    "framework.title": "填写内容可视化",
-    "framework.researchQuestion": "研究议题",
-    "framework.keywords": "关键词",
-    "framework.whatIf": "What-if",
-    "framework.tools": "小工具",
-    "framework.scenario": "情境生成",
-    "framework.pending": "待补充",
-    "framework.questionPrompt": "确立一个仍有讨论空间的议题",
-    "framework.keywordsPrompt": "技术条件、影响对象、默认假设",
-    "framework.whatIfPrompt": "增长、崩溃、平衡、转变四条方向",
-    "framework.toolsPrompt": "选择或等待 AI 推荐工具",
-    "framework.scenarioPrompt": "主要冲突、角色、场景、视觉隐喻",
-    "process.eyebrow": "02 / Process nodes",
-    "process.title": "对话过程节点",
-    "process.modify": "追问 / 修正",
-    "process.research": "研究议题",
-    "process.keyword": "关键词",
-    "process.assumption": "默认假设",
-    "process.stakeholders": "利益相关者",
-    "process.whatIf": "What-if",
-    "process.growth": "增长",
-    "process.collapse": "崩溃",
-    "process.discipline": "平衡",
-    "process.transform": "转变",
-    "toolSidebar.applyHint": "应用到当前节点",
     "nodes.text": "文本",
     "nodes.conversation": "对话",
     "nodes.upload": "上传",
@@ -1268,118 +1200,66 @@ function renderStagePresentation(stages) {
     renderFoundationEntryCard();
     return;
   }
-  const cards = frameworkCards(workflow, stages);
-  stagePresentation.innerHTML = `
-    <header class="framework-heading">
-      <div>
-        <p class="eyebrow">${escapeHtml(t("framework.eyebrow"))}</p>
-        <h3>${escapeHtml(t("framework.title"))}</h3>
-      </div>
-      <span>${escapeHtml(activeWorkflowStatus(workflow, stages))}</span>
-    </header>
-    <div class="framework-card-row">
-      ${cards.map((card, index) => `
-        <article class="framework-card ${card.active ? "is-active" : ""} ${card.dark ? "is-dark" : ""}" data-framework-stage="${escapeHtml(card.stageId || "")}">
-          <header>
-            <span class="framework-index">${String(index + 1).padStart(2, "0")}</span>
-            <strong>${escapeHtml(card.title)}</strong>
-          </header>
-          <div class="framework-card-body">
-            ${card.items.length ? `<ul>${card.items.map((item) => `<li><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.value || t("framework.pending"))}</strong></li>`).join("")}</ul>` : ""}
-            ${card.center ? `<div class="framework-center">${card.center}</div>` : ""}
-            <p>${escapeHtml(card.note)}</p>
-          </div>
+  if (!stages.length) {
+    stagePresentation.innerHTML = "";
+    return;
+  }
+  const tools = activeStageTools();
+  const visibleTools = tools.slice(0, 3);
+  const focusedStage = stages.find((stage) => stage.active)
+    || stages.find((stage) => stage.scopeId === activeScopeId)
+    || stages[0];
+  const methodCards = visibleTools.length
+    ? visibleTools.map((tool) => {
+      const presentation = tool.presentation || {};
+      const assetUrl = toolAssetUrl(tool);
+      return `
+        <article class="stage-tool-card ${assetUrl ? "has-graphic" : ""}" data-card-kind="${escapeHtml(presentation.card_kind || "tool")}" data-icon-token="${escapeHtml(presentation.icon_token || tool.id || "tool")}" data-accent-token="${escapeHtml(presentation.accent_token || "neutral")}">
+          ${assetUrl
+    ? `<img class="stage-tool-asset" src="${escapeHtml(assetUrl)}" alt="" aria-hidden="true" />`
+    : `<span class="stage-tool-glyph" aria-hidden="true"><i></i><i></i><i></i></span>`}
+          <span class="stage-tool-copy"><strong>${escapeHtml(localizedToolCopy(tool, "label"))}</strong><small>${escapeHtml(presentation.card_kind || t("stagePresentation.methods"))}</small></span>
         </article>
-      `).join("")}
-    </div>
-  `;
-  stagePresentation.querySelectorAll("[data-framework-stage]").forEach((card) => {
-    card.addEventListener("click", () => {
-      const stage = stages.find((item) => item.id === card.dataset.frameworkStage);
-      if (stage?.scopeId) setActiveScope(stage.scopeId);
-    });
-  });
+      `;
+    }).join("")
+    : `<p class="stage-empty-state">${escapeHtml(t("stagePresentation.noMethods"))}</p>`;
+  const stageBody = (stage) => {
+    if (stage.id === "input") return renderStageInputCards(workflow, stage);
+    if (stage.id === "four_futures") return renderStageBranchChoices(workflow, stage);
+    if (stage.id === "tools") return `<section class="stage-card-track" aria-label="${escapeHtml(t("stagePresentation.methods"))}">
+      ${methodCards}
+      ${tools.length > visibleTools.length ? `<span class="stage-track-more">${escapeHtml(t("stagePresentation.moreMethods", { count: tools.length - visibleTools.length }))}</span>` : ""}
+    </section>
+    <p class="stage-card-note">${escapeHtml(t("workflow.toolsHint"))}</p>`;
+    if (stage.id === "scenario") return renderStageOutputCards();
+    return `<p class="stage-card-note">${escapeHtml(stage.state)}</p>`;
+  };
+  stagePresentation.innerHTML = `<div class="stage-deck" aria-label="${escapeHtml(t("stagePresentation.current"))}">
+    ${stages.map((stage, index) => {
+      const scope = (activeInteraction?.scopes || []).find((item) => item.id === stage.scopeId);
+      const isCurrent = stage === focusedStage;
+      return `<section class="stage-deck-card ${isCurrent ? "is-current" : ""}" data-stage-id="${escapeHtml(stage.id)}">
+        <button class="stage-deck-header" type="button" data-stage-scope="${escapeHtml(stage.scopeId)}" aria-pressed="${isCurrent ? "true" : "false"}">
+          <span class="stage-index">${String(index + 1).padStart(2, "0")}</span>
+          <span class="stage-deck-heading"><strong>${escapeHtml(stage.label)}</strong><small>${escapeHtml(stage.state)}</small></span>
+          ${isCurrent ? `<span class="stage-current-marker">${escapeHtml(t("stagePresentation.current"))}</span>` : ""}
+        </button>
+        <div class="stage-deck-body">
+          ${stageBody(stage)}
+        </div>
+        <footer class="stage-deck-footer"><span>${escapeHtml(t("stagePresentation.scope"))}</span><strong>${escapeHtml(localizedWorkflowScopeLabel(scope, stage.label))}</strong></footer>
+      </section>`;
+    }).join("")}
+  </div>`;
   stagePresentation.querySelectorAll("[data-stage-branch-id]").forEach((button) => {
     button.addEventListener("click", () => selectWorkflowBranch(button.dataset.stageWorkflowId, button.dataset.stageBranchId));
+  });
+  stagePresentation.querySelectorAll("[data-stage-scope]").forEach((button) => {
+    button.addEventListener("click", () => setActiveScope(button.dataset.stageScope));
   });
   stagePresentation.querySelectorAll("[data-open-foundation-input]").forEach((button) => {
     button.addEventListener("click", openFoundationWorkflowDialog);
   });
-}
-
-function activeWorkflowStatus(workflow, stages) {
-  const activeStage = stages.find((stage) => stage.active) || stages[0];
-  if (!workflow) return t("framework.pending");
-  return `${localizedWorkflowStageLabel(workflow, { workflow_stage_id: activeStage?.id, label: activeStage?.label })} · ${activeStage?.state || statusLabel(workflow.status)}`;
-}
-
-function frameworkCards(workflow, stages) {
-  const briefNode = (activeCanvas?.nodes || []).find((node) => node.id === workflow?.source_node_ids?.[0]);
-  const brief = briefNode?.payload?.workflow_brief || {};
-  const keywordNode = (activeCanvas?.nodes || []).find((node) => node.id === workflow?.keyword_node_id);
-  const branchNodes = (workflow?.branch_node_ids || []).map((id) => findNode(id)).filter(Boolean);
-  const selectedTools = activeStageTools();
-  const outputNodes = (activeCanvas?.nodes || []).filter((node) =>
-    node.id === workflow?.active_scenario_node_id || node.payload?.requested_output_type || node.payload?.image_url,
-  );
-  const activeId = (stages.find((stage) => stage.active) || stages[0])?.id || "";
-  const textFor = (value) => Array.isArray(value) ? value.filter(Boolean).join(" / ") : String(value || "");
-  return [
-    {
-      stageId: "input",
-      title: t("framework.researchQuestion"),
-      active: activeId === "input",
-      note: t("framework.questionPrompt"),
-      items: [
-        { label: locale === "zh" ? "当前位置" : "Position", value: brief.start_mode === "design" ? t("workflow.modeDesign") : t("workflow.modeResearch") },
-        { label: t("workflow.topic"), value: brief.topic },
-        { label: t("workflow.focus"), value: brief.research_focus },
-        { label: t("workflow.tensions"), value: textFor(brief.tensions) },
-      ],
-    },
-    {
-      stageId: "input",
-      title: t("framework.keywords"),
-      active: false,
-      dark: true,
-      note: t("framework.keywordsPrompt"),
-      items: [
-        { label: locale === "zh" ? "技术条件" : "Technical conditions", value: textFor(brief.assumptions) || keywordNode?.payload?.text },
-        { label: locale === "zh" ? "影响对象" : "Affected actors", value: textFor(brief.stakeholders) },
-        { label: locale === "zh" ? "核心能力" : "Core capability", value: textFor(brief.assumptions) },
-      ],
-    },
-    {
-      stageId: "four_futures",
-      title: t("framework.whatIf"),
-      active: activeId === "four_futures",
-      note: t("framework.whatIfPrompt"),
-      center: branchNodes.length
-        ? `<div class="framework-branch-stack">${branchNodes.slice(0, 4).map((node) => `<button type="button" data-stage-workflow-id="${escapeHtml(workflow.id)}" data-stage-branch-id="${escapeHtml(node.id)}">${escapeHtml(node.payload?.scenario_branch?.strategy_label || node.title)}</button>`).join("")}</div>`
-        : `<span class="framework-spark" aria-hidden="true">✦</span>`,
-      items: [],
-    },
-    {
-      stageId: "tools",
-      title: t("framework.tools"),
-      active: activeId === "tools",
-      note: t("framework.toolsPrompt"),
-      center: selectedTools.length
-        ? `<div class="framework-tool-mini">${selectedTools.slice(0, 4).map((tool) => `<span>${escapeHtml(localizedToolCopy(tool, "label"))}</span>`).join("")}</div>`
-        : `<span class="framework-tool-icon" aria-hidden="true">⌁</span>`,
-      items: [],
-    },
-    {
-      stageId: "scenario",
-      title: t("framework.scenario"),
-      active: activeId === "scenario",
-      note: t("framework.scenarioPrompt"),
-      center: outputNodes.length
-        ? `<div class="framework-output-preview">${escapeHtml(previewTextForNode(outputNodes[0]))}</div>`
-        : `<span class="framework-image-icon" aria-hidden="true">▧</span>`,
-      items: [],
-    },
-  ];
 }
 
 function renderFoundationEntryCard() {
@@ -1588,40 +1468,47 @@ function renderToolSidebar() {
 
 function renderCanvasPreview() {
   if (!canvasPreviewViewport || !canvasPreviewPlane) return;
+  const graphNodes = activeCanvas?.nodes || [];
   const workflow = activeWorkflow();
-  const selectedBranch = findNode(workflow?.selected_branch_node_id || "");
-  const branchLabel = selectedBranch?.payload?.scenario_branch?.strategy_label || "";
+  const nodesById = new Map(graphNodes.map((node) => [node.id, node]));
+  const layers = workflow
+    ? [
+      (workflow.source_node_ids || []).filter((id) => nodesById.has(id)),
+      [workflow.operation_node_id].filter((id) => nodesById.has(id)),
+      (workflow.branch_node_ids || []).filter((id) => nodesById.has(id)),
+      [workflow.selected_branch_node_id].filter((id) => nodesById.has(id)),
+      [workflow.discussion_node_id].filter((id) => nodesById.has(id)),
+      [workflow.active_scenario_node_id].filter((id) => nodesById.has(id)),
+    ].filter((layer) => layer.length)
+    : previewTreeLayers(graphNodes, activeCanvas?.edges || []);
+  const visibleIds = [...new Set(layers.flat())];
+  const points = new Map();
+  layers.forEach((layer, index) => {
+    layer.forEach((nodeId, itemIndex) => {
+      points.set(nodeId, {
+        x: 18 + ((itemIndex + 1) * 64) / (layer.length + 1),
+        y: 12 + ((index + 1) * 76) / (layers.length + 1),
+      });
+    });
+  });
+  const edges = (activeCanvas?.edges || []).filter((edge) => visibleIds.includes(edge.source_node_id) && visibleIds.includes(edge.target_node_id));
+  const selectedId = workflow?.selected_branch_node_id || "";
+  const activeOutputId = workflow?.active_scenario_node_id || "";
   canvasPreviewPlane.style.width = "100%";
   canvasPreviewPlane.style.height = "100%";
   canvasPreviewPlane.style.transform = "none";
-  canvasPreviewPlane.innerHTML = `
-    <div class="process-map" aria-hidden="true">
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none">
-        <path class="process-line" d="M50 10 C36 17 28 23 28 34" />
-        <path class="process-line" d="M50 10 C50 18 50 24 50 34" />
-        <path class="process-line" d="M50 10 C64 17 72 23 72 34" />
-        <path class="process-line" d="M28 39 C32 49 40 54 50 56" />
-        <path class="process-line" d="M50 39 C50 47 50 51 50 56" />
-        <path class="process-line" d="M72 39 C68 49 60 54 50 56" />
-        <path class="process-line" d="M50 62 C37 66 27 73 22 84" />
-        <path class="process-line" d="M50 62 C43 70 39 76 38 87" />
-        <path class="process-line" d="M50 62 C58 70 62 76 62 87" />
-        <path class="process-line" d="M50 62 C72 69 82 77 84 88" />
-        <path class="process-line process-loop" d="M84 88 C73 98 39 98 30 90 C38 86 45 80 50 62" />
-        <path class="process-line process-dashed" d="M61 58 C76 55 85 52 92 44" />
-      </svg>
-      <span class="process-node process-primary" style="--x:50; --y:10">⚗<small>${escapeHtml(t("process.research"))}</small></span>
-      <span class="process-node" style="--x:28; --y:34">☰<small>${escapeHtml(t("process.keyword"))}</small></span>
-      <span class="process-node" style="--x:50; --y:34">▱<small>${escapeHtml(t("process.assumption"))}</small></span>
-      <span class="process-node" style="--x:72; --y:34">♟<small>${escapeHtml(t("process.stakeholders"))}</small></span>
-      <span class="process-node process-center" style="--x:50; --y:58">✦<small>${escapeHtml(t("process.whatIf"))}</small></span>
-      <span class="process-node process-branch ${branchLabel === "Growth" ? "is-selected" : ""}" style="--x:22; --y:84">↗<small>${escapeHtml(t("process.growth"))}</small></span>
-      <span class="process-node process-branch ${branchLabel === "Collapse" ? "is-selected" : ""}" style="--x:38; --y:87">↘<small>${escapeHtml(t("process.collapse"))}</small></span>
-      <span class="process-node process-branch ${branchLabel === "Discipline" ? "is-selected" : ""}" style="--x:62; --y:87">⚖<small>${escapeHtml(t("process.discipline"))}</small></span>
-      <span class="process-node process-branch ${branchLabel === "Transformation" ? "is-selected" : ""}" style="--x:84; --y:88">⟳<small>${escapeHtml(t("process.transform"))}</small></span>
-      <span class="process-node process-revise" style="--x:50; --y:96">↻<small>${escapeHtml(t("process.modify"))}</small></span>
-    </div>
-  `;
+  canvasPreviewPlane.innerHTML = `<svg class="workflow-tree-preview" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    ${edges.map((edge) => {
+      const start = points.get(edge.source_node_id);
+      const end = points.get(edge.target_node_id);
+      return start && end ? `<path d="M ${start.x} ${start.y} C ${start.x} ${(start.y + end.y) / 2}, ${end.x} ${(start.y + end.y) / 2}, ${end.x} ${end.y}" />` : "";
+    }).join("")}
+    ${visibleIds.map((nodeId) => {
+      const point = points.get(nodeId);
+      const current = nodeId === selectedId || nodeId === activeOutputId;
+      return `<circle class="${current ? "current" : ""}" cx="${point.x}" cy="${point.y}" r="${current ? 2.5 : 1.7}" />`;
+    }).join("")}
+  </svg>`;
 }
 
 function previewTreeLayers(nodes, edges) {
@@ -3188,14 +3075,6 @@ document.querySelectorAll("[data-add-operation-definition]").forEach((button) =>
     title: "",
     config: { definition_ref: { id: button.dataset.addOperationDefinition } },
   }));
-});
-
-document.querySelectorAll("[data-open-canvas-focus]").forEach((button) => {
-  button.addEventListener("click", openCanvasFocus);
-});
-
-document.querySelectorAll("[data-open-foundation-input]").forEach((button) => {
-  button.addEventListener("click", openFoundationWorkflowDialog);
 });
 
 stagePresentation?.addEventListener("click", (event) => {
