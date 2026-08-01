@@ -83,6 +83,11 @@ let contextEdgeId = null;
 let zoom = 1;
 let spacePressed = false;
 let tabApiKey = "";
+let modelAccess = {
+  openaiApiKeyConfigured: false,
+  openaiRunsEnabled: true,
+  userApiKeyRequired: true,
+};
 const conversationHistoryState = new Map();
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 1;
@@ -247,6 +252,7 @@ const translations = {
     "access.invalid": "Enter a valid API key to continue.",
     "access.required": "Enter your API key before running a model operation.",
     "access.active": "A personal API key is active for this tab. It is never saved by this site.",
+    "access.serverActive": "Model service ready.",
     "conversation.eyebrow": "Conversation",
     "conversation.emptyTitle": "Working thread",
     "conversation.inputLabel": "Add to conversation",
@@ -473,6 +479,7 @@ const translations = {
     "access.invalid": "请输入有效的 API Key 后继续。",
     "access.required": "运行模型操作前，请先输入你的 API Key。",
     "access.active": "当前标签页已启用个人 API Key；网站不会保存该 Key。",
+    "access.serverActive": "模型服务已就绪。",
     "conversation.eyebrow": "对话",
     "conversation.emptyTitle": "工作线程",
     "conversation.inputLabel": "添加对话内容",
@@ -770,11 +777,15 @@ function withExpectedRevision(payload) {
 }
 
 function requireTabApiKey() {
-  if (tabApiKey) return true;
+  if (tabApiKey || hasServerModelAccess()) return true;
   apiAccessError.textContent = t("access.required");
   setApiAccessState(true);
   apiAccessKey.focus();
   return false;
+}
+
+function hasServerModelAccess() {
+  return modelAccess.openaiRunsEnabled && modelAccess.openaiApiKeyConfigured && !modelAccess.userApiKeyRequired;
 }
 
 function setApiAccessState(isOpen) {
@@ -964,9 +975,14 @@ function restoreCanvasView(view) {
 async function loadModelStatus() {
   setStatus(modelStatus, "checking");
   const { model } = await requestJson("/api/model/status");
-  if (tabApiKey) {
+  modelAccess = {
+    openaiApiKeyConfigured: Boolean(model.openai_api_key_configured),
+    openaiRunsEnabled: Boolean(model.openai_runs_enabled),
+    userApiKeyRequired: Boolean(model.user_api_key_required),
+  };
+  if (tabApiKey || hasServerModelAccess()) {
     setStatus(modelStatus, "ready");
-    modelOutput.textContent = t("access.active");
+    modelOutput.textContent = tabApiKey ? t("access.active") : t("access.serverActive");
     return;
   }
   setStatus(modelStatus, model.openai_api_key_configured ? "configured" : "offline");
@@ -3133,4 +3149,10 @@ documentForm.addEventListener("submit", async (event) => {
 });
 
 applyLocale(locale);
-setApiAccessState(true);
+loadModelStatus()
+  .then(() => {
+    setApiAccessState(!hasServerModelAccess() && !tabApiKey);
+  })
+  .catch(() => {
+    setApiAccessState(true);
+  });
