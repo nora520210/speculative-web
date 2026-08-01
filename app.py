@@ -9,7 +9,7 @@ import uuid
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl, urlencode, urlparse
 
 from server.config import (
     GENERATED_IMAGE_DIR,
@@ -69,8 +69,22 @@ def ensure_data() -> None:
 class AppHandler(SimpleHTTPRequestHandler):
     server_version = "SpeculativeWeb/0.1"
 
+    def routed_path(self, path: str | None = None) -> str:
+        raw_path = path or self.path
+        parsed = urlparse(raw_path)
+        query_pairs = parse_qsl(parsed.query, keep_blank_values=True)
+        route_path = next((value for key, value in query_pairs if key == "__path"), "")
+        if parsed.path == "/api/index.py" and route_path:
+            normalized_path = route_path if route_path.startswith("/") else f"/{route_path}"
+            forwarded_query = urlencode(
+                [(key, value) for key, value in query_pairs if key != "__path"],
+                doseq=True,
+            )
+            return f"{normalized_path}?{forwarded_query}" if forwarded_query else normalized_path
+        return raw_path
+
     def translate_path(self, path: str) -> str:
-        parsed = urlparse(path)
+        parsed = urlparse(self.routed_path(path))
         clean = parsed.path.lstrip("/")
         if clean.startswith("static/"):
             candidate = (ROOT / clean).resolve()
@@ -101,7 +115,7 @@ class AppHandler(SimpleHTTPRequestHandler):
         return str(STATIC_DIR / "index.html")
 
     def do_GET(self) -> None:
-        parsed = urlparse(self.path)
+        parsed = urlparse(self.routed_path())
         if parsed.path == "/api/health":
             self.send_json(
                 {
@@ -190,7 +204,7 @@ class AppHandler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self) -> None:
-        parsed = urlparse(self.path)
+        parsed = urlparse(self.routed_path())
         if not self.headers.get("Content-Type", "").startswith("multipart/form-data"):
             if self.request_too_large(MAX_JSON_BODY_BYTES):
                 return
@@ -379,7 +393,7 @@ class AppHandler(SimpleHTTPRequestHandler):
         self.send_error(HTTPStatus.NOT_FOUND, "Unknown endpoint")
 
     def do_PATCH(self) -> None:
-        parsed = urlparse(self.path)
+        parsed = urlparse(self.routed_path())
         if self.request_too_large(MAX_JSON_BODY_BYTES):
             return
         route = self.match_project_route(parsed.path)
@@ -445,7 +459,7 @@ class AppHandler(SimpleHTTPRequestHandler):
         self.send_error(HTTPStatus.NOT_FOUND, "Unknown endpoint")
 
     def do_DELETE(self) -> None:
-        parsed = urlparse(self.path)
+        parsed = urlparse(self.routed_path())
         route = self.match_project_route(parsed.path)
         if route and len(route) == 1:
             project_id = route[0]
@@ -696,7 +710,7 @@ class AppHandler(SimpleHTTPRequestHandler):
         # Vercel's catch-all rewrite).  Do not let a browser retain an older
         # HTML shell that still points to a previous versioned app bundle.
         # Static assets remain versioned by their query string in index.html.
-        request_path = urlparse(self.path).path
+        request_path = urlparse(self.routed_path()).path
         is_document_request = not request_path.startswith(("/api/", "/static/", "/generated/", "/uploads/"))
         if is_document_request:
             self.send_header("Cache-Control", "no-store, max-age=0, must-revalidate")
@@ -709,8 +723,8 @@ class AppHandler(SimpleHTTPRequestHandler):
         )
         if self.headers.get("X-Forwarded-Proto") == "https":
             self.send_header("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-        if self.path.startswith("/static/") or self.path.startswith("/generated/"):
-            ctype = mimetypes.guess_type(self.path)[0]
+        if request_path.startswith("/static/") or request_path.startswith("/generated/"):
+            ctype = mimetypes.guess_type(request_path)[0]
             if ctype:
                 self.send_header("Content-Type", ctype)
         super().end_headers()
