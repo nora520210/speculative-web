@@ -51,6 +51,7 @@ const conversationHistoryDialogMessages = document.querySelector("#conversation-
 const conversationHistoryClose = document.querySelector("#conversation-history-close");
 const conversationForm = document.querySelector("#conversation-form");
 const conversationInput = document.querySelector("#conversation-input");
+const conversationPerspectiveButtons = document.querySelectorAll("[data-conversation-perspective]");
 const conversationDock = document.querySelector(".conversation-dock");
 const conversationScopeIndicator = document.querySelector("#conversation-scope-indicator");
 const scopeViewTitle = document.querySelector("#scope-view-title");
@@ -83,6 +84,7 @@ let contextEdgeId = null;
 let zoom = 1;
 let spacePressed = false;
 let tabApiKey = "";
+let conversationPerspective = "research";
 let modelAccess = {
   openaiApiKeyConfigured: false,
   openaiRunsEnabled: true,
@@ -271,6 +273,23 @@ const translations = {
     "conversation.user": "researcher",
     "conversation.assistant": "assistant",
     "conversation.system": "system",
+    "conversation.scientistInput": "Scientist input",
+    "conversation.designerInput": "Designer input",
+    "conversation.quickPrefix": "Quick input option",
+    "conversation.agentIntro": "AI host: describe a research condition or design proposition. I will keep asking who uses it, who is affected, and where uncertainty appears.",
+    "conversation.agentPrompt": "AI host",
+    "conversation.runWhatIf": "Generate four What-if lines",
+    "workflow.card01": "Research issue",
+    "workflow.card02": "Keywords",
+    "workflow.card03": "WHAT-IF",
+    "workflow.card04": "Tools & scenario",
+    "workflow.cardWaiting": "Awaiting conversation",
+    "workflow.cardReady": "Ready to review",
+    "workflow.cardPending": "Waiting for prior step",
+    "workflow.initial01": "Choose Scientist input or Designer input below, then describe the material in one sentence.",
+    "workflow.initial02": "The agent will split the issue into keywords, default assumptions, and stakeholders.",
+    "workflow.initial03": "After keywords are confirmed, generate growth, collapse, balance, and transformation lines.",
+    "workflow.initial04": "Apply a method tool to the current node, then generate scenario text, images, and exportable logic.",
     "scope.eyebrow": "Current nodes",
     "scope.loading": "Loading scope",
     "scope.global": "Global graph",
@@ -498,6 +517,23 @@ const translations = {
     "conversation.user": "研究者",
     "conversation.assistant": "助手",
     "conversation.system": "系统",
+    "conversation.scientistInput": "科学家输入",
+    "conversation.designerInput": "设计师输入",
+    "conversation.quickPrefix": "快捷输入选项",
+    "conversation.agentIntro": "AI 主持人：请描述一个研究条件或设计设想。我会继续追问谁在使用、谁受影响，以及哪里出现不确定。",
+    "conversation.agentPrompt": "AI 主持人",
+    "conversation.runWhatIf": "生成四条 What-if 线路",
+    "workflow.card01": "研究议题",
+    "workflow.card02": "关键词",
+    "workflow.card03": "WHAT-IF",
+    "workflow.card04": "工具与情境",
+    "workflow.cardWaiting": "等待对话补全",
+    "workflow.cardReady": "可复盘",
+    "workflow.cardPending": "等待前序步骤",
+    "workflow.initial01": "在下方选择「科学家输入」或「设计师输入」，再用一句话描述本轮材料。",
+    "workflow.initial02": "智能体会把议题拆成关键词、默认假设和利益相关者三个分支。",
+    "workflow.initial03": "确认关键词后，生成增长、崩溃、平衡、转变四条未来方向。",
+    "workflow.initial04": "把工具应用到当前节点，再生成情境文本、图像材料与可导出逻辑。",
     "scope.eyebrow": "当前节点",
     "scope.loading": "正在载入范围",
     "scope.global": "全局图谱",
@@ -1002,6 +1038,18 @@ function renderCanvas() {
   });
 }
 
+function renderConversationPerspective(session) {
+  const guideMode = session?.guide?.start_mode;
+  if (guideMode === "research" || guideMode === "design") {
+    conversationPerspective = guideMode;
+  }
+  conversationPerspectiveButtons.forEach((button) => {
+    const selected = button.dataset.conversationPerspective === conversationPerspective;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-pressed", String(selected));
+  });
+}
+
 function renderInteraction() {
   const interaction = activeInteraction;
   const session = activeSession();
@@ -1018,6 +1066,7 @@ function renderInteraction() {
   returnLocalScope.classList.toggle("hidden", !isGlobalScope || Boolean(isEntry));
   conversationDock?.classList.toggle("is-entry", Boolean(isEntry));
   workspaceMain?.classList.toggle("is-entry", Boolean(isEntry));
+  renderConversationPerspective(session);
 
   const progress = session?.progress || [];
   conversationProgress.hidden = Boolean(isEntry) || progress.length < 2;
@@ -1065,7 +1114,7 @@ function renderConversationHistory(session, messages, isEntry) {
     });
   }
   const previewMessages = messages.slice(-2);
-  const emptyText = isEntry ? (locale === "zh" ? "从一句研究问题开始。" : "Start with one research question.") : t("conversation.none");
+  const emptyText = isEntry ? t("conversation.agentIntro") : t("conversation.none");
   conversationMessages.innerHTML = messages.length
     ? `<div class="conversation-history-preview" role="button" tabindex="0" aria-label="${escapeHtml(locale === "zh" ? "打开完整对话记录" : "Open full conversation history")}">
         <div class="conversation-history-preview-copy">${previewMessages.map((message) => renderConversationMessage(message)).join("")}</div>
@@ -1279,54 +1328,52 @@ function renderStagePresentation(stages) {
 }
 
 function renderFoundationEntryCard() {
-  stagePresentation.innerHTML = `
-    <section class="foundation-entry-card" aria-label="${escapeHtml(t("workflow.dialogTitle"))}">
-      <header class="foundation-entry-header">
+  const cards = [
+    {
+      index: "01",
+      title: t("workflow.card01"),
+      state: t("workflow.cardWaiting"),
+      body: t("workflow.initial01"),
+      fields: [t("workflow.topic"), t("workflow.focus"), t("workflow.assumptions"), t("workflow.stakeholders"), t("workflow.tensions")],
+      current: true,
+    },
+    {
+      index: "02",
+      title: t("workflow.card02"),
+      state: t("workflow.cardPending"),
+      body: t("workflow.initial02"),
+      fields: [locale === "zh" ? "关键词提取" : "Keyword extraction", t("workflow.assumptions"), t("workflow.stakeholders")],
+    },
+    {
+      index: "03",
+      title: t("workflow.card03"),
+      state: t("workflow.cardPending"),
+      body: t("workflow.initial03"),
+      fields: [locale === "zh" ? "增长" : "Growth", locale === "zh" ? "崩溃" : "Collapse", locale === "zh" ? "平衡" : "Balance", locale === "zh" ? "转变" : "Transformation"],
+    },
+    {
+      index: "04",
+      title: t("workflow.card04"),
+      state: t("workflow.cardPending"),
+      body: t("workflow.initial04"),
+      fields: [locale === "zh" ? "警示故事" : "Cautionary tales", locale === "zh" ? "未来锥" : "Futures cone", locale === "zh" ? "影响轮" : "Futures wheel", locale === "zh" ? "体验阶梯" : "Experience ladder"],
+    },
+  ];
+  stagePresentation.innerHTML = `<section class="foundation-start-deck" aria-label="${escapeHtml(t("workflow.eyebrow"))}">
+    ${cards.map((card) => `<article class="foundation-start-card ${card.current ? "is-current" : ""}">
+      <header>
+        <span class="stage-index">${escapeHtml(card.index)}</span>
         <div>
-          <span class="stage-index">01</span>
-          <p>${escapeHtml(t("stagePresentation.current"))}</p>
-          <h4>${escapeHtml(t("workflow.dialogTitle"))}</h4>
+          <strong>${escapeHtml(card.title)}</strong>
+          <small>${escapeHtml(card.state)}</small>
         </div>
-        <small>${escapeHtml(t("workflow.eyebrow"))}</small>
       </header>
-      <form class="foundation-entry-form" data-foundation-input-form>
-        <p class="foundation-entry-intro">${escapeHtml(t("workflow.dialogIntro"))}</p>
-        <label>
-          <span>${escapeHtml(t("workflow.startMode"))}</span>
-          <select name="start_mode">
-            <option value="research">${escapeHtml(t("workflow.modeResearch"))}</option>
-            <option value="design">${escapeHtml(t("workflow.modeDesign"))}</option>
-          </select>
-        </label>
-        <label class="foundation-entry-topic">
-          <span>${escapeHtml(t("workflow.topic"))}</span>
-          <textarea name="topic" rows="3" required placeholder="${escapeHtml(t("workflow.topicPlaceholder"))}"></textarea>
-        </label>
-        <label class="foundation-entry-focus">
-          <span>${escapeHtml(t("workflow.focus"))}</span>
-          <textarea name="research_focus" rows="2" placeholder="${escapeHtml(t("workflow.focusPlaceholder"))}"></textarea>
-        </label>
-        <div class="foundation-entry-grid">
-          <label>
-            <span>${escapeHtml(t("workflow.assumptions"))}</span>
-            <textarea name="assumptions" rows="3" placeholder="${escapeHtml(t("workflow.listPlaceholder"))}"></textarea>
-          </label>
-          <label>
-            <span>${escapeHtml(t("workflow.stakeholders"))}</span>
-            <textarea name="stakeholders" rows="3" placeholder="${escapeHtml(t("workflow.listPlaceholder"))}"></textarea>
-          </label>
-          <label>
-            <span>${escapeHtml(t("workflow.tensions"))}</span>
-            <textarea name="tensions" rows="3" placeholder="${escapeHtml(t("workflow.listPlaceholder"))}"></textarea>
-          </label>
-        </div>
-        <footer>
-          <span>${escapeHtml(t("workflow.inputConversation"))}</span>
-          <button type="button" data-foundation-create>${escapeHtml(t("workflow.create"))}</button>
-        </footer>
-      </form>
-    </section>
-  `;
+      <p>${escapeHtml(card.body)}</p>
+      <div class="foundation-start-fields">
+        ${card.fields.map((field) => `<span>${escapeHtml(field)}</span>`).join("")}
+      </div>
+    </article>`).join("")}
+  </section>`;
 }
 
 function renderStageInputCards(workflow, activeStage) {
@@ -1384,6 +1431,83 @@ function renderStageOutputCards() {
   </section>`;
 }
 
+function activeWorkflowBrief(workflow) {
+  const sourceId = workflow?.source_node_ids?.[0];
+  const node = (activeCanvas?.nodes || []).find((item) => item.id === sourceId);
+  return node?.payload?.workflow_brief || {};
+}
+
+function quickButton(label, body, action = "answer") {
+  return { label, body, action };
+}
+
+function localizedQuickOptions(stage, guide, workflow) {
+  const zh = locale === "zh";
+  const brief = activeWorkflowBrief(workflow);
+  const topic = String(brief.topic || (zh ? "这个议题" : "this issue"));
+  const mode = guide?.start_mode || conversationPerspective;
+  const materialLabel = zh
+    ? (mode === "design" ? "设计设想" : "真实研究")
+    : (mode === "design" ? "design proposition" : "research condition");
+  if (stage === "start") {
+    return [
+      quickButton(zh ? "换个角度追问" : "Ask from another angle", zh ? `谁正在使用这个${materialLabel}？谁会被它影响？哪里开始不确定？` : `Who uses this ${materialLabel}, who is affected, and where does uncertainty begin?`, "draft"),
+      quickButton(zh ? "补充研究背景" : "Add research background", zh ? "研究背景：" : "Research background:", "draft"),
+      quickButton(zh ? "生成争议点" : "Generate a tension", zh ? "这个议题最值得讨论的争议是：" : "The tension worth discussing is:", "draft"),
+      quickButton(zh ? "把它变成 What-if" : "Turn it into What-if", zh ? "如果这个条件进入日常现场，会怎样？" : "What if this condition entered everyday use?", "draft"),
+      quickButton(zh ? "加入反例" : "Add a counterexample", zh ? "一个可能推翻默认设想的反例是：" : "A counterexample that might break the default assumption is:", "draft"),
+    ];
+  }
+  if (stage === "frame_focus") {
+    return [
+      quickButton(zh ? "补充研究背景" : "Add research background", zh ? `${topic} 的研究关注是技术机制、使用现场和可验证边界之间的关系。` : `${topic} focuses on the relation between mechanism, use context, and verifiable limits.`),
+      quickButton(zh ? "换个角度追问" : "Ask from another angle", zh ? `把 ${topic} 放进一个未来现场，先追问谁在使用、谁被影响、哪里失控。` : `Place ${topic} in a future scene, then ask who uses it, who is affected, and where it becomes unstable.`),
+      quickButton(zh ? "加入反例" : "Add a counterexample", zh ? `反例：${topic} 并不总是提升效率，它也可能制造新的解释负担。` : `Counterexample: ${topic} may not always improve efficiency; it may create a new burden of explanation.`),
+    ];
+  }
+  if (stage === "frame_assumptions") {
+    return [
+      quickButton(zh ? "生成争议点" : "Generate tensions", zh ? `更多数据会带来更好判断\n使用者会接受系统建议\n风险可以通过流程控制` : `More data produces better judgment\nUsers will accept system suggestions\nRisk can be controlled through process`),
+      quickButton(zh ? "加入反例" : "Add a counterexample", zh ? `材料或系统在真实环境中表现不稳定\n被影响者可能拒绝参与\n专家判断和自动判断发生冲突` : `The material or system may behave unpredictably in real settings\nAffected people may refuse to participate\nExpert judgment may conflict with automated judgment`),
+    ];
+  }
+  if (stage === "frame_stakeholders") {
+    return [
+      quickButton(zh ? "提取利益相关者" : "Extract stakeholders", zh ? `直接使用者\n研究人员\n操作人员\n被间接影响的人\n监管或伦理审查者` : `Direct users\nResearchers\nOperators\nIndirectly affected people\nRegulators or ethics reviewers`),
+      quickButton(zh ? "换个角度追问" : "Ask from another angle", zh ? `谁拥有解释权？谁承担后果？谁可以拒绝这个系统？` : `Who has the right to interpret it? Who carries the consequences? Who can refuse the system?`),
+    ];
+  }
+  if (stage === "frame_tensions") {
+    return [
+      quickButton(zh ? "生成争议点" : "Generate tensions", zh ? `效率提升与解释权之间的张力\n技术稳定性与真实使用复杂度之间的张力\n研究可控性与公共影响之间的张力` : `Efficiency versus interpretive agency\nTechnical stability versus real-use complexity\nResearch control versus public impact`),
+      quickButton(zh ? "把它变成 What-if" : "Turn it into What-if", zh ? `如果 ${topic} 成为公共流程中的默认条件，会怎样？` : `What if ${topic} became a default condition in a public process?`),
+      quickButton(zh ? "加入反例" : "Add a counterexample", zh ? `一个关键角色拒绝使用后，系统如何解释失败？` : `If one key actor refuses to use it, how does the system explain failure?`),
+    ];
+  }
+  if (stage === "keywords") {
+    return [
+      quickButton(zh ? "把它变成 What-if" : "Turn it into What-if", "", "confirm_keywords"),
+      quickButton(zh ? "补充研究背景" : "Add research background", zh ? `补充 ${topic} 的实验条件、限制边界或使用语境。` : `Add experimental conditions, limits, or use context for ${topic}.`, "draft"),
+    ];
+  }
+  if (stage === "four_futures" && !workflow?.branch_node_ids?.length) {
+    return [
+      quickButton(zh ? "把它变成 What-if" : "Turn it into What-if", "", "run_four_futures"),
+      quickButton(zh ? "换个角度追问" : "Ask from another angle", zh ? `先回看 ${topic} 的默认假设，再生成四条未来线路。` : `Review the default assumptions of ${topic}, then generate four future lines.`, "draft"),
+    ];
+  }
+  return [
+    quickButton(zh ? "换个角度追问" : "Ask from another angle", zh ? `围绕 ${topic} 重新追问角色、依据和不确定性。` : `Revisit roles, evidence, and uncertainty around ${topic}.`, "draft"),
+    quickButton(zh ? "加入反例" : "Add a counterexample", zh ? `一个反例或边界情况是：` : "A counterexample or boundary case is:", "draft"),
+  ];
+}
+
+function renderQuickOptions(options) {
+  return `<div class="quick-input-options">
+    ${options.map((option) => `<button type="button" data-quick-action="${escapeHtml(option.action)}" data-quick-body="${escapeHtml(option.body)}">${escapeHtml(t("conversation.quickPrefix"))}：${escapeHtml(option.label)}</button>`).join("")}
+  </div>`;
+}
+
 function renderConversationGuide(session) {
   if (!conversationGuideActions) return;
   const guide = session?.guide;
@@ -1394,23 +1518,33 @@ function renderConversationGuide(session) {
   const workflow = (activeInteraction?.workflow_instances || []).find((item) => item.id === guide.workflow_instance_id);
   const stage = guide.stage_id || "start";
   const localized = locale === "zh";
+  const quickOptions = localizedQuickOptions(stage, guide, workflow);
   if (stage === "start") {
-    const alternateMode = guide.start_mode === "design" ? "research" : "design";
     conversationGuideActions.innerHTML = `
-      <span>${localized ? "默认从研究问题开始。" : "Start from a research question by default."}</span>
-      <button class="quiet-guide-action" type="button" data-guide-start-mode="${alternateMode}">${localized ? (alternateMode === "design" ? "改为设计命题" : "改为真实研究") : (alternateMode === "design" ? "Use a design proposition" : "Use research-led mode")}</button>
+      <span>${escapeHtml(localized ? "当前步骤：研究议题。先选择输入视角，再描述一个可讨论的起点。" : "Current step: research issue. Choose a perspective, then describe a discussable starting point.")}</span>
+      ${renderQuickOptions(quickOptions)}
     `;
   } else if (["frame_focus", "frame_assumptions", "frame_stakeholders", "frame_tensions"].includes(stage)) {
-    conversationGuideActions.innerHTML = `<button type="button" data-guide-action="skip">${localized ? "跳过这一步" : "Skip this step"}</button>`;
+    conversationGuideActions.innerHTML = `
+      <span>${escapeHtml(localized ? "AI 主持人正在推动补充：" : "The AI host is prompting the next detail:")}</span>
+      ${renderQuickOptions(quickOptions)}
+      <button class="quiet-guide-action" type="button" data-guide-action="skip">${localized ? "跳过这一步" : "Skip this step"}</button>
+    `;
   } else if (stage === "keywords") {
-    conversationGuideActions.innerHTML = `<button type="button" data-guide-action="confirm_keywords">${localized ? "确认关键词，进入 What-if" : "Confirm keywords"}</button>`;
+    conversationGuideActions.innerHTML = `
+      <span>${escapeHtml(localized ? "关键词、默认假设和利益相关者已汇合；确认后进入 What-if。" : "Keywords, assumptions, and stakeholders have converged; confirm to enter What-if.")}</span>
+      ${renderQuickOptions(quickOptions)}
+    `;
   } else if (stage === "four_futures" && workflow?.branch_node_ids?.length && workflow?.status === "awaiting_selection") {
     conversationGuideActions.innerHTML = `
       <span>${localized ? "从四个方向中仅选择一个：" : "Choose exactly one of the four directions:"}</span>
       ${workflow.branch_node_ids.map((nodeId) => `<button type="button" data-guide-branch-id="${escapeHtml(nodeId)}" data-guide-workflow-id="${escapeHtml(workflow.id)}">${escapeHtml(localizedReferenceTitle(findNode(nodeId)?.title || (localized ? "未来方向" : "Future direction")))}</button>`).join("")}
     `;
   } else if (stage === "four_futures") {
-    conversationGuideActions.innerHTML = `<span>${localized ? "下一步：在节点上运行“引导情境”，生成四个 What-if 方向。" : "Next: run Guided Scenario on its node to generate four What-if directions."}</span>`;
+    conversationGuideActions.innerHTML = `
+      <span>${escapeHtml(localized ? "下一步：生成增长、崩溃、平衡、转变四条 What-if 线路。" : "Next: generate growth, collapse, balance, and transformation What-if lines.")}</span>
+      ${renderQuickOptions(quickOptions)}
+    `;
   } else if (stage === "tools") {
     conversationGuideActions.innerHTML = `<span>${localized ? "在左侧选择工具；你可以调整后重复生成，系统只保留当前一条有效情境线。" : "Choose tools in the left rail. You can revise and run again; only one current scenario line remains active."}</span>`;
   } else if (stage === "choose_future" && workflow?.branch_node_ids?.length) {
@@ -1432,6 +1566,9 @@ function renderConversationGuide(session) {
   });
   conversationGuideActions.querySelectorAll("[data-guide-branch-id]").forEach((button) => {
     button.addEventListener("click", () => selectWorkflowBranch(button.dataset.guideWorkflowId, button.dataset.guideBranchId));
+  });
+  conversationGuideActions.querySelectorAll("[data-quick-action]").forEach((button) => {
+    button.addEventListener("click", () => handleQuickInput(button.dataset.quickAction, button.dataset.quickBody));
   });
 }
 
@@ -1618,6 +1755,28 @@ async function submitConversationMessage(event) {
   await loadCanvas();
 }
 
+async function handleQuickInput(action, body = "") {
+  const session = activeSession();
+  if (!session) return;
+  if (action === "draft") {
+    conversationInput.value = body || "";
+    conversationInput.focus();
+    return;
+  }
+  if (action === "answer") {
+    if (!body) return;
+    await advanceConversationGuide({ action: "answer", body });
+    return;
+  }
+  if (action === "confirm_keywords") {
+    await advanceConversationGuide({ action: "confirm_keywords" });
+    return;
+  }
+  if (action === "run_four_futures") {
+    await runWorkflowOperation();
+  }
+}
+
 async function advanceConversationGuide(payload) {
   const session = activeSession();
   if (!activeProject || !session) return;
@@ -1626,6 +1785,23 @@ async function advanceConversationGuide(payload) {
     body: JSON.stringify(withExpectedRevision(payload)),
   });
   await loadCanvas({ preserveView: false });
+}
+
+async function runWorkflowOperation() {
+  const workflow = activeWorkflow();
+  if (!activeProject || !workflow?.operation_node_id) return;
+  setStatus(canvasStatus, "running");
+  try {
+    await requestJson(`/api/projects/${activeProject.id}/nodes/${workflow.operation_node_id}/run`, {
+      method: "POST",
+      body: JSON.stringify(withExpectedRevision({ session_id: activeSessionId })),
+      requiresApiKey: true,
+    });
+    await loadCanvas({ preserveView: false });
+  } catch (error) {
+    setStatus(canvasStatus, "error");
+    canvasOutput.textContent = error.message;
+  }
 }
 
 async function resolveCommand(commandId, resolution) {
@@ -2142,40 +2318,7 @@ async function addNode(type, options = {}) {
 }
 
 function openFoundationWorkflowDialog() {
-  const form = stagePresentation?.querySelector("[data-foundation-input-form]");
-  if (!form) return;
-  form.scrollIntoView({ behavior: "smooth", block: "center" });
-  form.elements.topic?.focus();
-}
-
-function workflowListValue(value) {
-  return String(value || "")
-    .split(/[,;\n，；]/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-async function submitFoundationWorkflow(sourceForm) {
-  if (!activeProject || !sourceForm) return;
-  const form = new FormData(sourceForm);
-  const payload = {
-    definition_id: "workflow.four-futures-foundation",
-    start_mode: form.get("start_mode"),
-    topic: String(form.get("topic") || "").trim(),
-    research_focus: String(form.get("research_focus") || "").trim(),
-    assumptions: workflowListValue(form.get("assumptions")),
-    stakeholders: workflowListValue(form.get("stakeholders")),
-    tensions: workflowListValue(form.get("tensions")),
-    session_id: activeSessionId,
-  };
-  const result = await requestJson(`/api/projects/${activeProject.id}/workflows`, {
-    method: "POST",
-    body: JSON.stringify(withExpectedRevision(payload)),
-  });
-  sourceForm.reset();
-  activeSessionId = result.conversation?.id || activeSessionId;
-  activeScopeId = result.scope?.id || activeScopeId;
-  await loadCanvas({ preserveView: false });
+  conversationInput?.focus();
 }
 
 async function selectWorkflowBranch(workflowId, branchNodeId) {
@@ -3093,16 +3236,6 @@ document.querySelectorAll("[data-add-operation-definition]").forEach((button) =>
   }));
 });
 
-stagePresentation?.addEventListener("click", (event) => {
-  const action = event.target.closest("[data-foundation-create]");
-  if (!action) return;
-  const form = action.closest("[data-foundation-input-form]");
-  submitFoundationWorkflow(form).catch((error) => {
-    setStatus(canvasStatus, "error");
-    canvasOutput.textContent = error.message;
-  });
-});
-
 
 conversationForm.addEventListener("submit", (event) => {
   submitConversationMessage(event).catch((error) => {
@@ -3124,6 +3257,20 @@ returnLocalScope.addEventListener("click", () => {
 });
 
 apiAccessForm.addEventListener("submit", acceptTabApiKey);
+
+conversationPerspectiveButtons.forEach((button) => {
+  button.addEventListener("click", async () => {
+    const nextMode = button.dataset.conversationPerspective === "design" ? "design" : "research";
+    conversationPerspective = nextMode;
+    renderConversationPerspective(activeSession());
+    const session = activeSession();
+    if (session?.guide?.stage_id === "start" && !session?.guide?.workflow_instance_id) {
+      await advanceConversationGuide({ action: "set_start_mode", start_mode: nextMode });
+    } else {
+      conversationInput?.focus();
+    }
+  });
+});
 
 documentFile.addEventListener("change", () => {
   documentFileName.textContent = documentFile.files[0]?.name || t("common.noFile");

@@ -132,6 +132,10 @@
                 <div id="conversation-messages" class="conversation-messages" role="log" aria-live="polite" aria-relevant="additions text" data-i18n-aria-label="conversation.history" aria-label="Conversation history"></div>
                 <form id="conversation-form" class="conversation-form">
                   <label class="sr-only" for="conversation-input" data-i18n="conversation.inputLabel">Add to conversation</label>
+                  <div class="conversation-perspective" aria-label="Input perspective">
+                    <button type="button" data-conversation-perspective="research" aria-pressed="true" data-i18n="conversation.scientistInput">Scientist input</button>
+                    <button type="button" data-conversation-perspective="design" aria-pressed="false" data-i18n="conversation.designerInput">Designer input</button>
+                  </div>
                   <textarea id="conversation-input" rows="3" data-i18n-placeholder="conversation.placeholder" placeholder="Add a research instruction for this scope"></textarea>
                   <button type="submit" data-i18n="conversation.send">Add</button>
                 </form>

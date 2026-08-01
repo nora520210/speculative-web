@@ -4713,11 +4713,19 @@ pre {
     display: flex;
     min-height: 0;
     align-items: center;
+    flex-wrap: wrap;
     gap: 7px;
     border: 0;
     padding: 7px 14px 0;
     color: var(--muted);
     font-size: 11px;
+  }
+
+  .canvas-shell.active .quick-input-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-width: 0;
   }
 
   .canvas-shell.active .conversation-guide-actions:empty {
@@ -4739,6 +4747,34 @@ pre {
     border: 0;
     border-top: 1px solid var(--soft-line);
     padding: 9px 12px;
+  }
+
+  .canvas-shell.active .conversation-perspective {
+    grid-column: 1 / -1;
+    display: inline-flex;
+    width: max-content;
+    max-width: 100%;
+    gap: 4px;
+    border: 1px solid var(--soft-line);
+    border-radius: 8px;
+    padding: 3px;
+    background: var(--chrome-input, var(--bg));
+  }
+
+  .canvas-shell.active .conversation-perspective button {
+    min-width: 0;
+    min-height: 26px;
+    border: 0;
+    border-radius: 5px;
+    padding: 0 10px;
+    color: var(--muted);
+    background: transparent;
+  }
+
+  .canvas-shell.active .conversation-perspective button.active,
+  .canvas-shell.active .conversation-perspective button[aria-pressed="true"] {
+    color: var(--bg);
+    background: var(--ink);
   }
 
   .canvas-shell.active .conversation-dock .conversation-form textarea {
@@ -5634,6 +5670,80 @@ textarea:focus-visible {
   padding-right: 4px;
 }
 
+.canvas-shell.active .stage-presentation:has(.foundation-start-deck) {
+  display: block;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.foundation-start-deck {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  gap: 12px;
+  min-height: 100%;
+}
+
+.foundation-start-card {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+  border: 1px solid var(--chrome-border, var(--soft-line));
+  border-radius: 8px;
+  padding: 14px;
+  background: var(--chrome-surface, var(--bg));
+}
+
+.foundation-start-card.is-current {
+  border-color: var(--chrome-focus, var(--ink));
+  background: var(--chrome-card, var(--bg));
+}
+
+.foundation-start-card header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.foundation-start-card header div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.foundation-start-card strong {
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.foundation-start-card small,
+.foundation-start-card p,
+.foundation-start-fields span {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.foundation-start-card p {
+  margin: 0;
+}
+
+.foundation-start-fields {
+  display: flex;
+  align-content: start;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.foundation-start-fields span {
+  border: 1px solid var(--chrome-border, var(--soft-line));
+  border-radius: 999px;
+  padding: 3px 7px;
+  background: var(--chrome-input, var(--bg));
+}
+
 .foundation-entry-card {
   min-height: 0;
   border: 1px solid var(--chrome-focus, var(--ink));
@@ -5792,6 +5902,16 @@ textarea:focus-visible {
 }
 
 @media (max-width: 860px) {
+  .foundation-start-deck {
+    grid-template-columns: repeat(4, minmax(190px, 1fr));
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+  }
+
+  .foundation-start-card {
+    scroll-snap-align: start;
+  }
+
   .foundation-entry-form,
   .foundation-entry-grid {
     grid-template-columns: 1fr;
