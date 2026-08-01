@@ -9,3 +9,5 @@ data/renders/
 __pycache__/
 *.pyc
 7.22SPEC/
+.vercel
+.env.local
