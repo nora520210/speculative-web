@@ -112,6 +112,9 @@ def test_four_futures_foundation_lifecycle_uses_scopes_without_copying_graphs():
             assert workflow["status"] == "awaiting_selection"
             assert workflow["stage"] == "four_futures"
             assert len(workflow["branch_node_ids"]) == 4
+            branch_nodes = [node for node in saved["nodes"] if node["id"] in workflow["branch_node_ids"]]
+            assert all(node["payload"].get("image_status") == "pending" for node in branch_nodes)
+            assert all(not node["payload"].get("image_url") for node in branch_nodes)
             comparison_scope = next(item for item in saved["scopes"] if item["id"] == workflow["comparison_scope_id"])
             assert comparison_scope["mode"] == "snapshot"
             assert set(workflow["branch_node_ids"]).issubset(comparison_scope["snapshot_node_ids"])

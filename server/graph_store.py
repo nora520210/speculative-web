@@ -1693,9 +1693,20 @@ def run_operation(project_id: str, node_id: str, api_key: str | None = None, exp
     scopes = []
     base_position = operation.get("position", {})
     for index, branch in enumerate(branches):
-        branch_image = image_payload_for_branch(project_id, run_id, branch, api_key=api_key)
-        if branch_image:
-            branch = {**branch, **branch_image}
+        branch = {
+            **branch,
+            "image_status": "pending",
+            "image_prompt": constrained_image_prompt(
+                str(branch.get("visual_brief") or "").strip(),
+                " ".join(
+                    str(branch.get(key) or "").strip()
+                    for key in ("what_if", "future_premise", "core_tension")
+                    if str(branch.get(key) or "").strip()
+                ),
+            )
+            if str(branch.get("visual_brief") or "").strip()
+            else "",
+        }
         output_node = normalize_node(
             {
                 "type": "text",
@@ -1711,6 +1722,7 @@ def run_operation(project_id: str, node_id: str, api_key: str | None = None, exp
                     "image_url": branch.get("image_url", ""),
                     "image_file": branch.get("image_file", ""),
                     "image_error": branch.get("image_error", ""),
+                    "image_status": branch.get("image_status", ""),
                     "semantic_summary": branch.get("visual_brief", ""),
                     "provenance": [{"produced_by_run_id": run_id}],
                 },
@@ -2084,6 +2096,42 @@ def image_payload_for_output(
         "image_api": result["api"],
         "image_model": result["model"],
     }
+
+
+def generate_branch_image(project_id: str, node_id: str, api_key: str | None = None) -> dict:
+    canvas = read_canvas(project_id)
+    node = next((item for item in canvas.get("nodes", []) if item.get("id") == node_id), None)
+    if not node:
+        raise KeyError(f"Node not found: {node_id}")
+    branch = node.get("payload", {}).get("scenario_branch")
+    if not isinstance(branch, dict):
+        raise ValueError("Only generated What-if branch nodes can generate branch images.")
+    if node.get("payload", {}).get("image_url"):
+        return {"node": node}
+    payload = node.setdefault("payload", {})
+    payload["image_status"] = "generating"
+    branch["image_status"] = "generating"
+    write_canvas(project_id, canvas)
+
+    image_payload = image_payload_for_branch(
+        project_id,
+        str(node.get("produced_by_run_id") or node_id),
+        branch,
+        api_key=api_key,
+    )
+    canvas = read_canvas(project_id)
+    node = next((item for item in canvas.get("nodes", []) if item.get("id") == node_id), None)
+    if not node:
+        raise KeyError(f"Node not found: {node_id}")
+    payload = node.setdefault("payload", {})
+    branch = payload.get("scenario_branch") if isinstance(payload.get("scenario_branch"), dict) else {}
+    payload.update(image_payload)
+    payload["image_status"] = "ready" if image_payload.get("image_url") else "failed"
+    branch.update(image_payload)
+    branch["image_status"] = payload["image_status"]
+    payload["scenario_branch"] = branch
+    write_canvas(project_id, canvas)
+    return {"node": node}
 
 
 def image_payload_for_branch(project_id: str, run_id: str, branch: dict, api_key: str | None = None) -> dict:

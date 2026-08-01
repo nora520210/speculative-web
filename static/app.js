@@ -88,6 +88,8 @@ let conversationPerspective = "research";
 let uiActionInFlight = false;
 const agentGuideCache = new Map();
 const agentGuideInFlight = new Set();
+const branchImageInFlight = new Set();
+let branchImageQueueRunning = false;
 const quickInputSelections = new Map();
 let modelAccess = {
   openaiApiKeyConfigured: false,
@@ -174,6 +176,9 @@ const translations = {
     "workflow.chooseOne": "Choose exactly one direction",
     "workflow.toolsHint": "Choose one or more tools in the left rail, then generate one scenario.",
     "workflow.scenarioReady": "Current scenario generated",
+    "workflow.imageGenerating": "Image generating",
+    "workflow.imageFailed": "Image unavailable",
+    "workflow.expandText": "Open text",
     "nodes.textTitle": "Text Node",
     "nodes.conversationTitle": "Conversation",
     "nodes.uploadTitle": "Upload",
@@ -427,6 +432,9 @@ const translations = {
     "workflow.chooseOne": "从四个方向中仅选择一个",
     "workflow.toolsHint": "在左侧栏选择一个或多个工具，然后生成一条情境。",
     "workflow.scenarioReady": "当前情境已生成",
+    "workflow.imageGenerating": "图片生成中",
+    "workflow.imageFailed": "图片暂不可用",
+    "workflow.expandText": "展开文本",
     "nodes.textTitle": "文本节点",
     "nodes.conversationTitle": "对话",
     "nodes.uploadTitle": "上传",
@@ -972,6 +980,7 @@ async function loadCanvas({ preserveView = true, consistencyRetry = 0 } = {}) {
   canvasOutput.textContent = JSON.stringify(summarizeCanvas(graph), null, 2);
   renderCanvas();
   if (shouldPreserveView) restoreCanvasView(previousView);
+  queuePendingBranchImages();
 }
 
 async function loadInteraction({ preserveScope = true } = {}) {
@@ -1472,7 +1481,7 @@ function renderStageInputCards(workflow, activeStage) {
     [t("workflow.tensions"), Array.isArray(brief.tensions) ? brief.tensions.join(" · ") : ""],
   ].filter(([, value]) => String(value || "").trim());
   return `<section class="stage-input-cards" aria-label="${escapeHtml(t("workflow.inputManual"))}">
-    ${fields.map(([label, value]) => `<article><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong></article>`).join("")}
+    ${fields.map(([label, value]) => `<article class="stage-input-field"><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong></article>`).join("")}
     <p>${escapeHtml(t("workflow.inputReady"))}</p>
   </section>`;
 }
@@ -1491,15 +1500,19 @@ function renderStageBranchChoices(workflow, activeStage) {
       const premise = branch.future_premise || branch.what_if || "";
       const actors = Array.isArray(branch.key_actors) ? branch.key_actors.slice(0, 3).join(" · ") : "";
       const imageUrl = branch.image_url || node?.payload?.image_url || "";
+      const imageStatus = branch.image_status || node?.payload?.image_status || "";
+      const imageError = branch.image_error || node?.payload?.image_error || "";
       return `<${tag} class="stage-branch-card ${selected ? "is-selected" : ""}" data-branch-strategy="${escapeHtml(branch.strategy || "")}"${action}>
         ${imageUrl
     ? `<img class="stage-branch-image" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(branch.visual_brief || branch.what_if || "")}" loading="lazy" />`
-    : `<span class="stage-branch-visual" aria-hidden="true"><i></i><b></b><em></em></span>`}
+    : `<span class="stage-branch-visual ${imageStatus === "failed" ? "is-failed" : "is-generating"}" aria-hidden="true"><i></i><b></b><em></em><strong>${escapeHtml(imageStatus === "failed" || imageError ? t("workflow.imageFailed") : t("workflow.imageGenerating"))}</strong></span>`}
         <strong>${escapeHtml(localizedReferenceTitle(branch.strategy_label || node?.title || t("workflow.choose")))}</strong>
-        <p>${escapeHtml(localizedReferenceTitle(branch.what_if || ""))}</p>
-        <small>${escapeHtml(premise)}</small>
-        <span class="stage-branch-meta">${escapeHtml(actors || branch.core_tension || "")}</span>
-        <span class="stage-branch-visual-brief">${escapeHtml(branch.visual_brief || "")}</span>
+        <details class="stage-branch-copy">
+          <summary>${escapeHtml(localizedReferenceTitle(branch.what_if || ""))}<span>${escapeHtml(t("workflow.expandText"))}</span></summary>
+          <small>${escapeHtml(premise)}</small>
+          <span class="stage-branch-meta">${escapeHtml(actors || branch.core_tension || "")}</span>
+          <span class="stage-branch-visual-brief">${escapeHtml(branch.visual_brief || "")}</span>
+        </details>
       </${tag}>`;
     }).join("")}</div>
   </section>`;
@@ -2087,6 +2100,45 @@ async function runWorkflowOperation() {
   } catch (error) {
     setStatus(canvasStatus, "error");
     canvasOutput.textContent = error.message;
+  }
+}
+
+function pendingBranchImageNodes() {
+  return (activeCanvas?.nodes || []).filter((node) => {
+    const payload = node.payload || {};
+    const branch = payload.scenario_branch;
+    if (!branch || payload.image_url) return false;
+    const status = payload.image_status || branch.image_status || "";
+    return ["pending", "generating"].includes(status);
+  });
+}
+
+async function queuePendingBranchImages() {
+  if (branchImageQueueRunning || !activeProject) return;
+  if (!tabApiKey && !hasServerModelAccess()) return;
+  const firstPending = pendingBranchImageNodes().find((node) => !branchImageInFlight.has(node.id));
+  if (!firstPending) return;
+  branchImageQueueRunning = true;
+  try {
+    let nextNode = firstPending;
+    while (nextNode) {
+      branchImageInFlight.add(nextNode.id);
+      try {
+        await requestJson(`/api/projects/${activeProject.id}/nodes/${nextNode.id}/generate-image`, {
+          method: "POST",
+          body: JSON.stringify({ session_id: activeSessionId }),
+          requiresApiKey: true,
+        });
+      } catch (error) {
+        canvasOutput.textContent = error.message;
+      } finally {
+        branchImageInFlight.delete(nextNode.id);
+      }
+      await loadCanvas({ preserveView: true });
+      nextNode = pendingBranchImageNodes().find((node) => !branchImageInFlight.has(node.id));
+    }
+  } finally {
+    branchImageQueueRunning = false;
   }
 }
 

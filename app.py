@@ -39,6 +39,7 @@ from server.graph_store import (
     get_project,
     get_interaction,
     get_scope_projection,
+    generate_branch_image,
     read_canvas,
     read_projects,
     recommend_output_for_modify,
@@ -390,6 +391,23 @@ class AppHandler(SimpleHTTPRequestHandler):
                         expected_revision=self.expected_revision(payload),
                         session_id=str(payload.get("session_id") or ""),
                     )
+                except (KeyError, ValueError) as exc:
+                    self.send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+                    return
+                self.send_json(result, status=HTTPStatus.CREATED)
+                return
+
+            if len(action) == 3 and action[0] == "nodes" and action[2] == "generate-image":
+                node_id = action[1]
+                api_key = self.user_api_key()
+                if user_api_key_required() and not api_key:
+                    self.send_json(
+                        {"error": "Enter an API key in this browser tab before running a model operation."},
+                        status=HTTPStatus.UNAUTHORIZED,
+                    )
+                    return
+                try:
+                    result = generate_branch_image(project_id, node_id, api_key=api_key or None)
                 except (KeyError, ValueError) as exc:
                     self.send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
                     return

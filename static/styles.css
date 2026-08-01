@@ -7237,3 +7237,80 @@ body {
 .canvas-shell.active .stage-output-error {
   color: #b42318;
 }
+
+.canvas-shell.active .stage-input-cards {
+  grid-auto-rows: auto;
+  align-content: start;
+  overflow: auto;
+}
+
+.canvas-shell.active .stage-input-cards .stage-input-field {
+  min-height: 0;
+  overflow: visible;
+}
+
+.canvas-shell.active .stage-input-cards .stage-input-field strong {
+  display: block;
+  max-height: none;
+  overflow: visible;
+  color: #15191d;
+  line-height: 1.45;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  -webkit-line-clamp: unset;
+  -webkit-box-orient: initial;
+}
+
+.canvas-shell.active .stage-branch-copy {
+  display: grid;
+  gap: 7px;
+  min-height: 0;
+}
+
+.canvas-shell.active .stage-branch-copy summary {
+  display: grid;
+  gap: 5px;
+  cursor: pointer;
+  list-style: none;
+  color: #15191d;
+  font-size: 11.5px;
+  font-weight: 850;
+  line-height: 1.36;
+  overflow-wrap: anywhere;
+}
+
+.canvas-shell.active .stage-branch-copy summary::-webkit-details-marker {
+  display: none;
+}
+
+.canvas-shell.active .stage-branch-copy summary span {
+  color: #f02a0c;
+  font-size: 9.5px;
+  font-weight: 900;
+}
+
+.canvas-shell.active .stage-branch-copy:not([open]) small,
+.canvas-shell.active .stage-branch-copy:not([open]) .stage-branch-meta,
+.canvas-shell.active .stage-branch-copy:not([open]) .stage-branch-visual-brief {
+  display: none;
+}
+
+.canvas-shell.active .stage-branch-visual.is-generating,
+.canvas-shell.active .stage-branch-visual.is-failed {
+  display: grid;
+  place-items: center;
+  height: 116px;
+}
+
+.canvas-shell.active .stage-branch-visual.is-generating strong,
+.canvas-shell.active .stage-branch-visual.is-failed strong {
+  position: relative;
+  z-index: 1;
+  border: 1px solid rgba(240, 42, 12, 0.18);
+  border-radius: 999px;
+  padding: 5px 9px;
+  background: rgba(255, 255, 255, 0.8);
+  color: #f02a0c;
+  font-size: 10px;
+  font-weight: 900;
+}
