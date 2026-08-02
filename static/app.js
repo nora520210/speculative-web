@@ -2113,6 +2113,40 @@ function pendingBranchImageNodes() {
   });
 }
 
+function replaceNodeInGraph(graph, updatedNode) {
+  if (!graph?.nodes || !updatedNode?.id) return;
+  graph.nodes = graph.nodes.map((node) => node.id === updatedNode.id ? updatedNode : node);
+}
+
+function applyGeneratedBranchImage(updatedNode) {
+  if (!updatedNode?.id) return;
+  replaceNodeInGraph(activeCanvas, updatedNode);
+  replaceNodeInGraph(activeProjection, updatedNode);
+  renderInteraction();
+  renderCanvas();
+}
+
+function markBranchImageFailed(nodeId, message) {
+  const node = findNode(nodeId);
+  if (!node) return;
+  const payload = node.payload || {};
+  const branch = payload.scenario_branch || {};
+  const updatedNode = {
+    ...node,
+    payload: {
+      ...payload,
+      image_status: "failed",
+      image_error: message || t("workflow.imageFailed"),
+      scenario_branch: {
+        ...branch,
+        image_status: "failed",
+        image_error: message || t("workflow.imageFailed"),
+      },
+    },
+  };
+  applyGeneratedBranchImage(updatedNode);
+}
+
 async function queuePendingBranchImages() {
   if (branchImageQueueRunning || !activeProject) return;
   if (!tabApiKey && !hasServerModelAccess()) return;
@@ -2124,17 +2158,18 @@ async function queuePendingBranchImages() {
     while (nextNode) {
       branchImageInFlight.add(nextNode.id);
       try {
-        await requestJson(`/api/projects/${activeProject.id}/nodes/${nextNode.id}/generate-image`, {
+        const result = await requestJson(`/api/projects/${activeProject.id}/nodes/${nextNode.id}/generate-image`, {
           method: "POST",
           body: JSON.stringify({ session_id: activeSessionId }),
           requiresApiKey: true,
         });
+        applyGeneratedBranchImage(result.node);
       } catch (error) {
         canvasOutput.textContent = error.message;
+        markBranchImageFailed(nextNode.id, error.message);
       } finally {
         branchImageInFlight.delete(nextNode.id);
       }
-      await loadCanvas({ preserveView: true });
       nextNode = pendingBranchImageNodes().find((node) => !branchImageInFlight.has(node.id));
     }
   } finally {

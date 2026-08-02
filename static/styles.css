@@ -6984,8 +6984,8 @@ body {
 .ui-action-busy .canvas-shell.active [data-stage-branch-id],
 .ui-action-busy .canvas-shell.active [data-conversation-perspective],
 .ui-action-busy .canvas-shell.active [data-sidebar-tool-id] {
-  cursor: wait;
-  opacity: 0.68;
+  cursor: default;
+  opacity: 0.78;
 }
 
 .canvas-shell.active .quick-input-options button.is-selected,
