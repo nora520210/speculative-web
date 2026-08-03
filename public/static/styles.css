@@ -2757,9 +2757,9 @@ pre {
   z-index: 80;
   inset: 0;
   display: none;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 12px;
-  padding: 18px 22px;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 8px;
+  padding: 14px 18px;
   background: var(--bg);
 }
 
@@ -4828,9 +4828,9 @@ pre {
     z-index: 80;
     inset: 0;
     display: none;
-    grid-template-rows: auto minmax(0, 1fr);
-    gap: 12px;
-    padding: 18px 22px;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    gap: 8px;
+    padding: 14px 18px;
     background: var(--bg);
   }
 
@@ -7314,7 +7314,7 @@ body {
 }
 
 .canvas-shell.active .canvas-focus-create-panel {
-  margin: 0 14px 10px;
+  margin: 0 10px 4px;
   border: 1px solid var(--chrome-border);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.76);
@@ -7324,7 +7324,7 @@ body {
 
 .canvas-shell.active .canvas-focus-create-panel summary {
   display: flex;
-  min-height: 34px;
+  min-height: 30px;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
@@ -7358,24 +7358,28 @@ body {
 }
 
 .canvas-shell.active .canvas-focus-create-panel .canvas-tools {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 7px;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
   margin: 0;
   border-top: 1px solid var(--chrome-border);
-  padding: 10px;
+  padding: 7px 8px;
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
 
 .canvas-shell.active .canvas-focus-create-panel .canvas-tools button {
-  min-width: 0;
-  min-height: 32px;
+  flex: 1 0 98px;
+  min-width: 92px;
+  min-height: 28px;
   border: 1px solid var(--chrome-border);
   border-radius: 6px;
-  padding: 0 8px;
+  padding: 0 7px;
   background: #ffffff;
   color: var(--ink);
-  font-size: 11px;
+  font-size: 10.5px;
   line-height: 1.2;
+  white-space: nowrap;
 }
 
 .canvas-shell.active .canvas-focus-create-panel .canvas-tools button:hover,
