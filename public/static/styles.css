@@ -7217,6 +7217,32 @@ body {
   outline: none;
 }
 
+.canvas-shell.active .canvas-preview-tooltip {
+  position: absolute;
+  left: 50%;
+  top: 10px;
+  z-index: 4;
+  max-width: min(230px, calc(100% - 20px));
+  border: 1px solid rgba(20, 24, 28, 0.18);
+  border-radius: 7px;
+  padding: 7px 9px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #15191d;
+  box-shadow: 0 12px 28px rgba(20, 24, 28, 0.16);
+  font-size: 10.5px;
+  font-weight: 800;
+  line-height: 1.35;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%);
+  transition: opacity 0.12s ease;
+  overflow-wrap: anywhere;
+}
+
+.canvas-shell.active .canvas-preview-tooltip.visible {
+  opacity: 1;
+}
+
 .canvas-shell.active .workflow-tree-preview-node {
   cursor: pointer;
   outline: none;
@@ -7236,42 +7262,88 @@ body {
   stroke-width: 0.9;
 }
 
+.canvas-shell.active .progress-step.is-focused,
+.canvas-shell.active .progress-step.is-focused:hover,
+.canvas-shell.active .progress-step.is-focused:focus-visible {
+  background: rgba(240, 42, 12, 0.1);
+  color: #15191d;
+}
+
+.canvas-shell.active .progress-step.is-focused::before {
+  border-color: #f02a0c;
+  background: #f02a0c;
+}
+
 .canvas-shell.active .canvas-focus-create-panel {
   margin: 0 14px 10px;
-  border: 1px solid rgba(20, 24, 28, 0.14);
+  border: 1px solid var(--chrome-border);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 10px 30px rgba(20, 24, 28, 0.08);
+  background: rgba(255, 255, 255, 0.76);
+  box-shadow: none;
+  overflow: hidden;
 }
 
 .canvas-shell.active .canvas-focus-create-panel summary {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   cursor: pointer;
   list-style: none;
-  padding: 10px 12px;
-  color: #15191d;
+  padding: 0 12px;
+  color: var(--ink);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .canvas-shell.active .canvas-focus-create-panel summary::-webkit-details-marker {
   display: none;
 }
 
+.canvas-shell.active .canvas-focus-create-panel summary::after {
+  content: "+";
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border-radius: 5px;
+  background: var(--chrome-selected);
+  color: #ffffff;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.canvas-shell.active .canvas-focus-create-panel[open] summary::after {
+  content: "-";
+}
+
 .canvas-shell.active .canvas-focus-create-panel .canvas-tools {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
-  gap: 8px;
-  padding: 0 10px 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin: 0;
+  border-top: 1px solid var(--chrome-border);
+  padding: 10px;
 }
 
 .canvas-shell.active .canvas-focus-create-panel .canvas-tools button {
-  min-height: 34px;
-  border: 1px solid rgba(240, 42, 12, 0.22);
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.96);
-  color: #15191d;
+  min-width: 0;
+  min-height: 32px;
+  border: 1px solid var(--chrome-border);
+  border-radius: 6px;
+  padding: 0 8px;
+  background: #ffffff;
+  color: var(--ink);
   font-size: 11px;
-  font-weight: 850;
+  line-height: 1.2;
+}
+
+.canvas-shell.active .canvas-focus-create-panel .canvas-tools button:hover,
+.canvas-shell.active .canvas-focus-create-panel .canvas-tools button:focus-visible {
+  border-color: var(--chrome-selected);
+  background: var(--chrome-accent-soft);
+  color: var(--chrome-selected);
 }
 
 @media (min-width: 761px) {

@@ -62,6 +62,7 @@ const canvasPreview = document.querySelector("#canvas-preview");
 const canvasPreviewViewport = document.querySelector("#canvas-preview-viewport");
 const canvasPreviewPlane = document.querySelector("#canvas-preview-plane");
 const openCanvasFocusButton = document.querySelector("#open-canvas-focus");
+const canvasPreviewTooltip = document.querySelector("#canvas-preview-tooltip");
 const scopeList = document.querySelector("#scope-list");
 const commandProposals = document.querySelector("#command-proposals");
 const navigatorRevision = document.querySelector("#navigator-revision");
@@ -77,6 +78,7 @@ let activeInteraction = null;
 let activeProjection = null;
 let activeSessionId = null;
 let activeScopeId = null;
+let previewFocusedStageId = "";
 let dragState = null;
 let connectionDraft = null;
 let panState = null;
@@ -952,6 +954,7 @@ async function openCanvas(project) {
   activeProjection = null;
   activeSessionId = null;
   activeScopeId = null;
+  previewFocusedStageId = "";
   updateCanvasTitle(project.title);
   home.classList.add("hidden");
   canvas.classList.add("active");
@@ -1177,7 +1180,7 @@ function renderInteraction() {
   const progress = session?.progress || [];
   conversationProgress.hidden = Boolean(isEntry) || progress.length < 2;
   conversationProgress.innerHTML = progress.map((step) => `
-    <button class="progress-step ${escapeHtml(step.status || "pending")}" type="button" data-progress-scope="${escapeHtml(step.scope_id)}">
+    <button class="progress-step ${escapeHtml(step.status || "pending")} ${previewFocusedStageId === step.workflow_stage_id ? "is-focused" : ""}" type="button" data-progress-scope="${escapeHtml(step.scope_id)}">
       <span>${escapeHtml(step.label)}</span><span>${escapeHtml(statusLabel(step.status || "pending"))}</span>
     </button>
   `).join("");
@@ -1340,7 +1343,7 @@ function workflowStages(session) {
     label: localizedWorkflowStageLabel(workflow, step),
     state: statusLabel(step.status || "pending"),
     scopeId: step.scope_id || activeScopeId || "scope-global",
-    active: step.status === "active",
+    active: previewFocusedStageId ? step.workflow_stage_id === previewFocusedStageId : step.status === "active",
   }));
 }
 
@@ -1380,8 +1383,9 @@ function renderStagePresentation(stages) {
   }
   const tools = activeStageTools();
   const visibleTools = tools.slice(0, 3);
-  const focusedStage = stages.find((stage) => stage.active)
+  const focusedStage = stages.find((stage) => previewFocusedStageId && stage.id === previewFocusedStageId)
     || stages.find((stage) => stage.scopeId === activeScopeId)
+    || stages.find((stage) => stage.active)
     || stages[0];
   const methodCards = visibleTools.length
     ? visibleTools.map((tool) => {
@@ -1986,15 +1990,21 @@ function renderCanvasPreview() {
       const current = nodeId === selectedId || nodeId === activeOutputId;
       const navigation = previewNodeNavigation(nodeId, workflow);
       const label = previewNodeDescription(node, navigation);
-      return `<g class="workflow-tree-preview-node" role="button" tabindex="0" data-preview-node-id="${escapeHtml(nodeId)}" aria-label="${escapeHtml(label)}"><title>${escapeHtml(label)}</title><circle class="${current ? "current" : ""}" cx="${point.x}" cy="${point.y}" r="${current ? 3.6 : 2.5}" /></g>`;
+      return `<g class="workflow-tree-preview-node" role="button" tabindex="0" data-preview-node-id="${escapeHtml(nodeId)}" data-preview-node-label="${escapeHtml(label)}" aria-label="${escapeHtml(label)}"><title>${escapeHtml(label)}</title><circle class="${current ? "current" : ""}" cx="${point.x}" cy="${point.y}" r="${current ? 3.6 : 2.5}" /></g>`;
     }).join("")}
   </svg>`;
   canvasPreviewPlane.querySelectorAll("[data-preview-node-id]").forEach((item) => {
     const nodeId = item.dataset.previewNodeId;
+    const label = item.dataset.previewNodeLabel || "";
     item.addEventListener("click", (event) => {
       event.stopPropagation();
       navigateFromPreviewNode(nodeId);
     });
+    item.addEventListener("mouseenter", (event) => showCanvasPreviewTooltip(label, event));
+    item.addEventListener("mousemove", (event) => moveCanvasPreviewTooltip(event));
+    item.addEventListener("mouseleave", hideCanvasPreviewTooltip);
+    item.addEventListener("focus", () => showCanvasPreviewTooltip(label));
+    item.addEventListener("blur", hideCanvasPreviewTooltip);
     item.addEventListener("keydown", (event) => {
       if (event.key !== "Enter" && event.key !== " ") return;
       event.preventDefault();
@@ -2035,6 +2045,37 @@ function previewNodeDescription(node, navigation) {
   return [title, type, status, target].filter(Boolean).join(" / ");
 }
 
+function showCanvasPreviewTooltip(label, event = null) {
+  if (!canvasPreviewTooltip || !label) return;
+  canvasPreviewTooltip.textContent = label;
+  canvasPreviewTooltip.classList.add("visible");
+  canvasPreviewTooltip.setAttribute("aria-hidden", "false");
+  moveCanvasPreviewTooltip(event);
+}
+
+function moveCanvasPreviewTooltip(event = null) {
+  if (!canvasPreviewTooltip || !canvasPreviewTooltip.classList.contains("visible")) return;
+  if (!event) {
+    canvasPreviewTooltip.style.left = "50%";
+    canvasPreviewTooltip.style.top = "10px";
+    canvasPreviewTooltip.style.transform = "translateX(-50%)";
+    return;
+  }
+  const rect = canvasPreviewTooltip.parentElement?.getBoundingClientRect();
+  if (!rect) return;
+  const left = Math.min(rect.width - 12, Math.max(12, event.clientX - rect.left + 10));
+  const top = Math.min(rect.height - 12, Math.max(12, event.clientY - rect.top + 10));
+  canvasPreviewTooltip.style.left = `${left}px`;
+  canvasPreviewTooltip.style.top = `${top}px`;
+  canvasPreviewTooltip.style.transform = "none";
+}
+
+function hideCanvasPreviewTooltip() {
+  if (!canvasPreviewTooltip) return;
+  canvasPreviewTooltip.classList.remove("visible");
+  canvasPreviewTooltip.setAttribute("aria-hidden", "true");
+}
+
 function navigateFromPreviewNode(nodeId) {
   const workflow = activeWorkflow();
   const node = findNode(nodeId);
@@ -2042,10 +2083,10 @@ function navigateFromPreviewNode(nodeId) {
   if (workflow?.session_id) activeSessionId = workflow.session_id;
   const label = previewNodeDescription(node, navigation);
   const message = locale === "zh"
-    ? `跳转到这个节点对应的步骤？\n${label}`
-    : `Jump to the step for this node?\n${label}`;
+    ? `是否回到该节点标识对应的进度？\n${label}`
+    : `Return to the progress marker for this node?\n${label}`;
   if (!window.confirm(message)) return;
-  runUiAction(() => setActiveScope(navigation.scopeId || defaultLocalScopeId()));
+  runUiAction(() => setActiveScope(navigation.scopeId || defaultLocalScopeId(), { stageId: navigation.stageId || "" }));
 }
 
 function previewTreeLayers(nodes, edges) {
@@ -2080,10 +2121,15 @@ function renderCommandProposals() {
   });
 }
 
-async function setActiveScope(scopeId) {
+async function setActiveScope(scopeId, options = {}) {
   const session = activeSession();
   if (!scopeId || !activeProject || !session) return;
-  if (scopeId === activeScopeId && session.active_scope_id === scopeId) return;
+  previewFocusedStageId = options.stageId || "";
+  if (scopeId === activeScopeId && session.active_scope_id === scopeId) {
+    renderInteraction();
+    renderCanvasPreview();
+    return;
+  }
   try {
     if (session.active_scope_id !== scopeId) {
       await requestJson(`/api/projects/${activeProject.id}/conversations/${session.id}`, {
@@ -2833,6 +2879,7 @@ async function selectWorkflowBranch(workflowId, branchNodeId) {
   });
   if (result.session?.id) activeSessionId = result.session.id;
   activeScopeId = result.scope_id || activeScopeId;
+  previewFocusedStageId = "tools";
   await loadCanvas({ preserveView: true });
 }
 
@@ -3523,6 +3570,7 @@ function backHome() {
   activeProjection = null;
   activeSessionId = null;
   activeScopeId = null;
+  previewFocusedStageId = "";
 }
 
 async function deleteProject(project) {
