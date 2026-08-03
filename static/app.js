@@ -2025,9 +2025,10 @@ function renderCanvasPreview() {
   const graphNodes = activeCanvas?.nodes || [];
   const workflow = activeWorkflow();
   const nodesById = new Map(graphNodes.map((node) => [node.id, node]));
-  const layers = workflow
+  const workflowLayers = workflow
     ? [
       (workflow.source_node_ids || []).filter((id) => nodesById.has(id)),
+      [workflow.keyword_node_id].filter((id) => nodesById.has(id)),
       [workflow.operation_node_id].filter((id) => nodesById.has(id)),
       (workflow.branch_node_ids || []).filter((id) => nodesById.has(id)),
       [workflow.selected_branch_node_id].filter((id) => nodesById.has(id)),
@@ -2035,6 +2036,12 @@ function renderCanvasPreview() {
       [workflow.active_scenario_node_id].filter((id) => nodesById.has(id)),
     ].filter((layer) => layer.length)
     : previewTreeLayers(graphNodes, activeCanvas?.edges || []);
+  const workflowIds = new Set(workflowLayers.flat());
+  const overflowNodes = graphNodes.filter((node) => !workflowIds.has(node.id));
+  const layers = [
+    ...workflowLayers,
+    ...previewTreeLayers(overflowNodes, activeCanvas?.edges || []),
+  ].filter((layer) => layer.length);
   const visibleIds = [...new Set(layers.flat())];
   const points = new Map();
   layers.forEach((layer, index) => {
@@ -2062,21 +2069,22 @@ function renderCanvasPreview() {
       const node = nodesById.get(nodeId);
       const current = nodeId === selectedId || nodeId === activeOutputId;
       const navigation = previewNodeNavigation(nodeId, workflow);
-      const label = previewNodeDescription(node, navigation);
-      return `<g class="workflow-tree-preview-node" role="button" tabindex="0" data-preview-node-id="${escapeHtml(nodeId)}" data-preview-node-label="${escapeHtml(label)}" aria-label="${escapeHtml(label)}"><title>${escapeHtml(label)}</title><circle class="${current ? "current" : ""}" cx="${point.x}" cy="${point.y}" r="${current ? 3.6 : 2.5}" /></g>`;
+      const name = previewNodeName(node);
+      const description = previewNodeDescription(node, navigation);
+      return `<g class="workflow-tree-preview-node" role="button" tabindex="0" data-preview-node-id="${escapeHtml(nodeId)}" data-preview-node-name="${escapeHtml(name)}" data-preview-node-description="${escapeHtml(description)}" aria-label="${escapeHtml(description)}"><title>${escapeHtml(name)}</title><circle class="${current ? "current" : ""}" cx="${point.x}" cy="${point.y}" r="${current ? 3.6 : 2.5}" /></g>`;
     }).join("")}
   </svg>`;
   canvasPreviewPlane.querySelectorAll("[data-preview-node-id]").forEach((item) => {
     const nodeId = item.dataset.previewNodeId;
-    const label = item.dataset.previewNodeLabel || "";
+    const name = item.dataset.previewNodeName || "";
     item.addEventListener("click", (event) => {
       event.stopPropagation();
       navigateFromPreviewNode(nodeId);
     });
-    item.addEventListener("mouseenter", (event) => showCanvasPreviewTooltip(label, event));
+    item.addEventListener("mouseenter", (event) => showCanvasPreviewTooltip(name, event));
     item.addEventListener("mousemove", (event) => moveCanvasPreviewTooltip(event));
     item.addEventListener("mouseleave", hideCanvasPreviewTooltip);
-    item.addEventListener("focus", () => showCanvasPreviewTooltip(label));
+    item.addEventListener("focus", () => showCanvasPreviewTooltip(name));
     item.addEventListener("blur", hideCanvasPreviewTooltip);
     item.addEventListener("keydown", (event) => {
       if (event.key !== "Enter" && event.key !== " ") return;
@@ -2087,9 +2095,17 @@ function renderCanvasPreview() {
 }
 
 function previewNodeNavigation(nodeId, workflow = activeWorkflow()) {
-  if (!workflow) return { scopeId: defaultLocalScopeId(), stageId: "", stageLabel: "" };
-  const stageCopy = workflow.definition_snapshot?.locales?.[locale]?.stages || {};
+  const stageCopy = workflow?.definition_snapshot?.locales?.[locale]?.stages || {};
   const stageLabel = (stageId, fallback) => localizedReferenceTitle(stageCopy[stageId]?.label || fallback || stageId);
+  if (!workflow) {
+    const owningScopeId = scopeIdForPreviewNode(nodeId);
+    const progressStep = (activeSession()?.progress || []).find((step) => step.scope_id === owningScopeId);
+    return {
+      scopeId: owningScopeId || defaultLocalScopeId(),
+      stageId: progressStep?.workflow_stage_id || "",
+      stageLabel: localizedReferenceTitle(progressStep?.label || ""),
+    };
+  }
   if ((workflow.source_node_ids || []).includes(nodeId) || nodeId === workflow.keyword_node_id) {
     return { scopeId: workflow.foundation_scope_id || "scope-global", stageId: "input", stageLabel: stageLabel("input", t("workflowStrip.brief")) };
   }
@@ -2107,11 +2123,37 @@ function previewNodeNavigation(nodeId, workflow = activeWorkflow()) {
     const branchId = workflow.selected_branch_node_id || "";
     return { scopeId: workflow.branch_scope_ids?.[branchId] || activeScopeId || "scope-global", stageId: "scenario", stageLabel: stageLabel("scenario", t("workflowStrip.outcomes")) };
   }
-  return { scopeId: activeScopeId || defaultLocalScopeId(), stageId: "", stageLabel: "" };
+  const owningScopeId = scopeIdForPreviewNode(nodeId);
+  const progressStep = (activeSession()?.progress || []).find((step) => step.scope_id === owningScopeId);
+  if (progressStep) {
+    return {
+      scopeId: owningScopeId,
+      stageId: progressStep.workflow_stage_id || "",
+      stageLabel: stageLabel(progressStep.workflow_stage_id || "", progressStep.label || ""),
+    };
+  }
+  return { scopeId: owningScopeId || activeScopeId || defaultLocalScopeId(), stageId: "", stageLabel: "" };
+}
+
+function scopeIdForPreviewNode(nodeId) {
+  const scopes = activeInteraction?.scopes || [];
+  const explicit = scopes.find((scope) => {
+    const selector = scope.selector || {};
+    return [
+      ...(selector.node_ids || []),
+      ...(selector.root_node_ids || []),
+      ...(scope.snapshot_node_ids || []),
+    ].includes(nodeId);
+  });
+  return explicit?.id || defaultLocalScopeId();
+}
+
+function previewNodeName(node) {
+  return localizedReferenceTitle(node?.title || nodeTypeLabel(node?.type || "node"));
 }
 
 function previewNodeDescription(node, navigation) {
-  const title = localizedReferenceTitle(node?.title || node?.type || "");
+  const title = previewNodeName(node);
   const type = nodeTypeLabel(node?.type || "node");
   const status = statusLabel(node?.status || "draft");
   const target = navigation?.stageLabel ? `${navigation.stageLabel} · ${localizedReferenceTitle((activeInteraction?.scopes || []).find((scope) => scope.id === navigation.scopeId)?.label || navigation.scopeId)}` : localizedReferenceTitle(navigation?.scopeId || "");
@@ -2154,10 +2196,11 @@ function navigateFromPreviewNode(nodeId) {
   const node = findNode(nodeId);
   const navigation = previewNodeNavigation(nodeId, workflow);
   if (workflow?.session_id) activeSessionId = workflow.session_id;
+  const nodeName = previewNodeName(node);
   const label = previewNodeDescription(node, navigation);
   const message = locale === "zh"
-    ? `是否回到该节点标识对应的进度？\n${label}`
-    : `Return to the progress marker for this node?\n${label}`;
+    ? `是否回到「${nodeName}」对应的进度？\n${label}`
+    : `Return to the progress marker for "${nodeName}"?\n${label}`;
   if (!window.confirm(message)) return;
   runUiAction(() => setActiveScope(navigation.scopeId || defaultLocalScopeId(), { stageId: navigation.stageId || "" }));
 }
