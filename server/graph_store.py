@@ -203,6 +203,20 @@ def get_scope_projection(project_id: str, scope_id: str) -> dict:
     return scope_projection(read_canvas(project_id), scope_id)
 
 
+def update_canvas_viewport(project_id: str, payload: dict) -> dict:
+    canvas = read_canvas(project_id)
+    viewport = canvas.get("viewport") if isinstance(canvas.get("viewport"), dict) else {}
+    patch = payload.get("viewport") if isinstance(payload.get("viewport"), dict) else payload
+    next_viewport = {
+        "x": max(0, float(patch.get("x", viewport.get("x", 0)) or 0)),
+        "y": max(0, float(patch.get("y", viewport.get("y", 0)) or 0)),
+        "zoom": max(0.25, min(1, float(patch.get("zoom", viewport.get("zoom", 1)) or 1))),
+    }
+    canvas["viewport"] = next_viewport
+    write_canvas(project_id, canvas)
+    return deepcopy(next_viewport)
+
+
 def add_scope(project_id: str, payload: dict, expected_revision=None) -> dict:
     canvas = read_canvas(project_id)
     assert_expected_revision(canvas, expected_revision)

@@ -49,6 +49,7 @@ from server.graph_store import (
     select_four_futures_branch,
     set_conversation_scope,
     start_four_futures_workflow,
+    update_canvas_viewport,
     update_node,
     update_project,
 )
@@ -467,6 +468,18 @@ class AppHandler(SimpleHTTPRequestHandler):
                 self.send_json({"error": str(exc)}, status=HTTPStatus.CONFLICT)
                 return
             self.send_json({"node": node})
+            return
+        if route and len(route) == 2 and route[1] == "canvas":
+            project_id = route[0]
+            if not get_project(project_id):
+                self.send_json({"error": "Project not found."}, status=HTTPStatus.NOT_FOUND)
+                return
+            try:
+                viewport = update_canvas_viewport(project_id, self.read_json_body())
+            except (TypeError, ValueError) as exc:
+                self.send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+                return
+            self.send_json({"viewport": viewport})
             return
         if route and len(route) == 3 and route[1] == "conversations":
             project_id, _, session_id = route

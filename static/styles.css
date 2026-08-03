@@ -179,6 +179,28 @@ h2 {
   gap: 8px;
 }
 
+.autosave-status {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  border: 1px solid rgba(20, 24, 28, 0.12);
+  border-radius: 999px;
+  padding: 0 10px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.autosave-status[data-state="saving"] {
+  color: #f02a0c;
+}
+
+.autosave-status[data-state="error"] {
+  border-color: #b42318;
+  color: #b42318;
+}
+
 .theme-toggle {
   min-width: 68px;
 }
@@ -6166,6 +6188,23 @@ body {
 .canvas-shell.active .canvas-bar .file-name,
 .canvas-shell.active .canvas-bar .zoom-level {
   color: rgba(255, 255, 255, 0.72);
+}
+
+.canvas-shell.active .autosave-status {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.canvas-shell.active .autosave-status[data-state="saving"] {
+  border-color: rgba(240, 42, 12, 0.34);
+  color: #ff8a75;
+}
+
+.canvas-shell.active .autosave-status[data-state="error"] {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: #b42318;
+  color: #ffffff;
 }
 
 .canvas-shell.active #canvas-title {

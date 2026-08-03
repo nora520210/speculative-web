@@ -18,6 +18,7 @@ from server.graph_store import (
     run_modify,
     normalize_text_blocks,
     normalize_node,
+    update_canvas_viewport,
     update_project,
     valid_text_blocks,
     write_canvas,
@@ -171,6 +172,41 @@ def test_update_project_renames_canvas_record():
         project = update_project("project-a", {"title": "Renamed Canvas"})
         assert project["title"] == "Renamed Canvas"
         assert graph_store.read_projects()[0]["title"] == "Renamed Canvas"
+    graph_store.DATA_DIR = original_data_dir
+    graph_store.PROJECTS_FILE = original_projects_file
+    graph_store.CANVAS_DIR = original_canvas_dir
+
+
+def test_update_canvas_viewport_persists_clamped_view_state():
+    import server.graph_store as graph_store
+
+    original_data_dir = graph_store.DATA_DIR
+    original_projects_file = graph_store.PROJECTS_FILE
+    original_canvas_dir = graph_store.CANVAS_DIR
+    with TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        graph_store.DATA_DIR = tmp_path
+        graph_store.PROJECTS_FILE = tmp_path / "projects.json"
+        graph_store.CANVAS_DIR = tmp_path / "canvases"
+        graph_store.ensure_store_light()
+        graph_store.write_projects(
+            [
+                {
+                    "id": "project-a",
+                    "title": "A",
+                    "status": "active",
+                    "updated_at": "now",
+                    "node_count": 0,
+                    "canvas_id": "project-a",
+                }
+            ]
+        )
+        graph_store.write_canvas("project-a", graph_store.empty_canvas("project-a"))
+        viewport = update_canvas_viewport("project-a", {"x": 144, "y": 88, "zoom": 2})
+        saved = graph_store.read_canvas("project-a")
+
+        assert viewport == {"x": 144.0, "y": 88.0, "zoom": 1}
+        assert saved["viewport"] == viewport
     graph_store.DATA_DIR = original_data_dir
     graph_store.PROJECTS_FILE = original_projects_file
     graph_store.CANVAS_DIR = original_canvas_dir

@@ -14,6 +14,8 @@ const canvasStatus = document.querySelector("#canvas-status");
 const canvasOutput = document.querySelector("#canvas-output");
 const modelStatus = document.querySelector("#model-status");
 const modelOutput = document.querySelector("#model-output");
+const autosaveStatus = document.querySelector("#autosave-status");
+const exportPdfButton = document.querySelector("#export-pdf");
 const workspaceMain = document.querySelector(".workspace-main");
 const workspace = document.querySelector(".workspace");
 const canvasContent = document.querySelector("#canvas-content");
@@ -94,6 +96,8 @@ const agentGuideInFlight = new Set();
 const branchImageInFlight = new Set();
 let branchImageQueueRunning = false;
 const quickInputSelections = new Map();
+let autosaveTimer = null;
+let autosaveStatusTimer = null;
 let modelAccess = {
   openaiApiKeyConfigured: false,
   openaiRunsEnabled: true,
@@ -130,6 +134,7 @@ const translations = {
     "common.close": "Close",
     "common.run": "Run",
     "common.running": "Running",
+    "common.exportPdf": "Export PDF",
     "common.output": "output",
     "common.inputText": "input text",
     "common.openFullText": "Open Full Text",
@@ -216,6 +221,16 @@ const translations = {
     "status.active": "active",
     "status.succeeded": "succeeded",
     "status.complete": "complete",
+    "autosave.saved": "Auto-saved",
+    "autosave.saving": "Saving...",
+    "autosave.error": "Save failed",
+    "export.title": "Speculative Web Export",
+    "export.cards": "Cards",
+    "export.canvasNodes": "Canvas nodes",
+    "export.chat": "Chat record",
+    "export.noMessages": "No chat record yet.",
+    "export.generatedAt": "Generated at",
+    "export.printHint": "Use the print dialog to save this report as PDF.",
     "inspector.canvasSnapshot": "Canvas Snapshot",
     "inspector.openCanvas": "Open a canvas to inspect its graph state.",
     "inspector.modelApi": "Model API",
@@ -387,6 +402,7 @@ const translations = {
     "common.close": "关闭",
     "common.run": "运行",
     "common.running": "生成中",
+    "common.exportPdf": "导出PDF",
     "common.output": "输出",
     "common.inputText": "输入文本",
     "common.openFullText": "查看完整文本",
@@ -473,6 +489,16 @@ const translations = {
     "status.active": "进行中",
     "status.succeeded": "已完成",
     "status.complete": "已完成",
+    "autosave.saved": "已自动存储",
+    "autosave.saving": "自动存储中...",
+    "autosave.error": "存储失败",
+    "export.title": "思辨共创工作台导出",
+    "export.cards": "流程卡片",
+    "export.canvasNodes": "画布节点",
+    "export.chat": "聊天记录",
+    "export.noMessages": "暂无聊天记录。",
+    "export.generatedAt": "导出时间",
+    "export.printHint": "在打印窗口中选择保存为 PDF。",
     "inspector.canvasSnapshot": "画布快照",
     "inspector.openCanvas": "打开一个画布以查看图谱状态。",
     "inspector.modelApi": "模型 API",
@@ -857,6 +883,9 @@ function applyLocale(nextLocale) {
 
 async function requestJson(url, options = {}) {
   const { requiresApiKey = false, headers: optionHeaders = {}, ...requestOptions } = options;
+  const method = String(requestOptions.method || "GET").toUpperCase();
+  const isMutating = !["GET", "HEAD"].includes(method);
+  if (isMutating) setAutoSaveState("saving");
   const headers = requestOptions.body instanceof FormData ? { ...optionHeaders } : {
     "Content-Type": "application/json",
     ...optionHeaders,
@@ -870,9 +899,49 @@ async function requestJson(url, options = {}) {
   });
   const payload = await response.json();
   if (!response.ok) {
+    if (isMutating) setAutoSaveState("error");
     throw new Error(payload.error || `Request failed: ${response.status}`);
   }
+  if (isMutating) setAutoSaveState("saved");
   return payload;
+}
+
+function setAutoSaveState(state) {
+  if (!autosaveStatus) return;
+  const key = state === "saving" ? "autosave.saving" : (state === "error" ? "autosave.error" : "autosave.saved");
+  autosaveStatus.textContent = t(key);
+  autosaveStatus.dataset.state = state;
+  window.clearTimeout(autosaveStatusTimer);
+  if (state === "saving") return;
+  autosaveStatusTimer = window.setTimeout(() => {
+    autosaveStatus.textContent = t("autosave.saved");
+    autosaveStatus.dataset.state = "saved";
+  }, 1800);
+}
+
+function scheduleViewportAutosave() {
+  if (!activeProject || !activeCanvas) return;
+  window.clearTimeout(autosaveTimer);
+  autosaveTimer = window.setTimeout(saveViewportState, 650);
+}
+
+async function saveViewportState() {
+  if (!activeProject || !activeCanvas) return;
+  const viewport = {
+    x: Math.max(0, Math.round(workspace.scrollLeft)),
+    y: Math.max(0, Math.round(workspace.scrollTop)),
+    zoom,
+  };
+  activeCanvas.viewport = viewport;
+  try {
+    await requestJson(`/api/projects/${activeProject.id}/canvas`, {
+      method: "PATCH",
+      body: JSON.stringify({ viewport }),
+    });
+  } catch (error) {
+    setStatus(canvasStatus, "error");
+    canvasOutput.textContent = error.message;
+  }
 }
 
 function withExpectedRevision(payload) {
@@ -986,6 +1055,10 @@ async function loadCanvas({ preserveView = true, consistencyRetry = 0 } = {}) {
   canvasOutput.textContent = JSON.stringify(summarizeCanvas(graph), null, 2);
   renderCanvas();
   if (shouldPreserveView) restoreCanvasView(previousView);
+  else restoreCanvasView({
+    scrollLeft: Number(activeCanvas.viewport?.x || 0),
+    scrollTop: Number(activeCanvas.viewport?.y || 0),
+  });
   queuePendingBranchImages();
 }
 
@@ -3562,6 +3635,7 @@ window.addEventListener("pointerup", async (event) => {
 function backHome() {
   closeNodeMenu();
   closeTextReader();
+  window.clearTimeout(autosaveTimer);
   canvas.classList.remove("active");
   home.classList.remove("hidden");
   activeProject = null;
@@ -3595,6 +3669,7 @@ async function setZoom(nextZoom, anchorEvent = null) {
     activeCanvas.viewport = { ...(activeCanvas.viewport || {}), zoom };
   }
   renderPlane();
+  scheduleViewportAutosave();
   if (anchor) {
     workspace.scrollLeft = anchor.planeX * zoom - anchor.offsetX;
     workspace.scrollTop = anchor.planeY * zoom - anchor.offsetY;
@@ -3692,9 +3767,134 @@ function cssEscape(value) {
   return String(value).replaceAll('"', '\\"');
 }
 
+function exportCurrentCanvasPdf() {
+  if (!activeProject || !activeCanvas) return;
+  const reportWindow = window.open("", "_blank");
+  if (!reportWindow) {
+    window.alert(locale === "zh" ? "浏览器阻止了导出窗口，请允许弹窗后重试。" : "The browser blocked the export window. Allow pop-ups and try again.");
+    return;
+  }
+  const generatedAt = new Date().toLocaleString(locale === "zh" ? "zh-CN" : "en-US");
+  const session = activeSession();
+  const title = activeProject.title || activeCanvas.id || t("export.title");
+  const cardsMarkup = stagePresentation?.innerHTML?.trim()
+    ? stagePresentation.innerHTML
+    : `<p class="report-empty">${escapeHtml(t("workflowStrip.empty"))}</p>`;
+  const nodeMarkup = printableNodeReport();
+  const chatMarkup = printableChatReport(session);
+  const stylesheet = `/static/styles.css?v=20260804-export-pdf-autosave`;
+  reportWindow.document.open();
+  reportWindow.document.write(`<!doctype html>
+<html lang="${locale === "zh" ? "zh-CN" : "en"}">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapeHtml(title)} · ${escapeHtml(t("common.exportPdf"))}</title>
+  <link rel="stylesheet" href="${stylesheet}" />
+  <style>
+    body { margin: 0; background: #ffffff; color: #15191d; font-family: "Heiti SC", "PingFang SC", "Microsoft YaHei", Arial, sans-serif; }
+    .report { max-width: 1120px; margin: 0 auto; padding: 30px; }
+    .report-header { display: flex; justify-content: space-between; gap: 20px; border-bottom: 2px solid #15191d; padding-bottom: 14px; }
+    .report-header h1 { margin: 0; font-size: 24px; font-weight: 900; }
+    .report-header p { margin: 6px 0 0; color: #596168; font-size: 12px; }
+    .report-section { break-inside: avoid; margin-top: 26px; }
+    .report-section h2 { margin: 0 0 12px; color: #f02a0c; font-size: 15px; font-weight: 900; text-transform: uppercase; }
+    .report-print-hint { color: #596168; font-size: 11px; }
+    .stage-presentation, .stage-deck, .foundation-start-deck { max-height: none !important; overflow: visible !important; }
+    .stage-deck, .foundation-start-deck, .report-node-grid { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 12px !important; }
+    .stage-deck-card, .foundation-start-card, .report-node, .report-message { break-inside: avoid; border: 1px solid rgba(20, 24, 28, 0.16) !important; border-radius: 8px !important; background: #fff !important; color: #15191d !important; box-shadow: none !important; }
+    .stage-deck-card, .foundation-start-card { min-height: 0 !important; padding: 10px !important; }
+    .stage-deck-header { pointer-events: none; }
+    button { color: inherit; }
+    .report-node { padding: 12px; }
+    .report-node header { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 8px; color: #f02a0c; font-size: 11px; font-weight: 900; }
+    .report-node h3 { margin: 0 0 8px; font-size: 14px; }
+    .report-node p, .report-message p { margin: 0; white-space: pre-wrap; font-size: 11.5px; line-height: 1.5; }
+    .report-node img { display: block; width: 100%; max-height: 170px; object-fit: cover; border-radius: 6px; margin: 8px 0; }
+    .report-chat { display: grid; gap: 8px; }
+    .report-message { padding: 10px 12px; }
+    .report-message strong { display: block; margin-bottom: 5px; color: #f02a0c; font-size: 11px; }
+    .report-message small { display: block; margin-top: 5px; color: #737980; font-size: 10px; }
+    .report-empty { color: #737980; font-size: 12px; }
+    @media print {
+      @page { size: A4; margin: 12mm; }
+      .report { max-width: none; padding: 0; }
+      .report-print-hint { display: none; }
+      .report-section { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <main class="report">
+    <header class="report-header">
+      <div>
+        <h1>${escapeHtml(title)}</h1>
+        <p>${escapeHtml(t("export.title"))}</p>
+      </div>
+      <div>
+        <p>${escapeHtml(t("export.generatedAt"))}: ${escapeHtml(generatedAt)}</p>
+        <p>r${escapeHtml(activeCanvas.revision ?? 0)} · ${escapeHtml(activeCanvas.nodes.length)} nodes</p>
+      </div>
+    </header>
+    <p class="report-print-hint">${escapeHtml(t("export.printHint"))}</p>
+    <section class="report-section">
+      <h2>${escapeHtml(t("export.cards"))}</h2>
+      <div class="stage-presentation">${cardsMarkup}</div>
+    </section>
+    <section class="report-section">
+      <h2>${escapeHtml(t("export.canvasNodes"))}</h2>
+      ${nodeMarkup}
+    </section>
+    <section class="report-section">
+      <h2>${escapeHtml(t("export.chat"))}</h2>
+      ${chatMarkup}
+    </section>
+  </main>
+  <script>
+    window.addEventListener("load", () => {
+      setTimeout(() => window.print(), 250);
+    });
+  </script>
+</body>
+</html>`);
+  reportWindow.document.close();
+}
+
+function printableNodeReport() {
+  const nodes = activeCanvas?.nodes || [];
+  if (!nodes.length) return `<p class="report-empty">${escapeHtml(t("navigator.none"))}</p>`;
+  return `<div class="report-node-grid">${nodes.map((node) => {
+    const text = plainTextForNode(node) || node.payload?.semantic_summary || node.payload?.filename || "";
+    const imageUrl = node.payload?.image_url || "";
+    return `<article class="report-node">
+      <header><span>${escapeHtml(nodeTypeLabel(node.type))}</span><span>${escapeHtml(statusLabel(node.status || "draft"))}</span></header>
+      <h3>${escapeHtml(localizedReferenceTitle(node.title || node.id))}</h3>
+      ${imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(localizedReferenceTitle(node.title || ""))}" />` : ""}
+      <p>${escapeHtml(stripTextArtifacts(text || node.payload?.text || ""))}</p>
+    </article>`;
+  }).join("")}</div>`;
+}
+
+function printableChatReport(session) {
+  const messages = (session?.messages || []).filter((message) => !(message.role === "system" && message.kind !== "activity"));
+  if (!messages.length) return `<p class="report-empty">${escapeHtml(t("export.noMessages"))}</p>`;
+  return `<div class="report-chat">${messages.map((message) => {
+    const perspective = message.input_perspective
+      ? ` · ${t(message.input_perspective === "design" ? "conversation.designerInput" : "conversation.scientistInput")}`
+      : "";
+    const role = `${t(`conversation.${message.role}`)}${perspective}`;
+    return `<article class="report-message">
+      <strong>${escapeHtml(role)}</strong>
+      <p>${escapeHtml(localizedConversationBody(message.body || ""))}</p>
+      ${message.created_at ? `<small>${escapeHtml(message.created_at)}</small>` : ""}
+    </article>`;
+  }).join("")}</div>`;
+}
+
 window.addEventListener("resize", renderPlane);
 zoomOut.addEventListener("click", () => setZoom(zoom - ZOOM_STEP));
 zoomIn.addEventListener("click", () => setZoom(zoom + ZOOM_STEP));
+exportPdfButton?.addEventListener("click", exportCurrentCanvasPdf);
 workspace.addEventListener("wheel", handleWheelZoom, { passive: false });
 workspace.addEventListener("pointerdown", beginCanvasPan);
 themeToggles.forEach((button) => button.addEventListener("click", toggleTheme));
@@ -3738,6 +3938,7 @@ document.addEventListener("keyup", (event) => {
   }
 });
 workspace.addEventListener("scroll", closeNodeMenu);
+workspace.addEventListener("scroll", scheduleViewportAutosave);
 
 function escapeHtml(value) {
   return String(value ?? "")

@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Speculative Web</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20260804-preview-node-progress" />
+    <link rel="stylesheet" href="/static/styles.css?v=20260804-export-pdf-autosave" />
   </head>
   <body>
     <main id="app-shell" class="app-shell">
@@ -47,6 +47,8 @@
             <h2 id="canvas-title">Speculative Canvas</h2>
           </div>
           <div class="top-actions">
+            <span id="autosave-status" class="autosave-status" data-i18n="autosave.saved">Auto-saved</span>
+            <button id="export-pdf" type="button" data-i18n="common.exportPdf">Export PDF</button>
             <button id="back-home" type="button" data-i18n="common.index">Index</button>
             <button id="delete-active-project" class="canvas-delete" type="button" data-i18n="canvas.delete">Delete Canvas</button>
             <button class="language-toggle" type="button" data-language-toggle>中文</button>
@@ -276,6 +278,6 @@
           </form>
         </div>
     </section>
-    <script src="/static/app.js?v=20260804-preview-node-progress"></script>
+    <script src="/static/app.js?v=20260804-export-pdf-autosave"></script>
   </body>
 </html>
