@@ -291,6 +291,7 @@ const translations = {
     "conversation.quickPrefix": "Quick input option",
     "conversation.quickSelected": "selected",
     "conversation.quickConfirmHint": "Select one or more options, then press Send.",
+    "conversation.quickLoading": "Loading options...",
     "conversation.generateScenario": "Generate text-image scenario",
     "conversation.agentIntro": "AI host: describe a research condition or design proposition. I will keep asking who uses it, who is affected, and where uncertainty appears.",
     "conversation.agentPrompt": "AI host",
@@ -547,6 +548,7 @@ const translations = {
     "conversation.quickPrefix": "快捷输入选项",
     "conversation.quickSelected": "已选",
     "conversation.quickConfirmHint": "可多选快捷输入，最后点击发送确认。",
+    "conversation.quickLoading": "快捷输入加载中...",
     "conversation.generateScenario": "生成图文情境",
     "conversation.agentIntro": "AI 主持人：请描述一个研究条件或设计设想。我会继续追问谁在使用、谁受影响，以及哪里出现不确定。",
     "conversation.agentPrompt": "AI 主持人",
@@ -1653,8 +1655,18 @@ function localizedQuickOptions(stage, guide, workflow) {
   if (stage === "tools") {
     const discussion = findNode(workflow?.discussion_node_id);
     const tools = (discussion?.config?.tools || []).filter((tool) => tool.enabled !== false);
+    const policy = discussion?.config?.selection_policy || {};
+    const recommendedIds = new Set(Array.isArray(policy.recommended_tool_ids) ? policy.recommended_tool_ids : []);
     const selectedCount = tools.filter((tool) => tool.selected).length;
-    const toolOptions = tools.map((tool) => quickButton(localizedToolCopy(tool, "label"), tool.id, "tool_select"));
+    const toolOptions = tools
+      .map((tool) => {
+        const label = localizedToolCopy(tool, "label");
+        return {
+          ...quickButton(recommendedIds.has(tool.id) ? `${t("toolSidebar.recommended")}：${label}` : label, tool.id, "tool_select"),
+          recommended: recommendedIds.has(tool.id),
+        };
+      })
+      .sort((a, b) => Number(Boolean(b.recommended)) - Number(Boolean(a.recommended)));
     return selectedCount
       ? [...toolOptions, quickButton(t("conversation.generateScenario"), "", "run_scenario")]
       : toolOptions;
@@ -1663,6 +1675,13 @@ function localizedQuickOptions(stage, guide, workflow) {
     quickButton(zh ? "换个角度追问" : "Ask from another angle", zh ? `围绕 ${topic} 重新追问角色、依据和不确定性。` : `Revisit roles, evidence, and uncertainty around ${topic}.`, "answer"),
     quickButton(zh ? "加入反例" : "Add a counterexample", zh ? `一个反例或边界情况会改变 ${topic} 的默认判断。` : `A counterexample or boundary case changes the default judgment around ${topic}.`, "answer"),
   ];
+}
+
+function renderQuickOptionsLoading() {
+  return `<div class="quick-input-options is-loading">
+    <button type="button" disabled aria-busy="true">${escapeHtml(t("conversation.quickLoading"))}</button>
+    <small class="quick-confirm-hint">${escapeHtml(t("conversation.quickLoading"))}</small>
+  </div>`;
 }
 
 function renderQuickOptions(options) {
@@ -1782,43 +1801,44 @@ function renderConversationGuide(session) {
   const liveQuestion = liveGuide?.question ? String(liveGuide.question) : "";
   const liveHint = liveGuide?.hint ? String(liveGuide.hint) : "";
   const loadingHint = agentLoading ? (localized ? "AI 正在根据当前材料生成追问..." : "AI is generating a contextual prompt...") : "";
+  const quickMarkup = agentLoading && !liveGuide ? renderQuickOptionsLoading() : renderQuickOptions(quickOptions);
   requestAgentGuide(session, stage, workflow, agentKey);
   if (stage === "start") {
     conversationGuideActions.innerHTML = `
       <span>${escapeHtml(liveQuestion || (localized ? "当前步骤：研究议题。先选择从真实研究还是设计设想开始，再描述一个可讨论的起点。" : "Current step: research issue. Choose whether to start from research or a design proposition, then describe a discussable starting point."))}</span>
       ${liveHint || loadingHint ? `<small class="agent-guide-hint">${escapeHtml(liveHint || loadingHint)}</small>` : ""}
-      ${renderQuickOptions(quickOptions)}
+      ${quickMarkup}
     `;
   } else if (["frame_focus", "frame_assumptions", "frame_stakeholders", "frame_tensions"].includes(stage)) {
     conversationGuideActions.innerHTML = `
       <span>${escapeHtml(liveQuestion || (localized ? "AI 主持人正在推动补充：" : "The AI host is prompting the next detail:"))}</span>
       ${liveHint || loadingHint ? `<small class="agent-guide-hint">${escapeHtml(liveHint || loadingHint)}</small>` : ""}
-      ${renderQuickOptions(quickOptions)}
+      ${quickMarkup}
       <button class="quiet-guide-action" type="button" data-guide-action="skip">${localized ? "跳过这一步" : "Skip this step"}</button>
     `;
   } else if (stage === "keywords") {
     conversationGuideActions.innerHTML = `
       <span>${escapeHtml(liveQuestion || (localized ? "关键词、默认假设和利益相关者已汇合；确认后进入 What-if。" : "Keywords, assumptions, and stakeholders have converged; confirm to enter What-if."))}</span>
       ${liveHint || loadingHint ? `<small class="agent-guide-hint">${escapeHtml(liveHint || loadingHint)}</small>` : ""}
-      ${renderQuickOptions(quickOptions)}
+      ${quickMarkup}
     `;
   } else if (stage === "four_futures" && workflow?.branch_node_ids?.length && workflow?.status === "awaiting_selection") {
     conversationGuideActions.innerHTML = `
       <span>${escapeHtml(liveQuestion || (localized ? "从四个方向中选择一条继续展开：" : "Choose one of the four directions to continue:"))}</span>
       ${liveHint || loadingHint ? `<small class="agent-guide-hint">${escapeHtml(liveHint || loadingHint)}</small>` : ""}
-      ${renderQuickOptions(quickOptions)}
+      ${quickMarkup}
     `;
   } else if (stage === "four_futures") {
     conversationGuideActions.innerHTML = `
       <span>${escapeHtml(liveQuestion || (localized ? "下一步：生成增长、崩溃、平衡、转变四条 What-if 线路。" : "Next: generate growth, collapse, balance, and transformation What-if lines."))}</span>
       ${liveHint || loadingHint ? `<small class="agent-guide-hint">${escapeHtml(liveHint || loadingHint)}</small>` : ""}
-      ${renderQuickOptions(quickOptions)}
+      ${quickMarkup}
     `;
   } else if (stage === "tools") {
     conversationGuideActions.innerHTML = `
       <span>${escapeHtml(liveQuestion || (localized ? "选择一个或多个工具介入当前情境线，再按发送确认。" : "Choose one or more tools for the current scenario line, then press Send."))}</span>
       ${liveHint || loadingHint ? `<small class="agent-guide-hint">${escapeHtml(liveHint || loadingHint)}</small>` : ""}
-      ${renderQuickOptions(quickOptions)}
+      ${quickMarkup}
     `;
   } else if (stage === "choose_future" && workflow?.branch_node_ids?.length) {
     // Legacy workflow snapshots retain their historical guide identifier.

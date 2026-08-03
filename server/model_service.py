@@ -48,6 +48,9 @@ def model_environment_status() -> dict:
         "openai_runs_enabled": runs_enabled,
         "user_api_key_required": user_api_key_required(),
         "model": configured_model(),
+        "image_model": configured_image_model(),
+        "image_size": configured_image_size(),
+        "image_fallback_model": "gpt-image-1",
         "capabilities": [capability.__dict__ for capability in capabilities],
     }
 
@@ -70,6 +73,10 @@ def configured_model() -> str:
 
 def configured_image_model() -> str:
     return os.environ.get("OPENAI_IMAGE_MODEL", "").strip() or "gpt-image-1"
+
+
+def configured_image_size() -> str:
+    return os.environ.get("OPENAI_IMAGE_SIZE", "").strip() or "1536x1024"
 
 
 def require_openai_key(api_key: str | None = None) -> str:
@@ -124,17 +131,26 @@ def generate_image_response(prompt: str, api_key: str | None = None) -> dict:
     if not openai_runs_enabled():
         raise ModelServiceNotConfigured("OpenAI runs are disabled for this process.")
     key = require_openai_key(api_key)
-    model = configured_image_model()
-    response = openai_json_request(
-        OPENAI_IMAGE_GENERATIONS_URL,
-        key,
-        {
-            "model": model,
-            "prompt": prompt,
-            "size": os.environ.get("OPENAI_IMAGE_SIZE", "1536x1024"),
-        },
-        timeout=120,
-    )
+    requested_model = configured_image_model()
+    requested_size = configured_image_size()
+    attempts = []
+    for model, size in image_generation_attempts(requested_model, requested_size):
+        try:
+            response = openai_json_request(
+                OPENAI_IMAGE_GENERATIONS_URL,
+                key,
+                {
+                    "model": model,
+                    "prompt": prompt,
+                    "size": size,
+                },
+                timeout=120,
+            )
+            break
+        except ModelServiceError as exc:
+            attempts.append(f"{model}/{size}: {exc}")
+    else:
+        raise ModelServiceError("OpenAI image generation failed after fallbacks: " + " | ".join(attempts))
     images = response.get("data") or []
     if not images:
         raise ModelServiceError("OpenAI image generation returned no image data.")
@@ -147,9 +163,25 @@ def generate_image_response(prompt: str, api_key: str | None = None) -> dict:
         "provider": "openai",
         "api": "images_generations",
         "model": model,
+        "size": size,
         "b64_json": b64_json,
         "url": url,
     }
+
+
+def image_generation_attempts(requested_model: str, requested_size: str) -> list[tuple[str, str]]:
+    candidates = [
+        (requested_model, requested_size),
+        (requested_model, "1024x1024"),
+        ("gpt-image-1", requested_size),
+        ("gpt-image-1", "1024x1024"),
+    ]
+    unique: list[tuple[str, str]] = []
+    for model, size in candidates:
+        candidate = (model.strip() or "gpt-image-1", size.strip() or "1024x1024")
+        if candidate not in unique:
+            unique.append(candidate)
+    return unique
 
 
 def resolve_model(key: str) -> str:

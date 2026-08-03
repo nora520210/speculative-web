@@ -83,3 +83,31 @@ def test_model_environment_describes_multimodal_execution():
             os.environ.pop("OPENAI_API_KEY", None)
         else:
             os.environ["OPENAI_API_KEY"] = original_key
+
+
+def test_image_generation_falls_back_to_gpt_image_one():
+    import server.model_service as model_service
+
+    original_request = model_service.openai_json_request
+    original_model = os.environ.get("OPENAI_IMAGE_MODEL")
+    calls = []
+
+    def fake_request(url, key, payload=None, **kwargs):
+        calls.append(payload)
+        if payload["model"] == "bad-image-model":
+            raise ModelServiceError("model is not supported")
+        return {"data": [{"b64_json": "AA=="}]}
+
+    os.environ["OPENAI_IMAGE_MODEL"] = "bad-image-model"
+    model_service.openai_json_request = fake_request
+    try:
+        result = model_service.generate_image_response("Draw a test image.", api_key="test-key")
+        assert result["model"] == "gpt-image-1"
+        assert any(call["model"] == "bad-image-model" for call in calls)
+        assert any(call["model"] == "gpt-image-1" for call in calls)
+    finally:
+        model_service.openai_json_request = original_request
+        if original_model is None:
+            os.environ.pop("OPENAI_IMAGE_MODEL", None)
+        else:
+            os.environ["OPENAI_IMAGE_MODEL"] = original_model

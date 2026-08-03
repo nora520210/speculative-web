@@ -38,7 +38,7 @@ This repository is prepared for Vercel's Python runtime:
 1. Import the GitHub repository in Vercel.
 2. Vercel detects `vercel.json`; no build command is required.
 3. In **Project Settings -> Environment Variables**, set:
-   - `OPENAI_IMAGE_MODEL=gpt-image-2`
+   - `OPENAI_IMAGE_MODEL=gpt-image-1`
    - `SPEC_WEB_ENABLE_OPENAI_RUNS=1`
    - `SPEC_WEB_REQUIRE_USER_API_KEY=1`
    - optionally `OPENAI_MODEL` for a fixed text model
