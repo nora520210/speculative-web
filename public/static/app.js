@@ -61,6 +61,7 @@ const workflowStrip = document.querySelector("#workflow-strip");
 const canvasPreview = document.querySelector("#canvas-preview");
 const canvasPreviewViewport = document.querySelector("#canvas-preview-viewport");
 const canvasPreviewPlane = document.querySelector("#canvas-preview-plane");
+const openCanvasFocusButton = document.querySelector("#open-canvas-focus");
 const scopeList = document.querySelector("#scope-list");
 const commandProposals = document.querySelector("#command-proposals");
 const navigatorRevision = document.querySelector("#navigator-revision");
@@ -990,12 +991,28 @@ async function loadInteraction({ preserveScope = true } = {}) {
   const { interaction } = await requestJson(`/api/projects/${activeProject.id}/interaction`);
   activeInteraction = interaction;
   const sessions = interaction.conversation_sessions || [];
+  const workflows = interaction.workflow_instances || [];
+  const scopedWorkflow = preserveScope && activeScopeId
+    ? workflows.find((workflow) => workflowScopeIds(workflow).includes(activeScopeId))
+    : null;
+  const scopedSession = scopedWorkflow
+    ? sessions.find((session) => session.id === scopedWorkflow.session_id || session.workflow_instance_id === scopedWorkflow.id)
+    : null;
   const currentSession = sessions.find((session) => session.id === activeSessionId);
   const focusedSession = sessions.find((session) => session.active_scope_id && session.active_scope_id !== "scope-global");
-  const session = currentSession || focusedSession || sessions[0] || null;
+  const currentMatchesScope = !preserveScope
+    || !activeScopeId
+    || currentSession?.active_scope_id === activeScopeId
+    || (scopedWorkflow && (currentSession?.workflow_instance_id === scopedWorkflow.id || currentSession?.guide?.workflow_instance_id === scopedWorkflow.id));
+  const session = (currentMatchesScope ? currentSession : null)
+    || scopedSession
+    || currentSession
+    || focusedSession
+    || sessions[0]
+    || null;
   activeSessionId = session?.id || null;
   const availableScopeIds = new Set((interaction.scopes || []).map((scope) => scope.id));
-  const linkedWorkflow = (interaction.workflow_instances || []).find((workflow) =>
+  const linkedWorkflow = workflows.find((workflow) =>
     workflow.session_id === session?.id || workflow.id === session?.workflow_instance_id,
   );
   const mustFollowSessionScope = session?.guide?.stage_id === "stale" || linkedWorkflow?.status === "stale";
@@ -1045,7 +1062,18 @@ function activeWorkflow() {
   const workflows = activeInteraction?.workflow_instances || [];
   return workflows.find((workflow) => workflow.session_id === session?.id)
     || workflows.find((workflow) => workflow.id === session?.workflow_instance_id)
+    || workflows.find((workflow) => workflowScopeIds(workflow).includes(activeScopeId))
+    || workflows.find((workflow) => workflow.status && workflow.status !== "stale")
     || null;
+}
+
+function workflowScopeIds(workflow) {
+  if (!workflow) return [];
+  return [
+    workflow.foundation_scope_id,
+    workflow.comparison_scope_id,
+    ...Object.values(workflow.branch_scope_ids || {}),
+  ].filter(Boolean);
 }
 
 function workflowForBranch(nodeId) {
@@ -1946,7 +1974,7 @@ function renderCanvasPreview() {
   canvasPreviewPlane.style.width = "100%";
   canvasPreviewPlane.style.height = "100%";
   canvasPreviewPlane.style.transform = "none";
-  canvasPreviewPlane.innerHTML = `<svg class="workflow-tree-preview" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+  canvasPreviewPlane.innerHTML = `<svg class="workflow-tree-preview" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${escapeHtml(t("navigator.title"))}">
     ${edges.map((edge) => {
       const start = points.get(edge.source_node_id);
       const end = points.get(edge.target_node_id);
@@ -1956,10 +1984,68 @@ function renderCanvasPreview() {
       const point = points.get(nodeId);
       const node = nodesById.get(nodeId);
       const current = nodeId === selectedId || nodeId === activeOutputId;
-      const label = localizedReferenceTitle(node?.title || node?.type || nodeId);
-      return `<g class="workflow-tree-preview-node"><title>${escapeHtml(label)}</title><circle class="${current ? "current" : ""}" cx="${point.x}" cy="${point.y}" r="${current ? 2.5 : 1.7}" /></g>`;
+      const navigation = previewNodeNavigation(nodeId, workflow);
+      const label = previewNodeDescription(node, navigation);
+      return `<g class="workflow-tree-preview-node" role="button" tabindex="0" data-preview-node-id="${escapeHtml(nodeId)}" aria-label="${escapeHtml(label)}"><title>${escapeHtml(label)}</title><circle class="${current ? "current" : ""}" cx="${point.x}" cy="${point.y}" r="${current ? 3.6 : 2.5}" /></g>`;
     }).join("")}
   </svg>`;
+  canvasPreviewPlane.querySelectorAll("[data-preview-node-id]").forEach((item) => {
+    const nodeId = item.dataset.previewNodeId;
+    item.addEventListener("click", (event) => {
+      event.stopPropagation();
+      navigateFromPreviewNode(nodeId);
+    });
+    item.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      navigateFromPreviewNode(nodeId);
+    });
+  });
+}
+
+function previewNodeNavigation(nodeId, workflow = activeWorkflow()) {
+  if (!workflow) return { scopeId: defaultLocalScopeId(), stageId: "", stageLabel: "" };
+  const stageCopy = workflow.definition_snapshot?.locales?.[locale]?.stages || {};
+  const stageLabel = (stageId, fallback) => localizedReferenceTitle(stageCopy[stageId]?.label || fallback || stageId);
+  if ((workflow.source_node_ids || []).includes(nodeId) || nodeId === workflow.keyword_node_id) {
+    return { scopeId: workflow.foundation_scope_id || "scope-global", stageId: "input", stageLabel: stageLabel("input", t("workflowStrip.brief")) };
+  }
+  if (nodeId === workflow.operation_node_id) {
+    return { scopeId: workflow.comparison_scope_id || workflow.foundation_scope_id || "scope-global", stageId: "four_futures", stageLabel: stageLabel("four_futures", t("workflowStrip.whatIf")) };
+  }
+  if ((workflow.branch_node_ids || []).includes(nodeId)) {
+    return { scopeId: workflow.branch_scope_ids?.[nodeId] || workflow.comparison_scope_id || "scope-global", stageId: "four_futures", stageLabel: stageLabel("four_futures", t("workflowStrip.whatIf")) };
+  }
+  if (nodeId === workflow.discussion_node_id) {
+    const branchId = workflow.selected_branch_node_id || "";
+    return { scopeId: workflow.branch_scope_ids?.[branchId] || activeScopeId || "scope-global", stageId: "tools", stageLabel: stageLabel("tools", t("workflowStrip.methods")) };
+  }
+  if (nodeId === workflow.active_scenario_node_id) {
+    const branchId = workflow.selected_branch_node_id || "";
+    return { scopeId: workflow.branch_scope_ids?.[branchId] || activeScopeId || "scope-global", stageId: "scenario", stageLabel: stageLabel("scenario", t("workflowStrip.outcomes")) };
+  }
+  return { scopeId: activeScopeId || defaultLocalScopeId(), stageId: "", stageLabel: "" };
+}
+
+function previewNodeDescription(node, navigation) {
+  const title = localizedReferenceTitle(node?.title || node?.type || "");
+  const type = nodeTypeLabel(node?.type || "node");
+  const status = statusLabel(node?.status || "draft");
+  const target = navigation?.stageLabel ? `${navigation.stageLabel} · ${localizedReferenceTitle((activeInteraction?.scopes || []).find((scope) => scope.id === navigation.scopeId)?.label || navigation.scopeId)}` : localizedReferenceTitle(navigation?.scopeId || "");
+  return [title, type, status, target].filter(Boolean).join(" / ");
+}
+
+function navigateFromPreviewNode(nodeId) {
+  const workflow = activeWorkflow();
+  const node = findNode(nodeId);
+  const navigation = previewNodeNavigation(nodeId, workflow);
+  if (workflow?.session_id) activeSessionId = workflow.session_id;
+  const label = previewNodeDescription(node, navigation);
+  const message = locale === "zh"
+    ? `跳转到这个节点对应的步骤？\n${label}`
+    : `Jump to the step for this node?\n${label}`;
+  if (!window.confirm(message)) return;
+  runUiAction(() => setActiveScope(navigation.scopeId || defaultLocalScopeId()));
 }
 
 function previewTreeLayers(nodes, edges) {
@@ -2745,8 +2831,9 @@ async function selectWorkflowBranch(workflowId, branchNodeId) {
     method: "POST",
     body: JSON.stringify(withExpectedRevision({ branch_node_id: branchNodeId, session_id: activeSessionId })),
   });
+  if (result.session?.id) activeSessionId = result.session.id;
   activeScopeId = result.scope_id || activeScopeId;
-  await loadCanvas({ preserveView: false });
+  await loadCanvas({ preserveView: true });
 }
 
 async function toggleTool(event, node) {
@@ -3660,8 +3747,8 @@ conversationForm.addEventListener("submit", (event) => {
   runUiAction(() => submitConversationMessage(event));
 });
 
-canvasPreview.addEventListener("click", openCanvasFocus);
-canvasPreview.addEventListener("keydown", (event) => {
+openCanvasFocusButton?.addEventListener("click", openCanvasFocus);
+openCanvasFocusButton?.addEventListener("keydown", (event) => {
   if (event.key !== "Enter" && event.key !== " ") return;
   event.preventDefault();
   openCanvasFocus();

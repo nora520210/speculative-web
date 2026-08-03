@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Speculative Web</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20260803-tools-loading-image-fallback" />
+    <link rel="stylesheet" href="/static/styles.css?v=20260803-preview-node-navigation" />
   </head>
   <body>
     <main id="app-shell" class="app-shell">
@@ -87,24 +87,13 @@
                   <span id="navigator-revision" class="minimap-revision">r0</span>
                 </header>
                 <div class="canvas-preview-shell">
-                  <div id="canvas-preview" class="canvas-preview" role="button" tabindex="0" data-i18n-aria-label="navigator.openCanvas" aria-label="Open canvas">
-                    <div id="canvas-preview-viewport" class="canvas-preview-viewport" aria-hidden="true">
-                      <div id="canvas-preview-plane" class="canvas-preview-plane" aria-hidden="true" inert></div>
+                  <div id="canvas-preview" class="canvas-preview" data-i18n-aria-label="navigator.openCanvas" aria-label="Open canvas">
+                    <div id="canvas-preview-viewport" class="canvas-preview-viewport">
+                      <div id="canvas-preview-plane" class="canvas-preview-plane"></div>
                     </div>
                   </div>
+                  <button id="open-canvas-focus" class="canvas-preview-open" type="button" data-i18n="common.open">Open</button>
                 </div>
-                <details class="overview-create-panel">
-                  <summary data-i18n="sidebar.create">Create nodes</summary>
-                  <nav class="canvas-tools" data-i18n-aria-label="canvas.tools" aria-label="Canvas tools">
-                    <button type="button" data-add-node="text" data-i18n="sidebar.textNode" data-i18n-title="sidebar.textNode" title="Text node">Text node</button>
-                    <button type="button" data-add-node="conversation" data-i18n="sidebar.conversationNode" data-i18n-title="sidebar.conversationNode" title="Conversation node">Conversation node</button>
-                    <button type="button" data-add-node="upload" data-i18n="sidebar.uploadSource" data-i18n-title="sidebar.uploadSource" title="Upload source">Upload source</button>
-                    <button type="button" data-add-node="image" data-i18n="sidebar.imageNode" data-i18n-title="sidebar.imageNode" title="Image node">Image node</button>
-                    <button type="button" data-add-node="modify" data-i18n="sidebar.methodNode" data-i18n-title="sidebar.methodNode" title="Method node">Method node</button>
-                    <button type="button" data-add-node="operation" data-i18n="sidebar.operationNode" data-i18n-title="sidebar.operationNode" title="Operation node">Operation node</button>
-                    <button type="button" data-add-operation-definition="operation.guided-scenario" data-i18n="sidebar.scenarioNode" data-i18n-title="sidebar.scenarioNode" title="Guided scenario">Guided scenario</button>
-                  </nav>
-                </details>
                 <div class="navigator-section overview-scope-switcher">
                   <div id="scope-list" class="scope-list"></div>
                 </div>
@@ -171,6 +160,18 @@
               <button id="close-canvas-focus" type="button" data-i18n="canvasFocus.close">Return to process</button>
             </div>
           </header>
+          <details class="canvas-focus-create-panel">
+            <summary data-i18n="sidebar.create">Create nodes</summary>
+            <nav class="canvas-tools" data-i18n-aria-label="canvas.tools" aria-label="Canvas tools">
+              <button type="button" data-add-node="text" data-i18n="sidebar.textNode" data-i18n-title="sidebar.textNode" title="Text node">Text node</button>
+              <button type="button" data-add-node="conversation" data-i18n="sidebar.conversationNode" data-i18n-title="sidebar.conversationNode" title="Conversation node">Conversation node</button>
+              <button type="button" data-add-node="upload" data-i18n="sidebar.uploadSource" data-i18n-title="sidebar.uploadSource" title="Upload source">Upload source</button>
+              <button type="button" data-add-node="image" data-i18n="sidebar.imageNode" data-i18n-title="sidebar.imageNode" title="Image node">Image node</button>
+              <button type="button" data-add-node="modify" data-i18n="sidebar.methodNode" data-i18n-title="sidebar.methodNode" title="Method node">Method node</button>
+              <button type="button" data-add-node="operation" data-i18n="sidebar.operationNode" data-i18n-title="sidebar.operationNode" title="Operation node">Operation node</button>
+              <button type="button" data-add-operation-definition="operation.guided-scenario" data-i18n="sidebar.scenarioNode" data-i18n-title="sidebar.scenarioNode" title="Guided scenario">Guided scenario</button>
+            </nav>
+          </details>
           <div class="workspace">
             <div id="canvas-content" class="canvas-content">
               <div id="canvas-plane" class="canvas-plane">
@@ -274,6 +275,6 @@
           </form>
         </div>
     </section>
-    <script src="/static/app.js?v=20260803-tools-loading-image-fallback"></script>
+    <script src="/static/app.js?v=20260803-preview-node-navigation"></script>
   </body>
 </html>
