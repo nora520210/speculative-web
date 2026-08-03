@@ -290,6 +290,10 @@ def start_four_futures_workflow(project_id: str, payload: dict, expected_revisio
     if not topic:
         raise ValueError("A research topic is required to start the Four Futures workflow.")
 
+    input_sources = {"topic": input_perspective}
+    for field_name in ("research_focus", "assumptions", "stakeholders", "tensions"):
+        if payload.get(field_name):
+            input_sources[field_name] = input_perspective
     brief = {
         "start_mode": start_mode,
         "topic": topic[:600],
@@ -297,8 +301,10 @@ def start_four_futures_workflow(project_id: str, payload: dict, expected_revisio
         "assumptions": workflow_text_list(payload.get("assumptions")),
         "stakeholders": workflow_text_list(payload.get("stakeholders")),
         "tensions": workflow_text_list(payload.get("tensions")),
-        "input_sources": {"topic": input_perspective},
+        "input_sources": input_sources,
     }
+    if isinstance(payload.get("import_document"), dict):
+        brief["import_document"] = payload["import_document"]
     keywords = foundation_keywords(brief)
     offset = len(canvas.get("nodes", [])) * 20
     source_node = normalize_node(
@@ -499,6 +505,121 @@ def start_four_futures_workflow(project_id: str, payload: dict, expected_revisio
     )
     write_canvas(project_id, canvas)
     return {"workflow": workflow, "conversation": session, "scope": scope, "nodes": [source_node, keyword_node, operation_node]}
+
+
+def import_paper_brief(project_id: str, paper: dict, session_id: str = "", expected_revision=None) -> dict:
+    brief = paper.get("paper_brief") if isinstance(paper.get("paper_brief"), dict) else {}
+    if not brief:
+        raise ValueError("The uploaded PDF did not produce a research brief.")
+    canvas = read_canvas(project_id)
+    assert_expected_revision(canvas, expected_revision)
+    session = next((item for item in canvas.get("conversation_sessions", []) if item.get("id") == session_id), None)
+    if session_id and not session:
+        raise KeyError(f"Conversation session not found: {session_id}")
+    workflow = None
+    if session:
+        workflow = next(
+            (
+                item for item in canvas.get("workflow_instances", [])
+                if item.get("session_id") == session.get("id") or item.get("id") == session.get("workflow_instance_id")
+            ),
+            None,
+        )
+    if not workflow:
+        workflow = next((item for item in canvas.get("workflow_instances", []) if item.get("status") != "stale"), None)
+        if workflow and not session:
+            session = next((item for item in canvas.get("conversation_sessions", []) if item.get("id") == workflow.get("session_id")), None)
+    if not workflow:
+        return start_four_futures_workflow(
+            project_id,
+            {
+                "definition_id": "workflow.four-futures-foundation",
+                "guided": False,
+                "session_id": session_id,
+                "start_mode": "research",
+                "input_perspective": "research",
+                "topic": brief.get("topic") or paper.get("filename") or "Imported paper",
+                "research_focus": brief.get("research_focus") or "",
+                "assumptions": brief.get("assumptions") or [],
+                "stakeholders": brief.get("stakeholders") or [],
+                "tensions": brief.get("tensions") or [],
+                "import_document": brief.get("import_document") or {},
+            },
+            expected_revision=expected_revision,
+        ) | {"paper": paper}
+
+    source_node = next((item for item in canvas.get("nodes", []) if item.get("id") == workflow.get("source_node_ids", [""])[0]), None)
+    keyword_node = next((item for item in canvas.get("nodes", []) if item.get("id") == workflow.get("keyword_node_id")), None)
+    if not source_node or not keyword_node:
+        raise ValueError("The canonical foundation nodes are missing; this workflow cannot import a paper.")
+
+    payload = source_node.setdefault("payload", {})
+    structured_brief = payload.get("workflow_brief") if isinstance(payload.get("workflow_brief"), dict) else {}
+    merged_brief = {
+        **structured_brief,
+        "start_mode": "research",
+        "topic": str(brief.get("topic") or structured_brief.get("topic") or paper.get("filename") or "Imported paper")[:600],
+        "research_focus": str(brief.get("research_focus") or structured_brief.get("research_focus") or "")[:1200],
+        "assumptions": workflow_text_list(brief.get("assumptions") or structured_brief.get("assumptions") or []),
+        "stakeholders": workflow_text_list(brief.get("stakeholders") or structured_brief.get("stakeholders") or []),
+        "tensions": workflow_text_list(brief.get("tensions") or structured_brief.get("tensions") or []),
+        "input_sources": {
+            **(structured_brief.get("input_sources") if isinstance(structured_brief.get("input_sources"), dict) else {}),
+            "topic": "research",
+            "research_focus": "research",
+            "assumptions": "research",
+            "stakeholders": "research",
+            "tensions": "research",
+        },
+        "import_document": brief.get("import_document") or {},
+    }
+    payload["workflow_brief"] = merged_brief
+    payload["text"] = render_foundation_brief(merged_brief)
+    payload["paper_import_status"] = "imported"
+    source_node["status"] = "ready"
+
+    keywords = foundation_keywords(merged_brief)
+    keyword_payload = keyword_node.setdefault("payload", {})
+    keyword_payload["keywords"] = keywords
+    keyword_payload["text"] = render_keyword_scaffold(keywords)
+    keyword_payload["keyword_source"] = "deterministic scaffold from imported paper PDF; no model call"
+    keyword_node["status"] = "ready"
+
+    runtime = workflow_runtime_contract(workflow.get("definition_snapshot"))
+    if session:
+        session.update({"active_scope_id": workflow.get("foundation_scope_id") or session.get("active_scope_id"), "updated_at": utc_now()})
+        if workflow.get("branch_node_ids"):
+            _invalidate_workflow(
+                canvas,
+                workflow,
+                "Imported a paper PDF into the canonical Research Brief. Existing What-if branches are now stale; regenerate them from the updated paper basis.",
+                related_node_ids=[source_node["id"], keyword_node["id"], *workflow.get("branch_node_ids", [])],
+                requested_session_id=session.get("id"),
+            )
+        else:
+            workflow.update({"status": "active", "stage": runtime["future_stage_id"], "updated_at": utc_now()})
+            _set_workflow_progress(session, runtime["input_stage_id"], "succeeded")
+            _set_workflow_progress(session, runtime["future_stage_id"], "active")
+            set_session_guide(session, "four_futures", workflow_instance_id=workflow["id"], pending_field="")
+            append_conversation_message(
+                canvas,
+                session["id"],
+                {
+                    "role": "assistant",
+                    "kind": "guide",
+                    "scope_id": workflow.get("foundation_scope_id") or session.get("active_scope_id", "scope-global"),
+                    "related_node_ids": [source_node["id"], keyword_node["id"], workflow.get("operation_node_id", "")],
+                    "body": "Imported the paper PDF into the research inquiry cards. The first-step brief is filled from the paper and ready for What-if generation.",
+                },
+            )
+    refresh_runtime_config(canvas)
+    record_graph_event(
+        canvas,
+        "workflow.paper_imported",
+        {"workflow_id": workflow.get("id"), "session_id": session.get("id") if session else "", "filename": paper.get("filename")},
+    )
+    write_canvas(project_id, canvas)
+    return {"workflow": workflow, "conversation": session, "source_node": source_node, "keyword_node": keyword_node, "paper": paper}
 
 
 def select_four_futures_branch(project_id: str, workflow_id: str, payload: dict, expected_revision=None) -> dict:

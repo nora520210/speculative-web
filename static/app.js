@@ -8,6 +8,7 @@ const deleteActiveProject = document.querySelector("#delete-active-project");
 const documentForm = document.querySelector("#document-form");
 const documentFile = document.querySelector("#document-file");
 const documentFileName = document.querySelector("#document-file-name");
+const importPaperButton = document.querySelector("#import-paper-pdf");
 const documentOutput = document.querySelector("#document-output");
 const documentStatus = document.querySelector("#document-status");
 const canvasStatus = document.querySelector("#canvas-status");
@@ -129,6 +130,7 @@ const translations = {
     "common.chooseImage": "Choose Image",
     "common.noFile": "No file selected",
     "common.read": "Read",
+    "common.importPaper": "Import paper",
     "common.open": "Open",
     "common.delete": "Delete",
     "common.close": "Close",
@@ -208,6 +210,7 @@ const translations = {
     "status.configured": "configured",
     "status.offline": "offline",
     "status.reading": "reading",
+    "status.importing": "importing",
     "status.running": "running",
     "status.deleting": "deleting",
     "status.error": "error",
@@ -397,6 +400,7 @@ const translations = {
     "common.chooseImage": "选择图像",
     "common.noFile": "未选择文件",
     "common.read": "读取",
+    "common.importPaper": "导入论文",
     "common.open": "打开",
     "common.delete": "删除",
     "common.close": "关闭",
@@ -476,6 +480,7 @@ const translations = {
     "status.configured": "已配置",
     "status.offline": "离线",
     "status.reading": "读取中",
+    "status.importing": "导入中",
     "status.running": "生成中",
     "status.deleting": "删除中",
     "status.error": "错误",
@@ -3825,7 +3830,7 @@ function exportCurrentCanvasPdf() {
     : `<p class="report-empty">${escapeHtml(t("workflowStrip.empty"))}</p>`;
   const nodeMarkup = printableNodeReport();
   const chatMarkup = printableChatReport(session);
-  const stylesheet = `/static/styles.css?v=20260804-export-pdf-autosave`;
+  const stylesheet = `/static/styles.css?v=20260804-paper-import-image2`;
   reportWindow.document.open();
   reportWindow.document.write(`<!doctype html>
 <html lang="${locale === "zh" ? "zh-CN" : "en"}">
@@ -4069,6 +4074,40 @@ conversationPerspectiveButtons.forEach((button) => {
 
 documentFile.addEventListener("change", () => {
   documentFileName.textContent = documentFile.files[0]?.name || t("common.noFile");
+});
+
+importPaperButton?.addEventListener("click", async () => {
+  if (!activeProject || !documentFile.files.length) return;
+  const file = documentFile.files[0];
+  if (!file.name.toLowerCase().endsWith(".pdf")) {
+    setStatus(documentStatus, "error");
+    documentOutput.textContent = "Only PDF papers can be imported.";
+    return;
+  }
+  setStatus(documentStatus, "importing");
+  importPaperButton.disabled = true;
+  const formData = new FormData();
+  formData.append("file", file);
+  if (activeSessionId) formData.append("session_id", activeSessionId);
+  const revision = activeInteraction?.revision ?? activeCanvas?.revision;
+  if (Number.isInteger(revision)) formData.append("expected_revision", String(revision));
+  try {
+    const result = await requestJson(`/api/projects/${activeProject.id}/paper-import`, {
+      method: "POST",
+      body: formData,
+    });
+    const paper = result.paper || {};
+    if (result.conversation?.id) activeSessionId = result.conversation.id;
+    if (result.conversation?.active_scope_id) activeScopeId = result.conversation.active_scope_id;
+    setStatus(documentStatus, "ready");
+    documentOutput.textContent = JSON.stringify(paper, null, 2);
+    await loadCanvas({ preserveView: false });
+  } catch (error) {
+    setStatus(documentStatus, "error");
+    documentOutput.textContent = error.message;
+  } finally {
+    importPaperButton.disabled = false;
+  }
 });
 
 documentForm.addEventListener("submit", async (event) => {

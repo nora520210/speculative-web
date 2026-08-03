@@ -72,7 +72,17 @@ def configured_model() -> str:
 
 
 def configured_image_model() -> str:
-    return os.environ.get("OPENAI_IMAGE_MODEL", "").strip() or "gpt-image-1"
+    return normalize_image_model(os.environ.get("OPENAI_IMAGE_MODEL", "").strip() or "gpt-image-2")
+
+
+def normalize_image_model(model: str) -> str:
+    aliases = {
+        "image2": "gpt-image-2",
+        "gpt-image2": "gpt-image-2",
+        "gpt_image_2": "gpt-image-2",
+    }
+    clean = str(model or "").strip()
+    return aliases.get(clean.lower(), clean or "gpt-image-2")
 
 
 def configured_image_size() -> str:
@@ -170,6 +180,7 @@ def generate_image_response(prompt: str, api_key: str | None = None) -> dict:
 
 
 def image_generation_attempts(requested_model: str, requested_size: str) -> list[tuple[str, str]]:
+    requested_model = normalize_image_model(requested_model)
     candidates = [
         (requested_model, requested_size),
         (requested_model, "1024x1024"),

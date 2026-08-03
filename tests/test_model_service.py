@@ -111,3 +111,11 @@ def test_image_generation_falls_back_to_gpt_image_one():
             os.environ.pop("OPENAI_IMAGE_MODEL", None)
         else:
             os.environ["OPENAI_IMAGE_MODEL"] = original_model
+
+
+def test_image2_alias_prefers_gpt_image_two_before_fallback():
+    import server.model_service as model_service
+
+    attempts = model_service.image_generation_attempts("image2", "1536x1024")
+    assert attempts[0] == ("gpt-image-2", "1536x1024")
+    assert ("gpt-image-1", "1024x1024") in attempts

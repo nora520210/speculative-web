@@ -21,7 +21,7 @@ from server.config import (
     storage_mode,
     user_api_key_required,
 )
-from server.documents import inspect_document
+from server.documents import inspect_document, paper_brief_from_pdf
 from server.agent_guide import generate_agent_guide
 from server.graph_store import (
     add_edge,
@@ -40,6 +40,7 @@ from server.graph_store import (
     get_interaction,
     get_scope_projection,
     generate_branch_image,
+    import_paper_brief,
     read_canvas,
     read_projects,
     recommend_output_for_modify,
@@ -415,6 +416,10 @@ class AppHandler(SimpleHTTPRequestHandler):
                 self.send_json(result, status=HTTPStatus.CREATED)
                 return
 
+            if action == ["paper-import"]:
+                self.handle_paper_import(project_id)
+                return
+
         if parsed.path == "/api/documents/inspect":
             self.handle_document_inspect()
             return
@@ -607,6 +612,72 @@ class AppHandler(SimpleHTTPRequestHandler):
             return
 
         self.send_json({"document": result})
+
+    def handle_paper_import(self, project_id: str) -> None:
+        if not get_project(project_id):
+            self.send_json({"error": "Project not found."}, status=HTTPStatus.NOT_FOUND)
+            return
+        content_type = self.headers.get("Content-Type", "")
+        if not content_type.startswith("multipart/form-data"):
+            self.send_json(
+                {"error": "Expected multipart/form-data with a PDF file field."},
+                status=HTTPStatus.BAD_REQUEST,
+            )
+            return
+        if self.request_too_large(MAX_UPLOAD_BYTES):
+            return
+
+        import cgi
+
+        form = cgi.FieldStorage(
+            fp=self.rfile,
+            headers=self.headers,
+            environ={
+                "REQUEST_METHOD": "POST",
+                "CONTENT_TYPE": content_type,
+            },
+        )
+        field = form["file"] if "file" in form else None
+        if field is None or not getattr(field, "filename", ""):
+            self.send_json(
+                {"error": "Missing uploaded PDF."},
+                status=HTTPStatus.BAD_REQUEST,
+            )
+            return
+        safe_name = Path(field.filename).name
+        if Path(safe_name).suffix.lower() != ".pdf":
+            self.send_json(
+                {"error": "Only PDF papers can be imported into the research inquiry cards."},
+                status=HTTPStatus.BAD_REQUEST,
+            )
+            return
+
+        upload_path = UPLOAD_DIR / f"{uuid.uuid4().hex[:10]}-{safe_name}"
+        with upload_path.open("wb") as out:
+            shutil.copyfileobj(field.file, out)
+
+        try:
+            paper = paper_brief_from_pdf(upload_path)
+            result = import_paper_brief(
+                project_id,
+                paper,
+                session_id=str(form.getfirst("session_id") or ""),
+                expected_revision=form.getfirst("expected_revision") or None,
+            )
+        except RevisionConflict as exc:
+            self.send_json({"error": str(exc), "filename": safe_name}, status=HTTPStatus.CONFLICT)
+            return
+        except (KeyError, ValueError) as exc:
+            self.send_json({"error": str(exc), "filename": safe_name}, status=HTTPStatus.BAD_REQUEST)
+            return
+        except Exception as exc:
+            self.send_json(
+                {"error": str(exc), "filename": safe_name},
+                status=HTTPStatus.UNPROCESSABLE_ENTITY,
+            )
+            return
+
+        self.send_json(result, status=HTTPStatus.CREATED)
 
     def handle_document_render(self) -> None:
         content_type = self.headers.get("Content-Type", "")
