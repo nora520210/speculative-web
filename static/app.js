@@ -29,6 +29,8 @@ const edgesLayer = document.querySelector("#edges");
 const zoomOut = document.querySelector("#zoom-out");
 const zoomIn = document.querySelector("#zoom-in");
 const zoomLevel = document.querySelector("#zoom-level");
+const arrangeNodesButton = document.querySelector("#arrange-nodes");
+const fitCanvasViewButton = document.querySelector("#fit-canvas-view");
 const themeToggles = document.querySelectorAll("[data-theme-toggle]");
 const nodeMenu = document.querySelector("#node-menu");
 const menuOpenFull = document.querySelector("[data-menu-open-full]");
@@ -128,6 +130,8 @@ const translations = {
     "canvas.tools": "Canvas tools",
     "canvas.zoomOut": "Zoom out",
     "canvas.zoomIn": "Zoom in",
+    "canvas.arrangeNodes": "Arrange nodes",
+    "canvas.fitView": "Fit view",
     "common.create": "Create",
     "common.index": "Index",
     "common.chooseFile": "Choose File",
@@ -409,6 +413,8 @@ const translations = {
     "canvas.tools": "画布工具",
     "canvas.zoomOut": "缩小",
     "canvas.zoomIn": "放大",
+    "canvas.arrangeNodes": "一键整理节点",
+    "canvas.fitView": "适应画面",
     "common.create": "创建",
     "common.index": "目录",
     "common.chooseFile": "选择文件",
@@ -1148,11 +1154,54 @@ async function loadScopeProjection(scopeId, { render = true, fit = true } = {}) 
 function fittedScopeZoom(projection) {
   const nodes = projection?.nodes || [];
   if (!nodes.length) return 1;
-  const maxRight = Math.max(...nodes.map((node) => Number(node.position?.x || 0) + Number(node.size?.width || 240)), 320) + 72;
-  const maxBottom = Math.max(...nodes.map((node) => Number(node.position?.y || 0) + Number(node.size?.height || 170)), 260) + 72;
+  const bounds = graphNodeBounds(nodes);
+  if (!bounds) return 1;
+  const maxRight = Math.max(bounds.maxX, 320) + 72;
+  const maxBottom = Math.max(bounds.maxY, 260) + 72;
   const availableWidth = Math.max(280, workspace.clientWidth - 18);
   const availableHeight = Math.max(260, workspace.clientHeight - 18);
   return clampZoom(Math.min(1, availableWidth / maxRight, availableHeight / maxBottom));
+}
+
+function graphNodeBounds(nodes = displayGraph()?.nodes || []) {
+  if (!nodes.length) return null;
+  return nodes.reduce(
+    (bounds, node) => {
+      const width = Number(node.size?.width || 260);
+      const height = Number(node.size?.height || 180);
+      const x = Number(node.position?.x || 0);
+      const y = Number(node.position?.y || 0);
+      return {
+        minX: Math.min(bounds.minX, x),
+        minY: Math.min(bounds.minY, y),
+        maxX: Math.max(bounds.maxX, x + width),
+        maxY: Math.max(bounds.maxY, y + height),
+      };
+    },
+    { minX: Infinity, minY: Infinity, maxX: 0, maxY: 0 },
+  );
+}
+
+function fitCanvasToView({ persist = false } = {}) {
+  if (!workspace || !activeCanvas) return;
+  const bounds = graphNodeBounds(displayGraph()?.nodes || []);
+  if (!bounds) {
+    setZoom(1);
+    return;
+  }
+  const padding = 72;
+  const width = Math.max(320, bounds.maxX - bounds.minX + padding * 2);
+  const height = Math.max(260, bounds.maxY - bounds.minY + padding * 2);
+  const availableWidth = Math.max(280, workspace.clientWidth - 18);
+  const availableHeight = Math.max(260, workspace.clientHeight - 18);
+  zoom = clampZoom(Math.min(1, availableWidth / width, availableHeight / height));
+  activeCanvas.viewport = { ...(activeCanvas.viewport || {}), zoom };
+  renderPlane();
+  requestAnimationFrame(() => {
+    workspace.scrollLeft = Math.max(0, Math.round((bounds.minX - padding) * zoom));
+    workspace.scrollTop = Math.max(0, Math.round((bounds.minY - padding) * zoom));
+    if (persist) scheduleViewportAutosave();
+  });
 }
 
 function displayGraph() {
@@ -1174,6 +1223,106 @@ function activeWorkflow() {
     || workflows.find((workflow) => workflowScopeIds(workflow).includes(activeScopeId))
     || workflows.find((workflow) => workflow.status && workflow.status !== "stale")
     || null;
+}
+
+function nodeBoxesForLayout(nodes = activeCanvas?.nodes || []) {
+  return nodes.map((node) => ({
+    id: node.id,
+    x: Number(node.position?.x || 0),
+    y: Number(node.position?.y || 0),
+    width: Number(node.size?.width || 260),
+    height: Number(node.size?.height || 180),
+  }));
+}
+
+function hasOverlappingNodes(nodes = activeCanvas?.nodes || []) {
+  const boxes = nodeBoxesForLayout(nodes);
+  const gap = 28;
+  for (let index = 0; index < boxes.length; index += 1) {
+    for (let nextIndex = index + 1; nextIndex < boxes.length; nextIndex += 1) {
+      const current = boxes[index];
+      const next = boxes[nextIndex];
+      const separated = current.x + current.width + gap <= next.x
+        || next.x + next.width + gap <= current.x
+        || current.y + current.height + gap <= next.y
+        || next.y + next.height + gap <= current.y;
+      if (!separated) return true;
+    }
+  }
+  return false;
+}
+
+function arrangedNodePositions(nodes = activeCanvas?.nodes || [], edges = activeCanvas?.edges || []) {
+  const nodeMap = new Map(nodes.map((node) => [node.id, node]));
+  const workflow = activeWorkflow();
+  const workflowLayers = workflow
+    ? [
+        workflow.source_node_ids || [],
+        [workflow.keyword_node_id],
+        [workflow.operation_node_id],
+        workflow.branch_node_ids || [],
+        [workflow.discussion_node_id],
+        [workflow.active_scenario_node_id],
+      ].map((layer) => layer.filter((id) => id && nodeMap.has(id))).filter((layer) => layer.length)
+    : [];
+  const layers = workflowLayers.length ? workflowLayers : previewTreeLayers(nodes, edges);
+  const arranged = new Map();
+  const usedIds = new Set();
+  const columnGap = 340;
+  const rowGap = 224;
+  const originX = 72;
+  const originY = 72;
+  layers.forEach((layer, columnIndex) => {
+    layer.forEach((nodeId, rowIndex) => {
+      if (usedIds.has(nodeId)) return;
+      arranged.set(nodeId, {
+        x: originX + columnIndex * columnGap,
+        y: originY + rowIndex * rowGap,
+      });
+      usedIds.add(nodeId);
+    });
+  });
+  const rest = nodes.filter((node) => !usedIds.has(node.id));
+  const restStartColumn = Math.max(layers.length, 0);
+  rest.forEach((node, index) => {
+    arranged.set(node.id, {
+      x: originX + (restStartColumn + (index % 3)) * columnGap,
+      y: originY + Math.floor(index / 3) * rowGap,
+    });
+  });
+  return arranged;
+}
+
+async function arrangeCanvasNodes({ onlyIfOverlapping = false } = {}) {
+  if (!activeProject || !activeCanvas?.nodes?.length) return;
+  const nodes = activeCanvas.nodes;
+  if (onlyIfOverlapping && !hasOverlappingNodes(nodes)) {
+    fitCanvasToView({ persist: true });
+    return;
+  }
+  const positions = arrangedNodePositions(nodes, activeCanvas.edges || []);
+  const changed = nodes
+    .map((node) => ({ node, position: positions.get(node.id) }))
+    .filter(({ node, position }) => position
+      && (Math.round(Number(node.position?.x || 0)) !== position.x
+        || Math.round(Number(node.position?.y || 0)) !== position.y));
+  if (!changed.length) {
+    fitCanvasToView({ persist: true });
+    return;
+  }
+  changed.forEach(({ node, position }) => {
+    node.position = { ...(node.position || {}), ...position };
+  });
+  renderCanvas();
+  fitCanvasToView({ persist: false });
+  for (const { node, position } of changed) {
+    await requestJson(`/api/projects/${activeProject.id}/nodes/${node.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ position, session_id: activeSessionId }),
+    });
+  }
+  await loadCanvas({ preserveView: true });
+  fitCanvasToView({ persist: true });
 }
 
 function workflowScopeIds(workflow) {
@@ -2363,8 +2512,14 @@ function openCanvasFocus() {
   requestAnimationFrame(() => {
     // Opening the right-side preview always reveals the original, full editable
     // canvas — not a scope-filtered substitute.
-    zoom = fittedScopeZoom(activeCanvas);
-    renderCanvas();
+    if (hasOverlappingNodes(activeCanvas?.nodes || [])) {
+      arrangeCanvasNodes({ onlyIfOverlapping: true }).catch((error) => {
+        setStatus(canvasStatus, "error");
+        canvasOutput.textContent = error.message;
+      });
+      return;
+    }
+    fitCanvasToView({ persist: true });
   });
 }
 
@@ -3925,7 +4080,7 @@ function exportCurrentCanvasPdf() {
     : `<p class="report-empty">${escapeHtml(t("workflowStrip.empty"))}</p>`;
   const nodeMarkup = printableNodeReport();
   const chatMarkup = printableChatReport(session);
-  const stylesheet = `/static/styles.css?v=20260804-scenario-probe-cards`;
+  const stylesheet = `/static/styles.css?v=20260804-canvas-arrange-fit`;
   reportWindow.document.open();
   reportWindow.document.write(`<!doctype html>
 <html lang="${locale === "zh" ? "zh-CN" : "en"}">
@@ -4037,6 +4192,8 @@ function printableChatReport(session) {
 window.addEventListener("resize", renderPlane);
 zoomOut.addEventListener("click", () => setZoom(zoom - ZOOM_STEP));
 zoomIn.addEventListener("click", () => setZoom(zoom + ZOOM_STEP));
+arrangeNodesButton?.addEventListener("click", () => runUiAction(() => arrangeCanvasNodes()));
+fitCanvasViewButton?.addEventListener("click", () => fitCanvasToView({ persist: true }));
 exportPdfButton?.addEventListener("click", exportCurrentCanvasPdf);
 workspace.addEventListener("wheel", handleWheelZoom, { passive: false });
 workspace.addEventListener("pointerdown", beginCanvasPan);

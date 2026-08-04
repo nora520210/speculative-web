@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Speculative Web</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20260804-scenario-probe-cards" />
+    <link rel="stylesheet" href="/static/styles.css?v=20260804-canvas-arrange-fit" />
   </head>
   <body>
     <main id="app-shell" class="app-shell">
@@ -160,6 +160,8 @@
               <h3 id="canvas-focus-title">Canvas</h3>
             </div>
             <div class="canvas-focus-actions">
+              <button id="arrange-nodes" type="button" data-i18n="canvas.arrangeNodes">Arrange nodes</button>
+              <button id="fit-canvas-view" type="button" data-i18n="canvas.fitView">Fit view</button>
               <div class="canvas-focus-zoom" data-i18n-aria-label="canvasFocus.zoomControls" aria-label="Canvas zoom controls">
                 <button id="zoom-out" type="button" data-i18n-aria-label="canvas.zoomOut" aria-label="Zoom out">-</button>
                 <span id="zoom-level" class="zoom-level">100%</span>
@@ -283,6 +285,6 @@
           </form>
         </div>
     </section>
-    <script src="/static/app.js?v=20260804-scenario-probe-cards"></script>
+    <script src="/static/app.js?v=20260804-canvas-arrange-fit"></script>
   </body>
 </html>
