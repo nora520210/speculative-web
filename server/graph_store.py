@@ -1035,6 +1035,8 @@ def advance_conversation_guide(project_id: str, session_id: str, payload: dict, 
     if action == "begin_scenario":
         if guide.get("stage_id") != "tools":
             raise ValueError("Scenario probing can only begin after choosing tools.")
+        if not workflow.get("selected_branch_node_id"):
+            raise ValueError("Choose one What-if future before beginning scenario probing.")
         discussion = next((item for item in canvas.get("nodes", []) if item.get("id") == workflow.get("discussion_node_id")), None)
         selected_tools = [
             tool
@@ -1879,6 +1881,11 @@ def run_modify(project_id: str, node_id: str, api_key: str | None = None, expect
         raise ValueError(
             f"Select at least {minimum_selected_tools} discussion tool before running this node."
         )
+    if workflow and node_id == workflow.get("discussion_node_id"):
+        session = _activity_session(canvas, requested_session_id=session_id, workflow=workflow)
+        guide = session.get("guide") if isinstance((session or {}).get("guide"), dict) else {}
+        if guide.get("stage_id") != "scenario_ready":
+            raise ValueError("Complete the scenario probing questions before generating the final scenario.")
     input_modalities = input_modalities_for_nodes(canvas, upstream_ids)
     output_type = normalize_output_type(modify.get("config", {}).get("output_type"))
     recommendation = recommend_output(selected_tools, input_modalities)

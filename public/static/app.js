@@ -2374,11 +2374,11 @@ function renderToolSidebar() {
             data-sidebar-modify-id="${escapeHtml(node.id)}"
             data-sidebar-tool-id="${escapeHtml(tool.id)}"
             data-card-kind="${escapeHtml(tool.presentation?.card_kind || "tool")}"
-            title="${escapeHtml(toolLabel)}"
+            title="${escapeHtml(toolDescription ? `${toolLabel}: ${toolDescription}` : toolLabel)}"
             aria-label="${escapeHtml(toolDescription ? `${toolLabel}: ${toolDescription}` : toolLabel)}"
           >${assetUrl
     ? `<img class="tool-sidebar-asset" src="${escapeHtml(assetUrl)}" alt="" aria-hidden="true" />`
-    : `<span class="tool-card-mark" aria-hidden="true"></span>`}${recommendedIds.has(tool.id) ? `<small>${escapeHtml(t("toolSidebar.recommended"))}</small>` : ""}</button>
+    : `<span class="tool-card-mark" aria-hidden="true"></span>`}${recommendedIds.has(tool.id) ? `<small>${escapeHtml(t("toolSidebar.recommended"))}</small>` : ""}${toolDescription ? `<span class="tool-sidebar-tooltip" role="tooltip"><strong>${escapeHtml(toolLabel)}</strong>${escapeHtml(toolDescription)}</span>` : ""}</button>
         `;
         }).join("")}
       </section>
@@ -2930,6 +2930,13 @@ async function runSelectedDiscussionNode() {
   const workflow = activeWorkflow();
   const discussion = findNode(workflow?.discussion_node_id);
   if (!activeProject || !discussion) return;
+  if (activeSession()?.guide?.stage_id !== "scenario_ready") {
+    setStatus(canvasStatus, "error");
+    canvasOutput.textContent = locale === "zh"
+      ? "请先完成情境生成前的两轮问答，再生成最终情境。"
+      : "Complete the scenario probing questions before generating the final scenario.";
+    return;
+  }
   setStatus(canvasStatus, "running");
   await requestJson(`/api/projects/${activeProject.id}/nodes/${discussion.id}/run`, {
     method: "POST",
@@ -4294,7 +4301,7 @@ function exportCurrentCanvasPdf() {
     : `<p class="report-empty">${escapeHtml(t("workflowStrip.empty"))}</p>`;
   const graphMarkup = printableCanvasGraphReport();
   const chatMarkup = printableChatReport(session);
-  const stylesheet = `/static/styles.css?v=20260804-overview-export-tools`;
+  const stylesheet = `/static/styles.css?v=20260804-scenario-gated-tooltips`;
   reportWindow.document.open();
   reportWindow.document.write(`<!doctype html>
 <html lang="${locale === "zh" ? "zh-CN" : "en"}">

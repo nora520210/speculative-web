@@ -62,6 +62,20 @@ def _finish_guided_frame(session_id: str) -> dict:
     return advance_conversation_guide("project-a", session_id, {"action": "answer", "body": "安全与沉默"})
 
 
+def _finish_scenario_probe(session_id: str) -> dict:
+    advance_conversation_guide("project-a", session_id, {"action": "begin_scenario"})
+    advance_conversation_guide(
+        "project-a",
+        session_id,
+        {"action": "scenario_answer", "body": "从一次人工复核中止开始"},
+    )
+    return advance_conversation_guide(
+        "project-a",
+        session_id,
+        {"action": "scenario_answer", "body": "保留拒绝权与解释权冲突"},
+    )
+
+
 def test_conversation_guide_updates_canonical_nodes_without_tool_configuration():
     tmp, graph_store, original = _temporary_project()
     try:
@@ -243,6 +257,13 @@ def test_selected_branch_adds_required_discussion_tool_node_without_preselecting
             for message in session["messages"]
         )
 
+        try:
+            run_modify("project-a", discussion["id"], session_id=session_id)
+        except ValueError as exc:
+            assert "scenario probing questions" in str(exc)
+        else:
+            raise AssertionError("Final scenario generation should wait for scenario probing answers.")
+
         started_probe = advance_conversation_guide("project-a", session_id, {"action": "begin_scenario"})
         assert started_probe["conversation"]["guide"]["stage_id"] == "scenario_probe"
 
@@ -277,6 +298,7 @@ def test_branch_reselection_and_tool_reruns_keep_one_current_scenario_line():
             {"start_mode": "research", "topic": "城市公共数据的退出权"},
         )
         workflow_id = started["workflow"]["id"]
+        session_id = started["workflow"]["session_id"]
         run_operation("project-a", started["workflow"]["operation_node_id"])
         saved = read_canvas("project-a")
         workflow = next(item for item in saved["workflow_instances"] if item["id"] == workflow_id)
@@ -286,7 +308,8 @@ def test_branch_reselection_and_tool_reruns_keep_one_current_scenario_line():
         tools = [dict(tool) for tool in discussion["config"]["tools"]]
         tools[0]["selected"] = True
         update_node("project-a", discussion["id"], {"config": {"tools": tools}})
-        first_result = run_modify("project-a", discussion["id"])
+        _finish_scenario_probe(session_id)
+        first_result = run_modify("project-a", discussion["id"], session_id=session_id)
 
         select_four_futures_branch("project-a", workflow_id, {"branch_node_id": second_branch})
         saved = read_canvas("project-a")
@@ -305,7 +328,8 @@ def test_branch_reselection_and_tool_reruns_keep_one_current_scenario_line():
             for edge in saved["edges"]
         )
 
-        second_result = run_modify("project-a", discussion["id"])
+        _finish_scenario_probe(session_id)
+        second_result = run_modify("project-a", discussion["id"], session_id=session_id)
         saved = read_canvas("project-a")
         workflow = next(item for item in saved["workflow_instances"] if item["id"] == workflow_id)
         assert workflow["status"] == "complete"
