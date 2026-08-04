@@ -143,14 +143,14 @@ def build_agent_guide_prompt(payload: dict) -> str:
         "不要只给“隐私/公平/效率/信任”这种泛词；不要出现固定流程名；不要说教。\n\n"
         f"当前 stage: {stage}\n"
         f"当前待填写字段: {pending_field or payload.get('pending_field') or 'none'}\n"
-        f"上下文 JSON: {json.dumps(payload, ensure_ascii=False)[:5000]}"
+        f"上下文 JSON: {json.dumps(payload, ensure_ascii=False)[:2600]}"
     )
 
 
 def generate_agent_guide(payload: dict, api_key: str | None = None) -> dict:
     fallback = fallback_agent_guide(payload)
     try:
-        model_result = generate_modify_response(build_agent_guide_prompt(payload), api_key=api_key, max_output_tokens=700)
+        model_result = generate_modify_response(build_agent_guide_prompt(payload), api_key=api_key, max_output_tokens=360)
     except (ModelServiceError, ModelServiceNotConfigured) as exc:
         fallback.update({"usedFallback": True, "error": str(exc)})
         return fallback

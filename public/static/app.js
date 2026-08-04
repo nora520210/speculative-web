@@ -96,7 +96,8 @@ let spacePressed = false;
 let tabApiKey = "";
 let conversationPerspective = "research";
 let uiActionInFlight = false;
-const agentGuideCache = new Map();
+const AGENT_GUIDE_CACHE_KEY = "speculative-web-agent-guide-cache-v2";
+const agentGuideCache = loadAgentGuideCache();
 const agentGuideInFlight = new Set();
 const branchImageInFlight = new Set();
 let branchImageQueueRunning = false;
@@ -1065,7 +1066,7 @@ function updateCanvasTitle(title) {
   canvasTitle.title = t("project.renameHint");
 }
 
-async function loadCanvas({ preserveView = true, consistencyRetry = 0 } = {}) {
+async function loadCanvas({ preserveView = true, consistencyRetry = 0, autoStartBranchImages = false } = {}) {
   if (!activeProject) return;
   const previousCanvasId = activeCanvas?.id;
   const previousZoom = zoom;
@@ -1078,7 +1079,7 @@ async function loadCanvas({ preserveView = true, consistencyRetry = 0 } = {}) {
   zoom = shouldPreserveView ? clampZoom(previousZoom) : clampZoom(activeCanvas.viewport?.zoom ?? 1);
   const interaction = await loadInteraction({ preserveScope: shouldPreserveView });
   if (interaction?.revision !== graph.revision && consistencyRetry < 1) {
-    return loadCanvas({ preserveView: shouldPreserveView, consistencyRetry: consistencyRetry + 1 });
+    return loadCanvas({ preserveView: shouldPreserveView, consistencyRetry: consistencyRetry + 1, autoStartBranchImages });
   }
   setStatus(canvasStatus, "ready");
   canvasOutput.textContent = JSON.stringify(summarizeCanvas(graph), null, 2);
@@ -1088,7 +1089,7 @@ async function loadCanvas({ preserveView = true, consistencyRetry = 0 } = {}) {
     scrollLeft: Number(activeCanvas.viewport?.x || 0),
     scrollTop: Number(activeCanvas.viewport?.y || 0),
   });
-  queuePendingBranchImages();
+  if (autoStartBranchImages) queuePendingBranchImages();
 }
 
 async function loadInteraction({ preserveScope = true } = {}) {
@@ -1831,26 +1832,32 @@ function renderQuickOptions(options) {
 }
 
 function agentGuideRequestKey(session, stage, workflow) {
-  const brief = activeWorkflowBrief(workflow);
+  const brief = compactBriefForAgent(activeWorkflowBrief(workflow));
+  const messageSignature = (session?.messages || []).slice(-4).map((message) =>
+    `${message.id || message.created_at || ""}:${message.role}:${compactConversationText(message.body || "", 80)}`,
+  );
   return JSON.stringify({
     project: activeProject?.id || "",
     session: session?.id || "",
     stage,
     pending: session?.guide?.pending_field || "",
     workflow: workflow?.id || "",
-    revision: activeInteraction?.revision ?? activeCanvas?.revision ?? 0,
     locale,
-    topic: brief.topic || "",
+    workflow_status: workflow?.status || "",
+    branch_ids: workflow?.branch_node_ids || [],
+    selected_branch: workflow?.selected_branch_node_id || "",
+    brief,
+    messageSignature,
   });
 }
 
 function agentGuidePayload(session, stage, workflow) {
   const guide = session?.guide || {};
-  const brief = activeWorkflowBrief(workflow);
+  const brief = compactBriefForAgent(activeWorkflowBrief(workflow));
   const branchTitles = (workflow?.branch_node_ids || []).map((nodeId) => {
     const node = findNode(nodeId);
     const branch = node?.payload?.scenario_branch || {};
-    return localizedReferenceTitle(branch.strategy_label || branch.what_if || node?.title || "");
+    return compactConversationText(localizedReferenceTitle(branch.strategy_label || branch.what_if || node?.title || ""), 160);
   }).filter(Boolean);
   return {
     stage,
@@ -1862,11 +1869,14 @@ function agentGuidePayload(session, stage, workflow) {
     topic: brief.topic || "",
     workflow_status: workflow?.status || "",
     has_branches: Boolean(workflow?.branch_node_ids?.length),
-    branch_titles: branchTitles,
-    selected_branch: localizedReferenceTitle(findNode(workflow?.selected_branch_node_id)?.title || ""),
-    history: (session?.messages || []).slice(-8).map((message) => ({
+    branch_titles: branchTitles.slice(0, 4),
+    selected_branch: compactConversationText(localizedReferenceTitle(findNode(workflow?.selected_branch_node_id)?.title || ""), 160),
+    history: (session?.messages || [])
+      .filter((message) => message.kind !== "activity")
+      .slice(-4)
+      .map((message) => ({
       role: message.role,
-      body: message.body,
+      body: compactConversationText(message.body || "", 220),
       kind: message.kind,
       input_perspective: message.input_perspective || "",
     })),
@@ -1907,9 +1917,9 @@ function requestAgentGuide(session, stage, workflow, key) {
     body: JSON.stringify(agentGuidePayload(session, stage, workflow)),
     requiresApiKey: true,
   }).then((payload) => {
-    agentGuideCache.set(key, payload);
+    rememberAgentGuide(key, payload);
   }).catch((error) => {
-    agentGuideCache.set(key, { usedFallback: true, error: error.message });
+    rememberAgentGuide(key, { usedFallback: true, error: error.message });
   }).finally(() => {
     agentGuideInFlight.delete(key);
     const currentSession = activeSession();
@@ -2393,7 +2403,7 @@ async function runWorkflowOperation() {
       body: JSON.stringify(withExpectedRevision({ session_id: activeSessionId })),
       requiresApiKey: true,
     });
-    await loadCanvas({ preserveView: false });
+    await loadCanvas({ preserveView: false, autoStartBranchImages: true });
   } catch (error) {
     setStatus(canvasStatus, "error");
     canvasOutput.textContent = error.message;
@@ -3854,7 +3864,7 @@ function exportCurrentCanvasPdf() {
     : `<p class="report-empty">${escapeHtml(t("workflowStrip.empty"))}</p>`;
   const nodeMarkup = printableNodeReport();
   const chatMarkup = printableChatReport(session);
-  const stylesheet = `/static/styles.css?v=20260804-split-import-controls`;
+  const stylesheet = `/static/styles.css?v=20260804-performance-cache`;
   reportWindow.document.open();
   reportWindow.document.write(`<!doctype html>
 <html lang="${locale === "zh" ? "zh-CN" : "en"}">
@@ -4025,6 +4035,44 @@ function compactConversationText(value, limit = 200) {
   const body = String(value ?? "").trim();
   if (body.length <= limit) return body;
   return `${body.slice(0, Math.max(0, limit - 1)).trimEnd()}…`;
+}
+
+function loadAgentGuideCache() {
+  try {
+    const raw = window.sessionStorage?.getItem(AGENT_GUIDE_CACHE_KEY);
+    if (!raw) return new Map();
+    const parsed = JSON.parse(raw);
+    return new Map(Array.isArray(parsed) ? parsed.slice(-60) : []);
+  } catch {
+    return new Map();
+  }
+}
+
+function rememberAgentGuide(key, payload) {
+  agentGuideCache.set(key, payload);
+  try {
+    const entries = [...agentGuideCache.entries()].slice(-60);
+    window.sessionStorage?.setItem(AGENT_GUIDE_CACHE_KEY, JSON.stringify(entries));
+  } catch {
+    // Cache is an optimization only; the deterministic guide remains available.
+  }
+}
+
+function compactAgentValue(value, limit = 360) {
+  if (Array.isArray(value)) return value.map((item) => compactConversationText(item, 120)).filter(Boolean).slice(0, 5);
+  if (value && typeof value === "object") return compactAgentValue(JSON.stringify(value), limit);
+  return compactConversationText(value || "", limit);
+}
+
+function compactBriefForAgent(brief = {}) {
+  return {
+    start_mode: brief.start_mode || "research",
+    topic: compactAgentValue(brief.topic, 220),
+    research_focus: compactAgentValue(brief.research_focus, 420),
+    assumptions: compactAgentValue(brief.assumptions, 160),
+    stakeholders: compactAgentValue(brief.stakeholders, 160),
+    tensions: compactAgentValue(brief.tensions, 180),
+  };
 }
 
 createForm.addEventListener("submit", async (event) => {
