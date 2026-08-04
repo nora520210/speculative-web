@@ -7743,6 +7743,42 @@ body {
   font-weight: 900;
 }
 
+.canvas-shell.active .stage-deck .stage-input-cards {
+  display: grid;
+  height: auto;
+  max-height: 100%;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: none;
+  align-content: start;
+  gap: 8px;
+  overflow: auto;
+}
+
+.canvas-shell.active .stage-input-cards .stage-input-field,
+.canvas-shell.active .stage-deck .stage-input-cards article {
+  min-height: auto;
+  padding: 8px;
+  border: 1px solid rgba(20, 24, 28, 0.1);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.canvas-shell.active .stage-input-cards .stage-input-field[data-field="research_focus"],
+.canvas-shell.active .stage-input-cards p {
+  grid-column: 1 / -1;
+}
+
+.canvas-shell.active .stage-input-cards .stage-input-field strong,
+.canvas-shell.active .stage-deck .stage-input-cards article strong {
+  display: block;
+  max-height: none;
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  -webkit-line-clamp: unset;
+  -webkit-box-orient: initial;
+}
+
 .canvas-shell.active .stage-branch-copy:not([open]) small,
 .canvas-shell.active .stage-branch-copy:not([open]) .stage-branch-meta,
 .canvas-shell.active .stage-branch-copy:not([open]) .stage-branch-visual-brief {

@@ -204,7 +204,7 @@ const translations = {
     "document.noReadableFile": "Choose an image or paper PDF first.",
     "document.imageImported": "Image input node added to the canvas.",
     "document.paperImported": "Paper imported into the research inquiry cards.",
-    "workflow.chooseOne": "Choose exactly one direction",
+    "workflow.chooseOne": "Choose one direction to continue",
     "workflow.toolsHint": "Choose one or more tools in the left rail, then generate one scenario.",
     "workflow.scenarioReady": "Current scenario generated",
     "workflow.imageGenerating": "Image generating",
@@ -339,7 +339,7 @@ const translations = {
     "conversation.continueTools": "Continue choosing tools",
     "conversation.agentIntro": "AI host: describe a research condition or design proposition. I will keep asking who uses it, who is affected, and where uncertainty appears.",
     "conversation.agentPrompt": "AI host",
-    "conversation.runWhatIf": "Generate four What-if lines",
+    "conversation.runWhatIf": "Generate all four What-if directions",
     "workflow.card01": "Research issue",
     "workflow.card02": "Keywords",
     "workflow.card03": "WHAT-IF",
@@ -350,7 +350,7 @@ const translations = {
     "workflow.cardPending": "Waiting for prior step",
     "workflow.initial01": "Choose Scientist input or Designer input below, then describe the material in one sentence.",
     "workflow.initial02": "The agent will split the issue into keywords, default assumptions, and stakeholders.",
-    "workflow.initial03": "After keywords are confirmed, generate growth, collapse, balance, and transformation lines.",
+    "workflow.initial03": "Generate growth, collapse, balance, and transformation directions together, then choose one to continue.",
     "workflow.initial04": "Apply a method tool to the current node and write its result back into the process.",
     "workflow.initial05": "Generate scenario text, image materials, and exportable review logic.",
     "scope.eyebrow": "Current nodes",
@@ -487,7 +487,7 @@ const translations = {
     "document.noReadableFile": "请先选择图像或论文 PDF。",
     "document.imageImported": "已将图片作为图像输入节点加入画布。",
     "document.paperImported": "已根据论文填入研究议题卡片。",
-    "workflow.chooseOne": "从四个方向中仅选择一个",
+    "workflow.chooseOne": "从四个方向中选择一条继续",
     "workflow.toolsHint": "在左侧栏选择一个或多个工具，然后生成一条情境。",
     "workflow.scenarioReady": "当前情境已生成",
     "workflow.imageGenerating": "图片生成中",
@@ -622,7 +622,7 @@ const translations = {
     "conversation.continueTools": "继续选择工具",
     "conversation.agentIntro": "AI 主持人：请描述一个研究条件或设计设想。我会继续追问谁在使用、谁受影响，以及哪里出现不确定。",
     "conversation.agentPrompt": "AI 主持人",
-    "conversation.runWhatIf": "生成四条 What-if 线路",
+    "conversation.runWhatIf": "生成全部四条 What-if 方向",
     "workflow.card01": "研究议题",
     "workflow.card02": "关键词",
     "workflow.card03": "WHAT-IF",
@@ -633,7 +633,7 @@ const translations = {
     "workflow.cardPending": "等待前序步骤",
     "workflow.initial01": "在下方选择「科学家输入」或「设计师输入」，再用一句话描述本轮材料。",
     "workflow.initial02": "智能体会把议题拆成关键词、默认假设和利益相关者三个分支。",
-    "workflow.initial03": "确认关键词后，生成增长、崩溃、平衡、转变四条未来方向。",
+    "workflow.initial03": "直接生成增长、崩溃、平衡、转变四条未来方向，再由参与者选择继续展开。",
     "workflow.initial04": "把工具应用到当前节点，并把分析结果回写到流程。",
     "workflow.initial05": "生成情境文本、图像材料与可导出的复盘逻辑。",
     "scope.eyebrow": "当前节点",
@@ -1293,9 +1293,22 @@ function fitCanvasToView({ persist = false } = {}) {
   activeCanvas.viewport = { ...(activeCanvas.viewport || {}), zoom };
   renderPlane();
   requestAnimationFrame(() => {
-    workspace.scrollLeft = Math.max(0, Math.round((bounds.minX - padding) * zoom));
-    workspace.scrollTop = Math.max(0, Math.round((bounds.minY - padding) * zoom));
-    if (persist) scheduleViewportAutosave();
+    const centerX = ((bounds.minX + bounds.maxX) / 2) * zoom;
+    const centerY = ((bounds.minY + bounds.maxY) / 2) * zoom;
+    const maxScrollLeft = Math.max(0, workspace.scrollWidth - workspace.clientWidth);
+    const maxScrollTop = Math.max(0, workspace.scrollHeight - workspace.clientHeight);
+    workspace.scrollLeft = Math.min(maxScrollLeft, Math.max(0, Math.round(centerX - workspace.clientWidth / 2)));
+    workspace.scrollTop = Math.min(maxScrollTop, Math.max(0, Math.round(centerY - workspace.clientHeight / 2)));
+    activeCanvas.viewport = {
+      ...(activeCanvas.viewport || {}),
+      x: Math.max(0, Math.round(workspace.scrollLeft)),
+      y: Math.max(0, Math.round(workspace.scrollTop)),
+      zoom,
+    };
+    if (persist) {
+      saveActiveCanvasSnapshot();
+      scheduleViewportAutosave();
+    }
   });
 }
 
@@ -1352,7 +1365,7 @@ function arrangedNodePositions(nodes = activeCanvas?.nodes || [], edges = active
   const workflow = activeWorkflow();
   const workflowLayers = workflow
     ? [
-        workflow.source_node_ids || [],
+        (workflow.source_node_ids || []).filter((id) => id !== workflow.keyword_node_id),
         [workflow.keyword_node_id],
         [workflow.operation_node_id],
         workflow.branch_node_ids || [],
@@ -1858,14 +1871,14 @@ function renderStageInputCards(workflow, activeStage) {
     </section>`;
   }
   const fields = [
-    [t("workflow.topic"), brief.topic],
-    [t("workflow.focus"), brief.research_focus],
-    [t("workflow.assumptions"), Array.isArray(brief.assumptions) ? brief.assumptions.join(" · ") : ""],
-    [t("workflow.stakeholders"), Array.isArray(brief.stakeholders) ? brief.stakeholders.join(" · ") : ""],
-    [t("workflow.tensions"), Array.isArray(brief.tensions) ? brief.tensions.join(" · ") : ""],
-  ].filter(([, value]) => String(value || "").trim());
+    { id: "topic", label: t("workflow.topic"), value: brief.topic },
+    { id: "research_focus", label: t("workflow.focus"), value: brief.research_focus },
+    { id: "assumptions", label: t("workflow.assumptions"), value: Array.isArray(brief.assumptions) ? brief.assumptions.join(" · ") : "" },
+    { id: "stakeholders", label: t("workflow.stakeholders"), value: Array.isArray(brief.stakeholders) ? brief.stakeholders.join(" · ") : "" },
+    { id: "tensions", label: t("workflow.tensions"), value: Array.isArray(brief.tensions) ? brief.tensions.join(" · ") : "" },
+  ].filter((field) => String(field.value || "").trim());
   return `<section class="stage-input-cards" aria-label="${escapeHtml(t("workflow.inputManual"))}">
-    ${fields.map(([label, value]) => `<article class="stage-input-field"><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong></article>`).join("")}
+    ${fields.map((field) => `<article class="stage-input-field" data-field="${escapeHtml(field.id)}"><small>${escapeHtml(field.label)}</small><strong>${escapeHtml(field.value)}</strong></article>`).join("")}
     <p>${escapeHtml(t("workflow.inputReady"))}</p>
   </section>`;
 }
@@ -1993,7 +2006,6 @@ function localizedQuickOptions(stage, guide, workflow) {
       quickButton(zh ? "从使用现场开始" : "Start from a use scene", zh ? `一个${materialLabel}进入具体使用现场，使用者、受影响者和不确定边界需要被同时讨论。` : `A ${materialLabel} enters a concrete use scene where users, affected people, and uncertain boundaries must be discussed.`, "begin"),
       quickButton(zh ? "从研究背景开始" : "Start from background", zh ? `这个${materialLabel}的背景来自一组真实条件、限制边界和可争议的应用语境。` : `This ${materialLabel} begins from real conditions, limits, and a debatable application context.`, "begin"),
       quickButton(zh ? "从争议点开始" : "Start from a tension", zh ? `这个议题最值得讨论的是技术承诺、实际使用和影响承担者之间的张力。` : `The key issue is the tension between technical promise, real use, and those who carry the impact.`, "begin"),
-      quickButton(zh ? "从 What-if 开始" : "Start with What-if", zh ? `如果这个条件成为未来现场里的默认设置，会怎样？` : `What if this condition became a default setting in a future context?`, "begin"),
       quickButton(zh ? "从反例开始" : "Start from a counterexample", zh ? `一个可能推翻默认设想的反例进入现场，使原本稳定的判断变得不确定。` : `A counterexample enters the scene and makes a previously stable assumption uncertain.`, "begin"),
     ];
   }
@@ -2025,12 +2037,12 @@ function localizedQuickOptions(stage, guide, workflow) {
   }
   if (stage === "keywords") {
     return [
-      quickButton(zh ? "把它变成 What-if" : "Turn it into What-if", "", "confirm_keywords"),
+      quickButton(zh ? "进入四条 What-if 生成" : "Enter four What-if generation", "", "confirm_keywords"),
     ];
   }
   if (stage === "four_futures" && !workflow?.branch_node_ids?.length) {
     return [
-      quickButton(zh ? "把它变成 What-if" : "Turn it into What-if", "", "run_four_futures"),
+      quickButton(zh ? "生成全部四条 What-if 方向" : "Generate all four What-if directions", "", "run_four_futures"),
     ];
   }
   if (stage === "four_futures" && workflow?.branch_node_ids?.length) {
@@ -2246,7 +2258,7 @@ function renderConversationGuide(session) {
     `;
   } else if (stage === "keywords") {
     conversationGuideActions.innerHTML = `
-      <span>${escapeHtml(liveQuestion || (localized ? "关键词、默认假设和利益相关者已汇合；确认后进入 What-if。" : "Keywords, assumptions, and stakeholders have converged; confirm to enter What-if."))}</span>
+      <span>${escapeHtml(liveQuestion || (localized ? "关键词、默认假设和利益相关者已汇合；下一步进入四条 What-if 生成。" : "Keywords, assumptions, and stakeholders have converged; next, enter four What-if generation."))}</span>
       ${liveHint || loadingHint ? `<small class="agent-guide-hint">${escapeHtml(liveHint || loadingHint)}</small>` : ""}
       ${quickMarkup}
     `;
@@ -2258,7 +2270,7 @@ function renderConversationGuide(session) {
     `;
   } else if (stage === "four_futures") {
     conversationGuideActions.innerHTML = `
-      <span>${escapeHtml(liveQuestion || (localized ? "下一步：生成增长、崩溃、平衡、转变四条 What-if 线路。" : "Next: generate growth, collapse, balance, and transformation What-if lines."))}</span>
+      <span>${escapeHtml(liveQuestion || (localized ? "点击发送将一次生成增长、崩溃、平衡、转变四条方向，生成后再选择一条继续。" : "Send once to generate growth, collapse, balance, and transformation directions together; then choose one to continue."))}</span>
       ${liveHint || loadingHint ? `<small class="agent-guide-hint">${escapeHtml(liveHint || loadingHint)}</small>` : ""}
       ${quickMarkup}
     `;
@@ -2362,11 +2374,10 @@ function renderCanvasPreview() {
   const nodesById = new Map(graphNodes.map((node) => [node.id, node]));
   const workflowLayers = workflow
     ? [
-      (workflow.source_node_ids || []).filter((id) => nodesById.has(id)),
+      (workflow.source_node_ids || []).filter((id) => id !== workflow.keyword_node_id && nodesById.has(id)),
       [workflow.keyword_node_id].filter((id) => nodesById.has(id)),
       [workflow.operation_node_id].filter((id) => nodesById.has(id)),
       (workflow.branch_node_ids || []).filter((id) => nodesById.has(id)),
-      [workflow.selected_branch_node_id].filter((id) => nodesById.has(id)),
       [workflow.discussion_node_id].filter((id) => nodesById.has(id)),
       [workflow.active_scenario_node_id].filter((id) => nodesById.has(id)),
     ].filter((layer) => layer.length)
@@ -2441,22 +2452,55 @@ function previewNodeNavigation(nodeId, workflow = activeWorkflow()) {
       stageLabel: localizedReferenceTitle(progressStep?.label || ""),
     };
   }
-  if ((workflow.source_node_ids || []).includes(nodeId) || nodeId === workflow.keyword_node_id) {
-    return { scopeId: workflow.foundation_scope_id || "scope-global", stageId: "input", stageLabel: stageLabel("input", t("workflowStrip.brief")) };
+  if ((workflow.source_node_ids || []).includes(nodeId) && nodeId !== workflow.keyword_node_id) {
+    return {
+      scopeId: workflow.foundation_scope_id || "scope-global",
+      stageId: "input",
+      guideStageId: "frame_focus",
+      stageLabel: stageLabel("input", t("workflowStrip.brief")),
+    };
+  }
+  if (nodeId === workflow.keyword_node_id) {
+    return {
+      scopeId: workflow.foundation_scope_id || "scope-global",
+      stageId: "input",
+      guideStageId: "keywords",
+      stageLabel: localizedReferenceTitle(locale === "zh" ? "关键词 / 假设汇合" : "Keywords / assumptions"),
+    };
   }
   if (nodeId === workflow.operation_node_id) {
-    return { scopeId: workflow.comparison_scope_id || workflow.foundation_scope_id || "scope-global", stageId: "four_futures", stageLabel: stageLabel("four_futures", t("workflowStrip.whatIf")) };
+    return {
+      scopeId: workflow.comparison_scope_id || workflow.foundation_scope_id || "scope-global",
+      stageId: "four_futures",
+      guideStageId: "four_futures",
+      stageLabel: stageLabel("four_futures", t("workflowStrip.whatIf")),
+    };
   }
   if ((workflow.branch_node_ids || []).includes(nodeId)) {
-    return { scopeId: workflow.branch_scope_ids?.[nodeId] || workflow.comparison_scope_id || "scope-global", stageId: "four_futures", stageLabel: stageLabel("four_futures", t("workflowStrip.whatIf")) };
+    return {
+      scopeId: workflow.branch_scope_ids?.[nodeId] || workflow.comparison_scope_id || "scope-global",
+      stageId: "four_futures",
+      guideStageId: "four_futures",
+      stageLabel: stageLabel("four_futures", t("workflowStrip.whatIf")),
+    };
   }
   if (nodeId === workflow.discussion_node_id) {
     const branchId = workflow.selected_branch_node_id || "";
-    return { scopeId: workflow.branch_scope_ids?.[branchId] || activeScopeId || "scope-global", stageId: "tools", stageLabel: stageLabel("tools", t("workflowStrip.methods")) };
+    return {
+      scopeId: workflow.branch_scope_ids?.[branchId] || activeScopeId || "scope-global",
+      stageId: "tools",
+      guideStageId: "tools",
+      stageLabel: stageLabel("tools", t("workflowStrip.methods")),
+    };
   }
   if (nodeId === workflow.active_scenario_node_id) {
     const branchId = workflow.selected_branch_node_id || "";
-    return { scopeId: workflow.branch_scope_ids?.[branchId] || activeScopeId || "scope-global", stageId: "scenario", stageLabel: stageLabel("scenario", t("workflowStrip.outcomes")) };
+    return {
+      scopeId: workflow.branch_scope_ids?.[branchId] || activeScopeId || "scope-global",
+      stageId: "scenario",
+      guideStageId: "scenario_ready",
+      stageLabel: stageLabel("scenario", t("workflowStrip.outcomes")),
+    };
   }
   const owningScopeId = scopeIdForPreviewNode(nodeId);
   const progressStep = (activeSession()?.progress || []).find((step) => step.scope_id === owningScopeId);
@@ -2537,7 +2581,10 @@ function navigateFromPreviewNode(nodeId) {
     ? `是否回到「${nodeName}」对应的进度？\n${label}`
     : `Return to the progress marker for "${nodeName}"?\n${label}`;
   if (!window.confirm(message)) return;
-  runUiAction(() => setActiveScope(navigation.scopeId || defaultLocalScopeId(), { stageId: navigation.stageId || "" }));
+  runUiAction(() => setActiveScope(navigation.scopeId || defaultLocalScopeId(), {
+    stageId: navigation.stageId || "",
+    guideStageId: navigation.guideStageId || "",
+  }));
 }
 
 function previewTreeLayers(nodes, edges) {
@@ -2576,16 +2623,21 @@ async function setActiveScope(scopeId, options = {}) {
   const session = activeSession();
   if (!scopeId || !activeProject || !session) return;
   previewFocusedStageId = options.stageId || "";
-  if (scopeId === activeScopeId && session.active_scope_id === scopeId) {
+  const guideStageId = String(options.guideStageId || "").trim();
+  const shouldUpdateGuide = Boolean(guideStageId);
+  if (scopeId === activeScopeId && session.active_scope_id === scopeId && !shouldUpdateGuide) {
     renderInteraction();
     renderCanvasPreview();
     return;
   }
   try {
-    if (session.active_scope_id !== scopeId) {
+    if (session.active_scope_id !== scopeId || shouldUpdateGuide) {
       await requestJson(`/api/projects/${activeProject.id}/conversations/${session.id}`, {
         method: "PATCH",
-        body: JSON.stringify(withExpectedRevision({ active_scope_id: scopeId })),
+        body: JSON.stringify(withExpectedRevision({
+          active_scope_id: scopeId,
+          guide_stage_id: guideStageId,
+        })),
       });
     }
     // Keep the next canvas refresh on the same canonical Scope while also updating
@@ -4178,7 +4230,7 @@ function exportCurrentCanvasPdf() {
     : `<p class="report-empty">${escapeHtml(t("workflowStrip.empty"))}</p>`;
   const nodeMarkup = printableNodeReport();
   const chatMarkup = printableChatReport(session);
-  const stylesheet = `/static/styles.css?v=20260804-local-autosave-icons`;
+  const stylesheet = `/static/styles.css?v=20260804-flow-return-fit`;
   reportWindow.document.open();
   reportWindow.document.write(`<!doctype html>
 <html lang="${locale === "zh" ? "zh-CN" : "en"}">

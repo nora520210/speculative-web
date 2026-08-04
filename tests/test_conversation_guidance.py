@@ -14,6 +14,7 @@ from server.graph_store import (
     run_modify,
     run_operation,
     select_four_futures_branch,
+    set_conversation_scope,
     start_four_futures_workflow,
     update_node,
     write_canvas,
@@ -115,6 +116,31 @@ def test_guided_conversation_preserves_input_perspective_in_messages_and_brief()
         assert "研究关注点 (科学家输入): 材料行为与护理判断之间的边界" in source["payload"]["text"]
         user_messages = [message for message in session["messages"] if message["role"] == "user"]
         assert [message["input_perspective"] for message in user_messages[-2:]] == ["design", "research"]
+    finally:
+        _restore_project(tmp, graph_store, original)
+
+
+def test_preview_navigation_persists_guide_stage_with_scope():
+    tmp, graph_store, original = _temporary_project()
+    try:
+        canvas = read_canvas("project-a")
+        session_id = canvas["conversation_sessions"][0]["id"]
+        workflow = _finish_guided_frame(session_id)["workflow"]
+
+        updated = set_conversation_scope(
+            "project-a",
+            session_id,
+            workflow["foundation_scope_id"],
+            guide_stage_id="frame_focus",
+        )
+        saved = read_canvas("project-a")
+        session = next(item for item in saved["conversation_sessions"] if item["id"] == session_id)
+
+        assert updated["active_scope_id"] == workflow["foundation_scope_id"]
+        assert updated["guide"]["stage_id"] == "frame_focus"
+        assert updated["guide"]["pending_field"] == "research_focus"
+        assert session["guide"]["stage_id"] == "frame_focus"
+        assert session["guide"]["pending_field"] == "research_focus"
     finally:
         _restore_project(tmp, graph_store, original)
 

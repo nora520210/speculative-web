@@ -533,6 +533,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                     session_id,
                     scope_id,
                     expected_revision=self.expected_revision(payload),
+                    guide_stage_id=str(payload.get("guide_stage_id") or ""),
                 )
             except KeyError as exc:
                 self.send_json({"error": str(exc)}, status=HTTPStatus.NOT_FOUND)

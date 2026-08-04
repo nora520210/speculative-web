@@ -283,19 +283,62 @@ def add_conversation(project_id: str, payload: dict, expected_revision=None) -> 
     return session
 
 
-def set_conversation_scope(project_id: str, session_id: str, scope_id: str, expected_revision=None) -> dict:
+GUIDE_STAGE_PENDING_FIELD = {
+    "frame_focus": "research_focus",
+    "frame_assumptions": "assumptions",
+    "frame_stakeholders": "stakeholders",
+    "frame_tensions": "tensions",
+    "keywords": "",
+    "four_futures": "",
+    "tools": "",
+    "scenario_probe": "",
+    "scenario_refine": "",
+    "scenario_ready": "",
+    "scenario": "",
+    "stale": "",
+}
+
+
+def set_conversation_scope(
+    project_id: str,
+    session_id: str,
+    scope_id: str,
+    expected_revision=None,
+    guide_stage_id: str = "",
+) -> dict:
     """Persist a Scope change so conversation and projection cannot drift apart."""
 
     canvas = read_canvas(project_id)
     assert_expected_revision(canvas, expected_revision)
-    session = set_conversation_scope_record(canvas, session_id, scope_id)
+    set_conversation_scope_record(canvas, session_id, scope_id)
+    session = next((item for item in canvas.get("conversation_sessions", []) if item.get("id") == session_id), None)
+    if not session:
+        raise KeyError(f"Conversation session not found: {session_id}")
+    guide_stage_id = str(guide_stage_id or "").strip()
+    if guide_stage_id:
+        if guide_stage_id not in GUIDE_STAGE_PENDING_FIELD:
+            raise ValueError("Unsupported guide stage.")
+        workflow = next(
+            (
+                item
+                for item in canvas.get("workflow_instances", [])
+                if item.get("session_id") == session_id or item.get("id") == session.get("workflow_instance_id")
+            ),
+            None,
+        )
+        set_session_guide(
+            session,
+            guide_stage_id,
+            workflow_instance_id=str((workflow or {}).get("id") or session.get("workflow_instance_id") or ""),
+            pending_field=GUIDE_STAGE_PENDING_FIELD[guide_stage_id],
+        )
     record_graph_event(
         canvas,
         "conversation.scope_changed",
-        {"session_id": session_id, "scope_id": scope_id},
+        {"session_id": session_id, "scope_id": scope_id, "guide_stage_id": guide_stage_id},
     )
     write_canvas(project_id, canvas)
-    return session
+    return deepcopy(session)
 
 
 def add_conversation_message(project_id: str, session_id: str, payload: dict, expected_revision=None) -> dict:

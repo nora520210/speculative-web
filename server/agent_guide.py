@@ -77,9 +77,9 @@ def fallback_agent_guide(payload: dict) -> dict:
         }
     if stage == "keywords":
         return {
-            "question": "关键词、默认假设和利益相关者已经汇合。要不要进入四条 What-if 线路？",
-            "options": ["确认关键词并进入 What-if", f"再补充{topic}的实验条件", "加入一个反例后再继续"],
-            "hint": "确认后会解锁增长、崩溃、平衡、转变四条方向。",
+            "question": "关键词、默认假设和利益相关者已经汇合。下一步进入四条 What-if 生成。",
+            "options": ["进入四条 What-if 生成步骤"],
+            "hint": "系统会一次生成增长、崩溃、平衡、转变四条方向，再让参与者选择。",
         }
     if stage == "four_futures":
         if payload.get("has_branches"):
@@ -89,9 +89,9 @@ def fallback_agent_guide(payload: dict) -> dict:
                 "hint": "选择后会进入追问和工具介入。",
             }
         return {
-            "question": "现在可以把议题生成四条 What-if 线路。",
-            "options": ["生成增长、崩溃、平衡、转变四条线路", "先回看默认假设", "补一个被遗漏的角色"],
-            "hint": "生成后只选择一条继续展开。",
+            "question": "现在直接把议题生成四条 What-if 线路。",
+            "options": ["生成增长、崩溃、平衡、转变四条线路"],
+            "hint": "这一步会一次生成四条方向，生成后再选择一条继续展开。",
         }
     if stage == "tools":
         return {
