@@ -116,6 +116,53 @@ def create_project(title: str) -> dict:
     return project
 
 
+def restore_project_snapshot(project_payload: dict, canvas_payload: dict) -> dict:
+    ensure_store()
+    project_id = str(project_payload.get("id") or canvas_payload.get("project_id") or canvas_payload.get("id") or "").strip()
+    if not re.fullmatch(r"[A-Za-z0-9_-]{4,48}", project_id):
+        raise ValueError("Snapshot project id is invalid.")
+    title = str(project_payload.get("title") or "Untitled Canvas").strip()[:96] or "Untitled Canvas"
+    project = {
+        **create_project_record(title, project_id=project_id),
+        "status": str(project_payload.get("status") or "active")[:48],
+        "updated_at": str(project_payload.get("updated_at") or utc_now()),
+        "node_count": len(canvas_payload.get("nodes", [])) if isinstance(canvas_payload.get("nodes"), list) else 0,
+        "canvas_id": project_id,
+    }
+    canvas = empty_canvas(project_id)
+    if isinstance(canvas_payload, dict):
+        canvas.update({
+            key: deepcopy(canvas_payload[key])
+            for key in (
+                "version",
+                "schema_version",
+                "revision",
+                "viewport",
+                "nodes",
+                "edges",
+                "runs",
+                "pinned_context",
+                "events",
+                "scopes",
+                "conversation_sessions",
+                "command_proposals",
+                "executions",
+                "workflow_instances",
+                "updated_at",
+            )
+            if key in canvas_payload
+        })
+    canvas["id"] = project_id
+    canvas["project_id"] = project_id
+    ensure_interaction_data(canvas)
+    refresh_runtime_config(canvas)
+    projects = [item for item in read_projects() if item.get("id") != project_id]
+    projects.insert(0, project)
+    write_projects(projects)
+    write_canvas(project_id, canvas)
+    return project
+
+
 def update_project(project_id: str, patch: dict) -> dict:
     projects = read_projects()
     title = str(patch.get("title") or "").strip()

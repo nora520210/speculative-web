@@ -15,6 +15,7 @@ from server.graph_store import (
     visual_basis_from_parsed_output,
     ordered_data_input_edges,
     recommend_output_for_modify,
+    restore_project_snapshot,
     run_modify,
     normalize_text_blocks,
     normalize_node,
@@ -207,6 +208,49 @@ def test_update_canvas_viewport_persists_clamped_view_state():
 
         assert viewport == {"x": 144.0, "y": 88.0, "zoom": 1}
         assert saved["viewport"] == viewport
+    graph_store.DATA_DIR = original_data_dir
+    graph_store.PROJECTS_FILE = original_projects_file
+    graph_store.CANVAS_DIR = original_canvas_dir
+
+
+def test_restore_project_snapshot_rehydrates_project_and_canvas():
+    import server.graph_store as graph_store
+
+    original_data_dir = graph_store.DATA_DIR
+    original_projects_file = graph_store.PROJECTS_FILE
+    original_canvas_dir = graph_store.CANVAS_DIR
+    with TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        graph_store.DATA_DIR = tmp_path
+        graph_store.PROJECTS_FILE = tmp_path / "projects.json"
+        graph_store.CANVAS_DIR = tmp_path / "canvases"
+        graph_store.ensure_store_light()
+        graph_store.write_projects([])
+        snapshot = default_canvas("local-project")
+        snapshot["nodes"].append(
+            normalize_node(
+                {
+                    "id": "node-local-note",
+                    "type": "text",
+                    "title": "Recovered note",
+                    "position": {"x": 144, "y": 188},
+                    "payload": {"text": "Recovered from the browser snapshot."},
+                    "status": "ready",
+                }
+            )
+        )
+
+        restored = restore_project_snapshot(
+            {"id": "local-project", "title": "Local Project", "status": "active"},
+            snapshot,
+        )
+        canvas = graph_store.read_canvas("local-project")
+
+        assert restored["id"] == "local-project"
+        assert restored["node_count"] == len(snapshot["nodes"])
+        assert graph_store.read_projects()[0]["title"] == "Local Project"
+        assert any(node["id"] == "node-local-note" for node in canvas["nodes"])
+        assert canvas["project_id"] == "local-project"
     graph_store.DATA_DIR = original_data_dir
     graph_store.PROJECTS_FILE = original_projects_file
     graph_store.CANVAS_DIR = original_canvas_dir

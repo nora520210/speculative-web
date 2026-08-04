@@ -105,6 +105,8 @@ let branchImageQueueRunning = false;
 const quickInputSelections = new Map();
 let autosaveTimer = null;
 let autosaveStatusTimer = null;
+let localRestoreInFlight = false;
+const localRestoreFailures = new Set();
 let modelAccess = {
   openaiApiKeyConfigured: false,
   openaiRunsEnabled: true,
@@ -116,6 +118,8 @@ const MAX_ZOOM = 1;
 const ZOOM_STEP = 0.25;
 const THEME_KEY = "speculative-web-theme";
 const LOCALE_KEY = "speculative-web-locale";
+const LOCAL_CANVAS_STORE_KEY = "speculative-web-local-canvas-snapshots-v1";
+const LOCAL_CANVAS_LIMIT = 24;
 const translations = {
   en: {
     "document.title": "Speculative Web",
@@ -958,6 +962,92 @@ function setAutoSaveState(state) {
   }, 1800);
 }
 
+function readLocalCanvasSnapshots() {
+  try {
+    const raw = window.localStorage?.getItem(LOCAL_CANVAS_STORE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeLocalCanvasSnapshots(snapshots) {
+  const entries = Object.values(snapshots || {})
+    .filter((item) => item?.project?.id && item?.canvas?.id)
+    .sort((left, right) => String(right.saved_at || "").localeCompare(String(left.saved_at || "")))
+    .slice(0, LOCAL_CANVAS_LIMIT);
+  const nextSnapshots = Object.fromEntries(entries.map((item) => [item.project.id, item]));
+  try {
+    window.localStorage?.setItem(LOCAL_CANVAS_STORE_KEY, JSON.stringify(nextSnapshots));
+  } catch {
+    const trimmed = Object.fromEntries(entries.slice(0, Math.max(4, Math.floor(entries.length / 2))).map((item) => [item.project.id, item]));
+    try {
+      window.localStorage?.setItem(LOCAL_CANVAS_STORE_KEY, JSON.stringify(trimmed));
+    } catch {
+      // Local snapshots are a resilience layer for ephemeral deployments only.
+    }
+  }
+}
+
+function saveActiveCanvasSnapshot() {
+  if (!activeProject || !activeCanvas?.id) return;
+  const snapshots = readLocalCanvasSnapshots();
+  const project = {
+    ...activeProject,
+    id: activeProject.id,
+    title: activeProject.title || t("project.untitled"),
+    status: activeProject.status || "active",
+    updated_at: activeCanvas.updated_at || activeProject.updated_at || new Date().toISOString(),
+    node_count: activeCanvas.nodes?.length || 0,
+    canvas_id: activeProject.id,
+  };
+  snapshots[project.id] = {
+    project,
+    canvas: activeCanvas,
+    saved_at: new Date().toISOString(),
+  };
+  writeLocalCanvasSnapshots(snapshots);
+  setAutoSaveState("saved");
+}
+
+function removeLocalCanvasSnapshot(projectId) {
+  if (!projectId) return;
+  const snapshots = readLocalCanvasSnapshots();
+  if (!snapshots[projectId]) return;
+  delete snapshots[projectId];
+  writeLocalCanvasSnapshots(snapshots);
+}
+
+async function restoreMissingLocalSnapshots(projects = []) {
+  if (localRestoreInFlight) return false;
+  const serverIds = new Set(projects.map((project) => project.id));
+  const missing = Object.values(readLocalCanvasSnapshots())
+    .filter((snapshot) => snapshot?.project?.id && snapshot?.canvas?.id)
+    .filter((snapshot) => !serverIds.has(snapshot.project.id) && !localRestoreFailures.has(snapshot.project.id))
+    .sort((left, right) => String(right.saved_at || "").localeCompare(String(left.saved_at || "")));
+  if (!missing.length) return false;
+  localRestoreInFlight = true;
+  let restored = false;
+  try {
+    for (const snapshot of missing.slice(0, LOCAL_CANVAS_LIMIT)) {
+      try {
+        await requestJson("/api/projects/restore", {
+          method: "POST",
+          body: JSON.stringify({ project: snapshot.project, canvas: snapshot.canvas }),
+        });
+        restored = true;
+      } catch (error) {
+        localRestoreFailures.add(snapshot.project.id);
+        console.warn("Local canvas restore failed", error);
+      }
+    }
+  } finally {
+    localRestoreInFlight = false;
+  }
+  return restored;
+}
+
 function scheduleViewportAutosave() {
   if (!activeProject || !activeCanvas) return;
   window.clearTimeout(autosaveTimer);
@@ -977,6 +1067,7 @@ async function saveViewportState() {
       method: "PATCH",
       body: JSON.stringify({ viewport }),
     });
+    saveActiveCanvasSnapshot();
   } catch (error) {
     setStatus(canvasStatus, "error");
     canvasOutput.textContent = error.message;
@@ -1022,7 +1113,10 @@ function acceptTabApiKey(event) {
 }
 
 async function loadProjects() {
-  const { projects } = await requestJson("/api/projects");
+  let { projects } = await requestJson("/api/projects");
+  if (await restoreMissingLocalSnapshots(projects)) {
+    ({ projects } = await requestJson("/api/projects"));
+  }
   projectCount.textContent = String(projects.length);
   projectsEl.innerHTML = "";
   for (const project of projects) {
@@ -1093,6 +1187,7 @@ async function loadCanvas({ preserveView = true, consistencyRetry = 0, autoStart
   setStatus(canvasStatus, "ready");
   canvasOutput.textContent = JSON.stringify(summarizeCanvas(graph), null, 2);
   renderCanvas();
+  saveActiveCanvasSnapshot();
   if (shouldPreserveView) restoreCanvasView(previousView);
   else restoreCanvasView({
     scrollLeft: Number(activeCanvas.viewport?.x || 0),
@@ -3216,6 +3311,7 @@ async function renameProject(project = activeProject) {
   if (activeProject?.id === updated.id) {
     activeProject = { ...activeProject, ...updated };
     updateCanvasTitle(updated.title);
+    saveActiveCanvasSnapshot();
   }
   await loadProjects();
 }
@@ -3928,6 +4024,7 @@ window.addEventListener("pointerup", async (event) => {
     method: "PATCH",
     body: JSON.stringify(withExpectedRevision({ position: node.position, session_id: activeSessionId })),
   });
+  saveActiveCanvasSnapshot();
 });
 
 function backHome() {
@@ -3950,6 +4047,7 @@ async function deleteProject(project) {
   const confirmed = window.confirm(t("project.deleteConfirm", { title: project.title }));
   if (!confirmed) return;
   await requestJson(`/api/projects/${project.id}`, { method: "DELETE" });
+  removeLocalCanvasSnapshot(project.id);
   if (activeProject?.id === project.id) backHome();
   await loadProjects();
 }
@@ -4080,7 +4178,7 @@ function exportCurrentCanvasPdf() {
     : `<p class="report-empty">${escapeHtml(t("workflowStrip.empty"))}</p>`;
   const nodeMarkup = printableNodeReport();
   const chatMarkup = printableChatReport(session);
-  const stylesheet = `/static/styles.css?v=20260804-canvas-arrange-fit`;
+  const stylesheet = `/static/styles.css?v=20260804-local-autosave-icons`;
   reportWindow.document.open();
   reportWindow.document.write(`<!doctype html>
 <html lang="${locale === "zh" ? "zh-CN" : "en"}">

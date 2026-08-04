@@ -45,6 +45,7 @@ from server.graph_store import (
     read_projects,
     recommend_output_for_modify,
     reset_current_workflow_step,
+    restore_project_snapshot,
     run_modify,
     run_operation,
     resolve_command_proposal,
@@ -200,6 +201,19 @@ class AppHandler(SimpleHTTPRequestHandler):
         if not self.headers.get("Content-Type", "").startswith("multipart/form-data"):
             if self.request_too_large(MAX_JSON_BODY_BYTES):
                 return
+        if parsed.path == "/api/projects/restore":
+            payload = self.read_json_body()
+            try:
+                project = restore_project_snapshot(
+                    payload.get("project") if isinstance(payload.get("project"), dict) else {},
+                    payload.get("canvas") if isinstance(payload.get("canvas"), dict) else {},
+                )
+            except ValueError as exc:
+                self.send_json({"error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
+                return
+            self.send_json({"project": project}, status=HTTPStatus.CREATED)
+            return
+
         if parsed.path == "/api/projects":
             payload = self.read_json_body()
             title = str(payload.get("title") or "Untitled Canvas").strip()

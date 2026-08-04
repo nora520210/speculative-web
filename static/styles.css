@@ -7498,23 +7498,23 @@ body {
 }
 
 .canvas-shell.active .conversation-workbench .tool-sidebar-row {
-  padding: 0;
+  padding: 6px;
 }
 
 .canvas-shell.active .conversation-workbench .tool-sidebar-row .tool-sidebar-asset {
   display: block;
-  width: 154%;
-  height: 154%;
+  width: 100%;
+  height: 100%;
   max-width: none;
   max-height: none;
-  object-fit: cover;
+  object-fit: contain;
   object-position: center;
   transform: none;
 }
 
 .canvas-shell.active .conversation-workbench .tool-sidebar-row .tool-card-mark {
-  width: 100%;
-  height: 100%;
+  width: 92%;
+  height: 92%;
   max-width: none;
   max-height: none;
 }
