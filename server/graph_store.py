@@ -1615,8 +1615,13 @@ def update_node(project_id: str, node_id: str, patch: dict, expected_revision=No
             config_patch = patch.get("config") if isinstance(patch.get("config"), dict) else {}
             if config_patch.get("tools") is not None and workflow and node_id == workflow.get("discussion_node_id"):
                 runtime = workflow_runtime_contract(workflow.get("definition_snapshot"))
-                workflow.update({"status": "tools", "stage": runtime["tools_stage_id"], "updated_at": utc_now()})
                 session = _activity_session(canvas, requested_session_id=session_id, workflow=workflow)
+                guide = session.get("guide") if isinstance((session or {}).get("guide"), dict) else {}
+                if not workflow.get("selected_branch_node_id"):
+                    raise ValueError("Choose one What-if future before selecting discussion tools.")
+                if guide.get("stage_id") not in {"tools", "scenario_probe", "scenario_refine", "scenario_ready"}:
+                    raise ValueError("Discussion tools can only be selected during the tools step.")
+                workflow.update({"status": "tools", "stage": runtime["tools_stage_id"], "updated_at": utc_now()})
                 if session:
                     _set_workflow_progress(session, runtime["tools_stage_id"], "active", scope_id=session.get("active_scope_id"))
                     _set_workflow_progress(session, runtime["scenario_stage_id"], "pending", scope_id=session.get("active_scope_id"))

@@ -371,6 +371,7 @@ const translations = {
     "toolSidebar.eyebrow": "Tool nodes",
     "toolSidebar.title": "Tools",
     "toolSidebar.none": "No Modify tools in this scope.",
+    "toolSidebar.locked": "Choose one What-if direction before selecting tools.",
     "toolSidebar.nodeType": "tool",
     "toolSidebar.selected": "selected",
     "toolSidebar.remove": "Remove",
@@ -656,6 +657,7 @@ const translations = {
     "toolSidebar.eyebrow": "工具节点",
     "toolSidebar.title": "工具",
     "toolSidebar.none": "当前局部没有推演工具。",
+    "toolSidebar.locked": "请先选择一条 What-if 路线，再进入工具选择。",
     "toolSidebar.nodeType": "工具",
     "toolSidebar.selected": "已选",
     "toolSidebar.remove": "移除",
@@ -2348,8 +2350,19 @@ function renderConversationGuide(session) {
 }
 
 function renderToolSidebar() {
-  const nodes = activeProjection?.nodes || [];
-  const modifyNodes = nodes.filter((node) => node.type === "modify");
+  const workflow = activeWorkflow();
+  const stage = activeSession()?.guide?.stage_id || "";
+  const toolStageActive = Boolean(
+    workflow?.selected_branch_node_id
+    && workflow?.discussion_node_id
+    && ["tools", "scenario_probe", "scenario_refine", "scenario_ready"].includes(stage),
+  );
+  const discussionNode = toolStageActive ? findNode(workflow.discussion_node_id) : null;
+  const modifyNodes = discussionNode ? [discussionNode] : [];
+  if (!toolStageActive) {
+    toolSidebarList.innerHTML = `<p class="empty-panel">${escapeHtml(t("toolSidebar.locked"))}</p>`;
+    return;
+  }
   if (!modifyNodes.length) {
     toolSidebarList.innerHTML = `<p class="empty-panel">${escapeHtml(t("toolSidebar.none"))}</p>`;
     return;
@@ -2386,6 +2399,7 @@ function renderToolSidebar() {
   }).join("");
   toolSidebarList.querySelectorAll("[data-sidebar-tool-id]").forEach((button) => {
     button.addEventListener("click", () => runUiAction(async () => {
+      if (!canSelectDiscussionTools()) return;
       const modifyNode = activeCanvas?.nodes.find((node) => node.id === button.dataset.sidebarModifyId);
       if (!modifyNode) return;
       const tool = (modifyNode.config?.tools || []).find((item) => item.id === button.dataset.sidebarToolId);
@@ -2393,6 +2407,16 @@ function renderToolSidebar() {
     }));
   });
   if (uiActionInFlight) setUiActionBusy(true);
+}
+
+function canSelectDiscussionTools() {
+  const workflow = activeWorkflow();
+  const stage = activeSession()?.guide?.stage_id || "";
+  return Boolean(
+    workflow?.selected_branch_node_id
+    && workflow?.discussion_node_id
+    && ["tools", "scenario_probe", "scenario_refine", "scenario_ready"].includes(stage),
+  );
 }
 
 function renderCanvasPreview() {
@@ -2915,7 +2939,7 @@ async function applySelectedDiscussionTools(toolIds) {
   const workflow = activeWorkflow();
   const discussion = findNode(workflow?.discussion_node_id);
   const selectedToolIds = new Set(toolIds || []);
-  if (!activeProject || !discussion || !selectedToolIds.size) return;
+  if (!activeProject || !discussion || !selectedToolIds.size || !canSelectDiscussionTools()) return;
   const tools = (discussion.config?.tools || []).map((tool) =>
     selectedToolIds.has(tool.id) ? { ...tool, selected: true } : tool,
   );
@@ -2923,7 +2947,9 @@ async function applySelectedDiscussionTools(toolIds) {
     method: "PATCH",
     body: JSON.stringify(withExpectedRevision({ config: { tools }, session_id: activeSessionId })),
   });
-  await loadCanvas({ preserveView: false });
+  const branchScopeId = workflow.branch_scope_ids?.[workflow.selected_branch_node_id];
+  if (branchScopeId) activeScopeId = branchScopeId;
+  await loadCanvas({ preserveView: true });
 }
 
 async function runSelectedDiscussionNode() {
@@ -3481,7 +3507,8 @@ async function toggleTool(event, node) {
 }
 
 async function setToolSelection(node, toolId, selected) {
-  if (!activeProject || !node || !toolId) return;
+  if (!activeProject || !node || !toolId || !canSelectDiscussionTools()) return;
+  const workflow = activeWorkflow();
   const tools = (node.config?.tools || []).map((tool) =>
     tool.id === toolId ? { ...tool, selected } : tool,
   );
@@ -3489,7 +3516,9 @@ async function setToolSelection(node, toolId, selected) {
     method: "PATCH",
     body: JSON.stringify(withExpectedRevision({ config: { tools }, session_id: activeSessionId })),
   });
-  await loadCanvas();
+  const branchScopeId = workflow?.branch_scope_ids?.[workflow.selected_branch_node_id];
+  if (branchScopeId) activeScopeId = branchScopeId;
+  await loadCanvas({ preserveView: true });
 }
 
 async function setOutputType(event, node) {
@@ -4301,7 +4330,7 @@ function exportCurrentCanvasPdf() {
     : `<p class="report-empty">${escapeHtml(t("workflowStrip.empty"))}</p>`;
   const graphMarkup = printableCanvasGraphReport();
   const chatMarkup = printableChatReport(session);
-  const stylesheet = `/static/styles.css?v=20260804-scenario-gated-tooltips`;
+  const stylesheet = `/static/styles.css?v=20260804-tool-step-stability`;
   reportWindow.document.open();
   reportWindow.document.write(`<!doctype html>
 <html lang="${locale === "zh" ? "zh-CN" : "en"}">
