@@ -44,6 +44,7 @@ from server.graph_store import (
     read_canvas,
     read_projects,
     recommend_output_for_modify,
+    reset_current_workflow_step,
     run_modify,
     run_operation,
     resolve_command_proposal,
@@ -418,6 +419,23 @@ class AppHandler(SimpleHTTPRequestHandler):
 
             if action == ["paper-import"]:
                 self.handle_paper_import(project_id)
+                return
+
+            if action == ["workflow-step-reset"]:
+                payload = self.read_json_body()
+                try:
+                    result = reset_current_workflow_step(
+                        project_id,
+                        session_id=str(payload.get("session_id") or ""),
+                        expected_revision=self.expected_revision(payload),
+                    )
+                except KeyError as exc:
+                    self.send_json({"error": str(exc)}, status=HTTPStatus.NOT_FOUND)
+                    return
+                except ValueError as exc:
+                    self.send_json({"error": str(exc)}, status=HTTPStatus.CONFLICT)
+                    return
+                self.send_json(result)
                 return
 
         if parsed.path == "/api/documents/inspect":

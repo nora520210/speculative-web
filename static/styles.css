@@ -169,8 +169,14 @@ h2 {
 .create-form,
 .document-form {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+  justify-content: flex-end;
+}
+
+.document-form .file-name {
+  max-width: 112px;
 }
 
 .top-actions {

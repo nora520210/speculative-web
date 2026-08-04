@@ -7,6 +7,7 @@ from tempfile import TemporaryDirectory
 from server.graph_store import (
     default_canvas,
     read_canvas,
+    reset_current_workflow_step,
     run_operation,
     select_four_futures_branch,
     start_four_futures_workflow,
@@ -182,6 +183,62 @@ def test_four_futures_foundation_lifecycle_uses_scopes_without_copying_graphs():
             os.environ.pop("SPEC_WEB_ENABLE_OPENAI_RUNS", None)
         else:
             os.environ["SPEC_WEB_ENABLE_OPENAI_RUNS"] = original_openai_runs
+        graph_store.DATA_DIR = original_data_dir
+        graph_store.PROJECTS_FILE = original_projects_file
+        graph_store.CANVAS_DIR = original_canvas_dir
+
+
+def test_reset_current_workflow_step_removes_owned_workflow_nodes():
+    import server.graph_store as graph_store
+
+    original_data_dir = graph_store.DATA_DIR
+    original_projects_file = graph_store.PROJECTS_FILE
+    original_canvas_dir = graph_store.CANVAS_DIR
+    try:
+        with TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            graph_store.DATA_DIR = tmp_path
+            graph_store.PROJECTS_FILE = tmp_path / "projects.json"
+            graph_store.CANVAS_DIR = tmp_path / "canvases"
+            graph_store.ensure_store_light()
+            write_projects(
+                [
+                    {
+                        "id": "project-reset",
+                        "title": "Reset",
+                        "status": "active",
+                        "updated_at": "now",
+                        "node_count": 0,
+                        "canvas_id": "project-reset",
+                    }
+                ]
+            )
+            write_canvas("project-reset", default_canvas("project-reset"))
+            started = start_four_futures_workflow(
+                "project-reset",
+                {
+                    "definition_id": "workflow.four-futures-foundation",
+                    "start_mode": "research",
+                    "topic": "Imported paper topic",
+                    "research_focus": "Imported paper focus",
+                    "assumptions": ["paper basis"],
+                },
+            )
+            session_id = started["conversation"]["id"]
+            owned_node_ids = {node["id"] for node in started["nodes"]}
+
+            result = reset_current_workflow_step("project-reset", session_id=session_id)
+            saved = read_canvas("project-reset")
+            session = next(item for item in saved["conversation_sessions"] if item["id"] == session_id)
+
+            assert owned_node_ids.issubset(set(result["removed_node_ids"]))
+            assert not saved["workflow_instances"]
+            assert not owned_node_ids.intersection({node["id"] for node in saved["nodes"]})
+            assert session["workflow_instance_id"] == ""
+            assert session["active_scope_id"] == "scope-global"
+            assert session["guide"]["stage_id"] == "start"
+            assert session["guide"]["pending_field"] == "topic"
+    finally:
         graph_store.DATA_DIR = original_data_dir
         graph_store.PROJECTS_FILE = original_projects_file
         graph_store.CANVAS_DIR = original_canvas_dir

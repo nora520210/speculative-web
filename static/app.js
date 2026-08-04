@@ -6,9 +6,13 @@ const canvasTitle = document.querySelector("#canvas-title");
 const createForm = document.querySelector("#create-project");
 const deleteActiveProject = document.querySelector("#delete-active-project");
 const documentForm = document.querySelector("#document-form");
-const documentFile = document.querySelector("#document-file");
-const documentFileName = document.querySelector("#document-file-name");
+const imageFile = document.querySelector("#image-file");
+const imageFileName = document.querySelector("#image-file-name");
+const paperFile = document.querySelector("#paper-file");
+const paperFileName = document.querySelector("#paper-file-name");
 const importPaperButton = document.querySelector("#import-paper-pdf");
+const clearDocumentInputsButton = document.querySelector("#clear-document-inputs");
+const undoCurrentStepButton = document.querySelector("#undo-current-step");
 const documentOutput = document.querySelector("#document-output");
 const documentStatus = document.querySelector("#document-status");
 const canvasStatus = document.querySelector("#canvas-status");
@@ -128,9 +132,11 @@ const translations = {
     "common.index": "Index",
     "common.chooseFile": "Choose File",
     "common.chooseImage": "Choose Image",
+    "common.choosePaper": "Choose paper PDF",
     "common.noFile": "No file selected",
     "common.read": "Read",
     "common.importPaper": "Import paper",
+    "common.clear": "Clear",
     "common.open": "Open",
     "common.delete": "Delete",
     "common.close": "Close",
@@ -183,6 +189,13 @@ const translations = {
     "workflow.inputManual": "Enter by cards",
     "workflow.inputConversation": "Or describe it in the conversation below",
     "workflow.inputReady": "Input cards are ready to edit directly on the canvas.",
+    "workflow.undoStep": "Undo step",
+    "workflow.undoStepConfirm": "Undo this workflow step and remove its generated cards/nodes?",
+    "workflow.undoStepDone": "Current workflow step has been undone.",
+    "document.onlyPaperPdf": "Only PDF papers can be imported.",
+    "document.noReadableFile": "Choose an image or paper PDF first.",
+    "document.imageImported": "Image input node added to the canvas.",
+    "document.paperImported": "Paper imported into the research inquiry cards.",
     "workflow.chooseOne": "Choose exactly one direction",
     "workflow.toolsHint": "Choose one or more tools in the left rail, then generate one scenario.",
     "workflow.scenarioReady": "Current scenario generated",
@@ -398,9 +411,11 @@ const translations = {
     "common.index": "目录",
     "common.chooseFile": "选择文件",
     "common.chooseImage": "选择图像",
+    "common.choosePaper": "选择论文PDF",
     "common.noFile": "未选择文件",
     "common.read": "读取",
     "common.importPaper": "导入论文",
+    "common.clear": "清除",
     "common.open": "打开",
     "common.delete": "删除",
     "common.close": "关闭",
@@ -453,6 +468,13 @@ const translations = {
     "workflow.inputManual": "使用信息卡片输入",
     "workflow.inputConversation": "或在下方对话框中描述",
     "workflow.inputReady": "信息卡片已经就绪；可在完整画布中直接编辑关联节点。",
+    "workflow.undoStep": "撤销本步",
+    "workflow.undoStepConfirm": "撤销当前流程步骤，并移除本步生成的卡片和节点吗？",
+    "workflow.undoStepDone": "当前流程步骤已撤销。",
+    "document.onlyPaperPdf": "导入论文只支持 PDF 文件。",
+    "document.noReadableFile": "请先选择图像或论文 PDF。",
+    "document.imageImported": "已将图片作为图像输入节点加入画布。",
+    "document.paperImported": "已根据论文填入研究议题卡片。",
     "workflow.chooseOne": "从四个方向中仅选择一个",
     "workflow.toolsHint": "在左侧栏选择一个或多个工具，然后生成一条情境。",
     "workflow.scenarioReady": "当前情境已生成",
@@ -824,6 +846,8 @@ function localizedConversationBody(body) {
     "Four What-if futures are ready. Compare their assumptions and tensions, then choose one branch before beginning discussion.": "四条假设情境已生成。请比较它们的默认假设与张力，再选择一个方向开始讨论。",
     "Generated four What-if futures from the current canonical inputs.": "已根据当前规范输入生成四条假设情境。",
     "The input cards are complete. You can edit the linked nodes directly, or run Guided Scenario to compare four What-if futures.": "信息卡片已完成。你可以直接编辑关联节点，或运行“引导情境”比较四个 What-if。",
+    "Imported the paper PDF into the research inquiry cards. The first-step brief is filled from the paper and ready for What-if generation.": "已将论文 PDF 导入研究议题卡片。第一步内容已根据论文自动补全，可以继续生成 What-if。",
+    "Current workflow step was undone. Start again by choosing a perspective and entering a research topic.": "当前流程步骤已撤销。请选择输入视角，并重新输入研究议题。",
     "Selected a What-if branch and prepared its discussion tools.": "已选择一条假设情境方向，并准备好相应的讨论工具。",
     "Ran Discussion tools and added a new output node.": "已运行讨论工具，并新增一个输出节点。",
     "Generated the current scenario from the selected tools.": "已根据所选工具生成当前情境。",
@@ -3830,7 +3854,7 @@ function exportCurrentCanvasPdf() {
     : `<p class="report-empty">${escapeHtml(t("workflowStrip.empty"))}</p>`;
   const nodeMarkup = printableNodeReport();
   const chatMarkup = printableChatReport(session);
-  const stylesheet = `/static/styles.css?v=20260804-paper-import-image2`;
+  const stylesheet = `/static/styles.css?v=20260804-split-import-controls`;
   reportWindow.document.open();
   reportWindow.document.write(`<!doctype html>
 <html lang="${locale === "zh" ? "zh-CN" : "en"}">
@@ -4072,16 +4096,122 @@ conversationPerspectiveButtons.forEach((button) => {
   });
 });
 
-documentFile.addEventListener("change", () => {
-  documentFileName.textContent = documentFile.files[0]?.name || t("common.noFile");
+imageFile?.addEventListener("change", () => {
+  imageFileName.textContent = imageFile.files[0]?.name || t("common.noFile");
+});
+
+paperFile?.addEventListener("change", () => {
+  paperFileName.textContent = paperFile.files[0]?.name || t("common.noFile");
+});
+
+function clearDocumentInputs() {
+  if (imageFile) imageFile.value = "";
+  if (paperFile) paperFile.value = "";
+  if (imageFileName) imageFileName.textContent = t("common.noFile");
+  if (paperFileName) paperFileName.textContent = t("common.noFile");
+  documentOutput.textContent = "";
+  setStatus(documentStatus, "idle");
+}
+
+function selectedPaperPdf() {
+  return paperFile?.files?.[0] || null;
+}
+
+function selectedImageInput() {
+  return imageFile?.files?.[0] || null;
+}
+
+function compactDocumentSummary(documentPayload = {}) {
+  const zh = locale === "zh";
+  const lines = [
+    `${zh ? "文件" : "File"}: ${documentPayload.filename || ""}`,
+    `${zh ? "类型" : "Type"}: ${documentPayload.kind || documentPayload.type || ""}`,
+  ];
+  if (documentPayload.page_count) lines.push(`${zh ? "页数" : "Pages"}: ${documentPayload.page_count}`);
+  if (documentPayload.characters) lines.push(`${zh ? "可读字符" : "Readable characters"}: ${documentPayload.characters}`);
+  if (documentPayload.preview) lines.push("", zh ? "内容预览:" : "Preview:", compactConversationText(documentPayload.preview, 520));
+  return lines.filter((line) => line !== undefined).join("\n").trim();
+}
+
+function compactPaperImportSummary(paper = {}) {
+  const zh = locale === "zh";
+  const brief = paper.paper_brief || {};
+  const document = brief.import_document || {};
+  const keywords = Array.isArray(document.keywords) ? document.keywords.join("、") : "";
+  const lines = [
+    zh ? "已导入论文并自动填写第一步研究议题卡片。" : "Paper imported and first-step research inquiry cards were filled.",
+    `${zh ? "文件" : "File"}: ${paper.filename || document.filename || ""}`,
+    `${zh ? "页数" : "Pages"}: ${paper.page_count || document.page_count || ""}`,
+    `${zh ? "研究议题" : "Research topic"}: ${brief.topic || ""}`,
+    `${zh ? "研究关注点" : "Research focus"}: ${compactConversationText(brief.research_focus || "", 360)}`,
+  ];
+  if (keywords) lines.push(`${zh ? "关键词" : "Keywords"}: ${keywords}`);
+  if (paper.preview) lines.push("", zh ? "论文摘要预览:" : "Paper preview:", compactConversationText(paper.preview, 520));
+  return lines.filter((line) => String(line || "").trim()).join("\n");
+}
+
+async function addImageInputNodeFromFile(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+  const result = await requestJson("/api/images/upload", {
+    method: "POST",
+    body: formData,
+  });
+  const image = result.image || {};
+  await requestJson(`/api/projects/${activeProject.id}/nodes`, {
+    method: "POST",
+    body: JSON.stringify(withExpectedRevision({
+      type: "image",
+      title: image.filename || file.name,
+      position: { x: 96 + (activeCanvas?.nodes?.length || 0) * 24, y: 116 + (activeCanvas?.nodes?.length || 0) * 24 },
+      payload: {
+        filename: image.filename || file.name,
+        mime_type: image.mime_type || file.type,
+        image_file: image.image_file || "",
+        image_url: image.image_url || "",
+        image_source: "upload",
+        semantic_status: "available for visual reasoning",
+        text: `${t("node.imageReference")}: ${image.filename || file.name}`,
+      },
+      status: "ready",
+      session_id: activeSessionId,
+    })),
+  });
+  return image;
+}
+
+clearDocumentInputsButton?.addEventListener("click", clearDocumentInputs);
+
+undoCurrentStepButton?.addEventListener("click", async () => {
+  if (!activeProject) return;
+  if (!window.confirm(t("workflow.undoStepConfirm"))) return;
+  undoCurrentStepButton.disabled = true;
+  setStatus(documentStatus, "loading");
+  try {
+    const result = await requestJson(`/api/projects/${activeProject.id}/workflow-step-reset`, {
+      method: "POST",
+      body: JSON.stringify(withExpectedRevision({ session_id: activeSessionId })),
+    });
+    if (result.conversation?.id) activeSessionId = result.conversation.id;
+    activeScopeId = result.conversation?.active_scope_id || "scope-global";
+    clearDocumentInputs();
+    documentOutput.textContent = t("workflow.undoStepDone");
+    setStatus(documentStatus, "ready");
+    await loadCanvas({ preserveView: false });
+  } catch (error) {
+    setStatus(documentStatus, "error");
+    documentOutput.textContent = error.message;
+  } finally {
+    undoCurrentStepButton.disabled = false;
+  }
 });
 
 importPaperButton?.addEventListener("click", async () => {
-  if (!activeProject || !documentFile.files.length) return;
-  const file = documentFile.files[0];
+  const file = selectedPaperPdf();
+  if (!activeProject || !file) return;
   if (!file.name.toLowerCase().endsWith(".pdf")) {
     setStatus(documentStatus, "error");
-    documentOutput.textContent = "Only PDF papers can be imported.";
+    documentOutput.textContent = t("document.onlyPaperPdf");
     return;
   }
   setStatus(documentStatus, "importing");
@@ -4100,7 +4230,7 @@ importPaperButton?.addEventListener("click", async () => {
     if (result.conversation?.id) activeSessionId = result.conversation.id;
     if (result.conversation?.active_scope_id) activeScopeId = result.conversation.active_scope_id;
     setStatus(documentStatus, "ready");
-    documentOutput.textContent = JSON.stringify(paper, null, 2);
+    documentOutput.textContent = compactPaperImportSummary(paper);
     await loadCanvas({ preserveView: false });
   } catch (error) {
     setStatus(documentStatus, "error");
@@ -4112,17 +4242,32 @@ importPaperButton?.addEventListener("click", async () => {
 
 documentForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  if (!documentFile.files.length) return;
+  const image = selectedImageInput();
+  const paper = selectedPaperPdf();
+  if (!image && !paper) {
+    setStatus(documentStatus, "error");
+    documentOutput.textContent = t("document.noReadableFile");
+    return;
+  }
   setStatus(documentStatus, "reading");
-  const formData = new FormData();
-  formData.append("file", documentFile.files[0]);
+  const summaries = [];
   try {
-    const result = await requestJson("/api/documents/inspect", {
-      method: "POST",
-      body: formData,
-    });
+    if (image) {
+      const uploaded = await addImageInputNodeFromFile(image);
+      summaries.push(`${t("document.imageImported")}\n${uploaded.filename || image.name}`);
+      await loadCanvas({ preserveView: true });
+    }
+    if (paper) {
+      const formData = new FormData();
+      formData.append("file", paper);
+      const result = await requestJson("/api/documents/inspect", {
+        method: "POST",
+        body: formData,
+      });
+      summaries.push(compactDocumentSummary(result.document || {}));
+    }
     setStatus(documentStatus, "ready");
-    documentOutput.textContent = JSON.stringify(result.document, null, 2);
+    documentOutput.textContent = summaries.join("\n\n");
   } catch (error) {
     setStatus(documentStatus, "error");
     documentOutput.textContent = error.message;

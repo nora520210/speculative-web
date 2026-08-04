@@ -34,6 +34,7 @@ from server.interaction_runtime import (
     create_command_proposal as create_command_proposal_record,
     create_conversation as create_conversation_record,
     create_scope as create_scope_record,
+    default_guide,
     ensure_interaction_data,
     get_scope,
     interaction_payload,
@@ -620,6 +621,101 @@ def import_paper_brief(project_id: str, paper: dict, session_id: str = "", expec
     )
     write_canvas(project_id, canvas)
     return {"workflow": workflow, "conversation": session, "source_node": source_node, "keyword_node": keyword_node, "paper": paper}
+
+
+def reset_current_workflow_step(project_id: str, session_id: str = "", expected_revision=None) -> dict:
+    canvas = read_canvas(project_id)
+    assert_expected_revision(canvas, expected_revision)
+    session = next((item for item in canvas.get("conversation_sessions", []) if item.get("id") == session_id), None)
+    if session_id and not session:
+        raise KeyError(f"Conversation session not found: {session_id}")
+    workflow = None
+    if session:
+        workflow = next(
+            (
+                item for item in canvas.get("workflow_instances", [])
+                if item.get("id") == session.get("workflow_instance_id") or item.get("session_id") == session.get("id")
+            ),
+            None,
+        )
+    if not workflow:
+        workflow = next((item for item in canvas.get("workflow_instances", []) if item.get("status") != "stale"), None)
+        if workflow and not session:
+            session = next((item for item in canvas.get("conversation_sessions", []) if item.get("id") == workflow.get("session_id")), None)
+    if not workflow:
+        if session:
+            session["guide"] = default_guide()
+            session["workflow_instance_id"] = ""
+            session["active_scope_id"] = "scope-global"
+            session["progress"] = []
+            session["updated_at"] = utc_now()
+            write_canvas(project_id, canvas)
+        return {"conversation": session, "removed_node_ids": [], "removed_scope_ids": []}
+
+    owned_node_ids = {
+        *workflow.get("source_node_ids", []),
+        workflow.get("operation_node_id", ""),
+        *workflow.get("branch_node_ids", []),
+        workflow.get("discussion_node_id", ""),
+        workflow.get("active_scenario_node_id", ""),
+    }
+    owned_node_ids = {node_id for node_id in owned_node_ids if node_id}
+    owned_scope_ids = {
+        workflow.get("foundation_scope_id", ""),
+        workflow.get("comparison_scope_id", ""),
+        *workflow.get("branch_scope_ids", {}).values(),
+    }
+    owned_scope_ids = {scope_id for scope_id in owned_scope_ids if scope_id and scope_id != "scope-global"}
+    removed_run_ids = [
+        run.get("id")
+        for run in canvas.get("runs", [])
+        if run.get("node_id") in owned_node_ids or set(run.get("input_node_ids", [])).intersection(owned_node_ids)
+    ]
+    mark_messages_inactive(
+        canvas,
+        related_node_ids=list(owned_node_ids),
+        state="removed",
+        reason="This workflow step was undone by the user.",
+        workflow_id=str(workflow.get("id") or ""),
+    )
+    canvas["nodes"] = [node for node in canvas.get("nodes", []) if node.get("id") not in owned_node_ids]
+    canvas["edges"] = [
+        edge for edge in canvas.get("edges", [])
+        if edge.get("source_node_id") not in owned_node_ids and edge.get("target_node_id") not in owned_node_ids
+    ]
+    canvas["scopes"] = [scope for scope in canvas.get("scopes", []) if scope.get("id") not in owned_scope_ids]
+    canvas["workflow_instances"] = [item for item in canvas.get("workflow_instances", []) if item.get("id") != workflow.get("id")]
+    for run in canvas.get("runs", []):
+        if run.get("id") in removed_run_ids:
+            run["status"] = "orphaned"
+            orphaned = run.setdefault("orphaned_node_ids", [])
+            for node_id in owned_node_ids:
+                if node_id not in orphaned:
+                    orphaned.append(node_id)
+    if session:
+        session["workflow_instance_id"] = ""
+        session["active_scope_id"] = "scope-global"
+        session["progress"] = []
+        session["guide"] = default_guide()
+        session["updated_at"] = utc_now()
+        append_activity_message(
+            canvas,
+            session["id"],
+            "Current workflow step was undone. Start again by choosing a perspective and entering a research topic.",
+            scope_id="scope-global",
+            related_node_ids=[],
+            activity_type="workflow.step_reset",
+            workflow_id=str(workflow.get("id") or ""),
+            stage_id=str(workflow.get("stage") or ""),
+        )
+    refresh_runtime_config(canvas)
+    record_graph_event(
+        canvas,
+        "workflow.step_reset",
+        {"workflow_id": workflow.get("id"), "session_id": session.get("id") if session else "", "removed_node_ids": sorted(owned_node_ids)},
+    )
+    write_canvas(project_id, canvas)
+    return {"conversation": session, "removed_node_ids": sorted(owned_node_ids), "removed_scope_ids": sorted(owned_scope_ids)}
 
 
 def select_four_futures_branch(project_id: str, workflow_id: str, payload: dict, expected_revision=None) -> dict:
