@@ -10,7 +10,6 @@ const imageFile = document.querySelector("#image-file");
 const imageFileName = document.querySelector("#image-file-name");
 const paperFile = document.querySelector("#paper-file");
 const paperFileName = document.querySelector("#paper-file-name");
-const importPaperButton = document.querySelector("#import-paper-pdf");
 const clearDocumentInputsButton = document.querySelector("#clear-document-inputs");
 const undoCurrentStepButton = document.querySelector("#undo-current-step");
 const documentOutput = document.querySelector("#document-output");
@@ -2110,7 +2109,7 @@ function renderCanvasPreview() {
       const navigation = previewNodeNavigation(nodeId, workflow);
       const name = previewNodeName(node);
       const description = previewNodeDescription(node, navigation);
-      return `<g class="workflow-tree-preview-node" role="button" tabindex="0" data-preview-node-id="${escapeHtml(nodeId)}" data-preview-node-name="${escapeHtml(name)}" data-preview-node-description="${escapeHtml(description)}" aria-label="${escapeHtml(description)}"><title>${escapeHtml(name)}</title><circle class="${current ? "current" : ""}" cx="${point.x}" cy="${point.y}" r="${current ? 3.6 : 2.5}" /></g>`;
+      return `<g class="workflow-tree-preview-node" role="button" tabindex="0" data-preview-node-id="${escapeHtml(nodeId)}" data-preview-node-name="${escapeHtml(name)}" data-preview-node-description="${escapeHtml(description)}" aria-label="${escapeHtml(description)}"><title>${escapeHtml(name)}</title><circle class="preview-hit-area" cx="${point.x}" cy="${point.y}" r="8" /><circle class="preview-visible-dot ${current ? "current" : ""}" cx="${point.x}" cy="${point.y}" r="${current ? 4.1 : 3.1}" /></g>`;
     }).join("")}
   </svg>`;
   canvasPreviewPlane.querySelectorAll("[data-preview-node-id]").forEach((item) => {
@@ -3864,7 +3863,7 @@ function exportCurrentCanvasPdf() {
     : `<p class="report-empty">${escapeHtml(t("workflowStrip.empty"))}</p>`;
   const nodeMarkup = printableNodeReport();
   const chatMarkup = printableChatReport(session);
-  const stylesheet = `/static/styles.css?v=20260804-performance-cache`;
+  const stylesheet = `/static/styles.css?v=20260804-read-merge-preview`;
   reportWindow.document.open();
   reportWindow.document.write(`<!doctype html>
 <html lang="${locale === "zh" ? "zh-CN" : "en"}">
@@ -4228,6 +4227,24 @@ async function addImageInputNodeFromFile(file) {
   return image;
 }
 
+async function importPaperPdfIntoWorkflow(file) {
+  if (!file.name.toLowerCase().endsWith(".pdf")) {
+    throw new Error(t("document.onlyPaperPdf"));
+  }
+  const formData = new FormData();
+  formData.append("file", file);
+  if (activeSessionId) formData.append("session_id", activeSessionId);
+  const revision = activeInteraction?.revision ?? activeCanvas?.revision;
+  if (Number.isInteger(revision)) formData.append("expected_revision", String(revision));
+  const result = await requestJson(`/api/projects/${activeProject.id}/paper-import`, {
+    method: "POST",
+    body: formData,
+  });
+  if (result.conversation?.id) activeSessionId = result.conversation.id;
+  if (result.conversation?.active_scope_id) activeScopeId = result.conversation.active_scope_id;
+  return result.paper || {};
+}
+
 clearDocumentInputsButton?.addEventListener("click", clearDocumentInputs);
 
 undoCurrentStepButton?.addEventListener("click", async () => {
@@ -4254,40 +4271,6 @@ undoCurrentStepButton?.addEventListener("click", async () => {
   }
 });
 
-importPaperButton?.addEventListener("click", async () => {
-  const file = selectedPaperPdf();
-  if (!activeProject || !file) return;
-  if (!file.name.toLowerCase().endsWith(".pdf")) {
-    setStatus(documentStatus, "error");
-    documentOutput.textContent = t("document.onlyPaperPdf");
-    return;
-  }
-  setStatus(documentStatus, "importing");
-  importPaperButton.disabled = true;
-  const formData = new FormData();
-  formData.append("file", file);
-  if (activeSessionId) formData.append("session_id", activeSessionId);
-  const revision = activeInteraction?.revision ?? activeCanvas?.revision;
-  if (Number.isInteger(revision)) formData.append("expected_revision", String(revision));
-  try {
-    const result = await requestJson(`/api/projects/${activeProject.id}/paper-import`, {
-      method: "POST",
-      body: formData,
-    });
-    const paper = result.paper || {};
-    if (result.conversation?.id) activeSessionId = result.conversation.id;
-    if (result.conversation?.active_scope_id) activeScopeId = result.conversation.active_scope_id;
-    setStatus(documentStatus, "ready");
-    documentOutput.textContent = compactPaperImportSummary(paper);
-    await loadCanvas({ preserveView: false });
-  } catch (error) {
-    setStatus(documentStatus, "error");
-    documentOutput.textContent = error.message;
-  } finally {
-    importPaperButton.disabled = false;
-  }
-});
-
 documentForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const image = selectedImageInput();
@@ -4306,13 +4289,10 @@ documentForm.addEventListener("submit", async (event) => {
       await loadCanvas({ preserveView: true });
     }
     if (paper) {
-      const formData = new FormData();
-      formData.append("file", paper);
-      const result = await requestJson("/api/documents/inspect", {
-        method: "POST",
-        body: formData,
-      });
-      summaries.push(compactDocumentSummary(result.document || {}));
+      setStatus(documentStatus, "importing");
+      const importedPaper = await importPaperPdfIntoWorkflow(paper);
+      summaries.push(compactPaperImportSummary(importedPaper));
+      await loadCanvas({ preserveView: false });
     }
     setStatus(documentStatus, "ready");
     documentOutput.textContent = summaries.join("\n\n");

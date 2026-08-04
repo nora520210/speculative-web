@@ -7307,6 +7307,78 @@ body {
   stroke-width: 0.9;
 }
 
+.canvas-shell.active .conversation-workbench .tool-sidebar-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: clamp(118px, 15vh, 152px);
+  gap: 7px;
+  padding-right: 2px;
+  align-content: start;
+}
+
+.canvas-shell.active .conversation-workbench .tool-sidebar-row {
+  width: 100%;
+  min-width: 0;
+  min-height: clamp(118px, 15vh, 152px);
+  padding: 4px;
+  border-radius: 7px;
+}
+
+.canvas-shell.active .conversation-workbench .tool-sidebar-row .tool-card-mark,
+.canvas-shell.active .conversation-workbench .tool-sidebar-asset {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+}
+
+.canvas-shell.active .conversation-workbench .tool-sidebar-row .tool-card-mark {
+  width: 82%;
+  height: 82%;
+}
+
+.canvas-shell.active .canvas-preview-viewport,
+.canvas-shell.active .canvas-preview-plane,
+.canvas-shell.active .workflow-tree-preview,
+.canvas-shell.active .workflow-tree-preview-node,
+.canvas-shell.active .workflow-tree-preview-node circle {
+  pointer-events: auto;
+}
+
+.canvas-shell.active .canvas-preview-tooltip {
+  z-index: 8;
+  max-width: min(260px, calc(100% - 18px));
+  background: rgba(21, 25, 29, 0.94);
+  color: #ffffff;
+  border-color: rgba(21, 25, 29, 0.24);
+}
+
+.canvas-shell.active .workflow-tree-preview-node .preview-hit-area {
+  fill: transparent;
+  stroke: transparent;
+  pointer-events: all;
+}
+
+.canvas-shell.active .workflow-tree-preview-node:hover .preview-hit-area,
+.canvas-shell.active .workflow-tree-preview-node:focus-visible .preview-hit-area {
+  r: 8px;
+  fill: transparent;
+  stroke: transparent;
+}
+
+.canvas-shell.active .workflow-tree-preview-node .preview-visible-dot {
+  transition: r 0.15s ease, fill 0.15s ease, stroke 0.15s ease, stroke-width 0.15s ease;
+  stroke: rgba(255, 255, 255, 0.94);
+  stroke-width: 0.65;
+}
+
+.canvas-shell.active .workflow-tree-preview-node:hover .preview-visible-dot,
+.canvas-shell.active .workflow-tree-preview-node:focus-visible .preview-visible-dot {
+  r: 5.2px;
+  fill: #f02a0c;
+  stroke: #15191d;
+  stroke-width: 1;
+}
+
 .canvas-shell.active .progress-step.is-focused,
 .canvas-shell.active .progress-step.is-focused:hover,
 .canvas-shell.active .progress-step.is-focused:focus-visible {
