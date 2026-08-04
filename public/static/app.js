@@ -97,6 +97,7 @@ let spacePressed = false;
 let tabApiKey = "";
 let conversationPerspective = "research";
 let uiActionInFlight = false;
+let whatIfGenerationInFlight = false;
 const AGENT_GUIDE_CACHE_KEY = "speculative-web-agent-guide-cache-v2";
 const agentGuideCache = loadAgentGuideCache();
 const agentGuideInFlight = new Set();
@@ -209,6 +210,8 @@ const translations = {
     "workflow.scenarioReady": "Current scenario generated",
     "workflow.imageGenerating": "Image generating",
     "workflow.imageFailed": "Image unavailable",
+    "workflow.whatIfGenerating": "Generating four What-if directions",
+    "workflow.whatIfGeneratingHint": "Text directions will appear first; images continue generating in the background.",
     "workflow.expandText": "Open text",
     "nodes.textTitle": "Text Node",
     "nodes.conversationTitle": "Conversation",
@@ -492,6 +495,8 @@ const translations = {
     "workflow.scenarioReady": "当前情境已生成",
     "workflow.imageGenerating": "图片生成中",
     "workflow.imageFailed": "图片暂不可用",
+    "workflow.whatIfGenerating": "正在生成四条 What-if 方向",
+    "workflow.whatIfGeneratingHint": "文本会先出现，图片会在后台继续生成。",
     "workflow.expandText": "展开文本",
     "nodes.textTitle": "文本节点",
     "nodes.conversationTitle": "对话",
@@ -1884,6 +1889,20 @@ function renderStageInputCards(workflow, activeStage) {
 }
 
 function renderStageBranchChoices(workflow, activeStage) {
+  if (activeStage?.id === "four_futures" && whatIfGenerationInFlight && !workflow?.branch_node_ids?.length) {
+    return `<section class="stage-branch-choices stage-branch-pending" aria-live="polite">
+      <header><strong>${escapeHtml(t("workflow.whatIfGenerating"))}</strong><small>${escapeHtml(t("workflow.whatIfGeneratingHint"))}</small></header>
+      <div class="stage-card-track">${["growth", "collapse", "discipline", "transformation"].map((strategy) => `
+        <article class="stage-branch-card is-loading" data-branch-strategy="${escapeHtml(strategy)}">
+          <div class="stage-branch-overview">
+            <span class="stage-branch-visual is-generating" aria-hidden="true"><i></i><b></b><em></em><strong>${escapeHtml(t("workflow.imageGenerating"))}</strong></span>
+            <strong>${escapeHtml(t("workflow.whatIfGenerating"))}</strong>
+            <span>${escapeHtml(t("status.running"))}</span>
+          </div>
+        </article>
+      `).join("")}</div>
+    </section>`;
+  }
   if (activeStage?.id !== "four_futures" || !workflow?.branch_node_ids?.length) return `<p class="stage-card-note">${escapeHtml(t("workflowStrip.awaiting"))}</p>`;
   const selectable = workflow.status === "awaiting_selection";
   return `<section class="stage-branch-choices" aria-label="${escapeHtml(t("workflow.chooseOne"))}">
@@ -1980,11 +1999,17 @@ function toggleQuickInputSelection(option) {
   const key = quickSelectionKey(session);
   const selected = new Map(quickInputSelections.get(key) || []);
   const id = `${option.action || "answer"}::${option.body || option.label}`;
+  const exclusiveActions = new Set(["select_branch", "run_four_futures", "run_scenario", "confirm_keywords", "begin_scenario", "continue_tools"]);
   if (selected.has(id)) {
     selected.delete(id);
   } else {
-    if (option.action === "select_branch" || option.action === "run_four_futures" || option.action === "run_scenario" || option.action === "confirm_keywords" || option.action === "begin_scenario" || option.action === "continue_tools") {
+    if (exclusiveActions.has(option.action)) {
       selected.clear();
+    } else {
+      [...selected.keys()].forEach((keyId) => {
+        const selectedAction = keyId.split("::")[0];
+        if (exclusiveActions.has(selectedAction)) selected.delete(keyId);
+      });
     }
     selected.set(id, option);
   }
@@ -2043,6 +2068,9 @@ function localizedQuickOptions(stage, guide, workflow) {
   if (stage === "four_futures" && !workflow?.branch_node_ids?.length) {
     return [
       quickButton(zh ? "生成全部四条 What-if 方向" : "Generate all four What-if directions", "", "run_four_futures"),
+      quickButton(zh ? "补充技术语境" : "Add technical context", zh ? `${topic} 的前置信息：补充关键技术条件、已有证据和限制边界。` : `Prior context for ${topic}: add key technical conditions, existing evidence, and limits.`),
+      quickButton(zh ? "补充影响对象" : "Add affected actors", zh ? `${topic} 的前置信息：补充谁会使用、谁会被影响、谁拥有解释或拒绝权。` : `Prior context for ${topic}: add who uses it, who is affected, and who has interpretive or refusal rights.`),
+      quickButton(zh ? "补充反例边界" : "Add counterexample boundary", zh ? `${topic} 的前置信息：补充一个会让默认假设失效的反例或边界情况。` : `Prior context for ${topic}: add a counterexample or boundary condition that breaks a default assumption.`),
     ];
   }
   if (stage === "four_futures" && workflow?.branch_node_ids?.length) {
@@ -2399,8 +2427,7 @@ function renderCanvasPreview() {
     });
   });
   const edges = (activeCanvas?.edges || []).filter((edge) => visibleIds.includes(edge.source_node_id) && visibleIds.includes(edge.target_node_id));
-  const selectedId = workflow?.selected_branch_node_id || "";
-  const activeOutputId = workflow?.active_scenario_node_id || "";
+  const currentIds = currentPreviewNodeIds(workflow, visibleIds);
   canvasPreviewPlane.style.width = "100%";
   canvasPreviewPlane.style.height = "100%";
   canvasPreviewPlane.style.transform = "none";
@@ -2413,7 +2440,7 @@ function renderCanvasPreview() {
     ${visibleIds.map((nodeId) => {
       const point = points.get(nodeId);
       const node = nodesById.get(nodeId);
-      const current = nodeId === selectedId || nodeId === activeOutputId;
+      const current = currentIds.has(nodeId);
       const navigation = previewNodeNavigation(nodeId, workflow);
       const name = previewNodeName(node);
       const description = previewNodeDescription(node, navigation);
@@ -2438,6 +2465,37 @@ function renderCanvasPreview() {
       navigateFromPreviewNode(nodeId);
     });
   });
+}
+
+function currentPreviewNodeIds(workflow, visibleIds = []) {
+  const current = new Set();
+  const guideStage = activeSession()?.guide?.stage_id || "";
+  if (workflow) {
+    if (["start", "frame_focus", "frame_assumptions", "frame_stakeholders", "frame_tensions"].includes(guideStage)) {
+      (workflow.source_node_ids || []).filter((id) => id !== workflow.keyword_node_id).forEach((id) => current.add(id));
+    } else if (guideStage === "keywords") {
+      if (workflow.keyword_node_id) current.add(workflow.keyword_node_id);
+    } else if (guideStage === "four_futures") {
+      if (workflow.status === "awaiting_selection" && workflow.branch_node_ids?.length) {
+        workflow.branch_node_ids.forEach((id) => current.add(id));
+      } else if (workflow.operation_node_id) {
+        current.add(workflow.operation_node_id);
+      }
+    } else if (["tools", "scenario_probe", "scenario_refine", "scenario_ready"].includes(guideStage)) {
+      if (workflow.discussion_node_id) current.add(workflow.discussion_node_id);
+    } else if (guideStage === "scenario") {
+      if (workflow.active_scenario_node_id) current.add(workflow.active_scenario_node_id);
+    }
+    if (workflow.selected_branch_node_id) current.add(workflow.selected_branch_node_id);
+    if (workflow.active_scenario_node_id) current.add(workflow.active_scenario_node_id);
+  }
+  if (!current.size && activeScopeId && activeProjection?.nodes?.length) {
+    activeProjection.nodes
+      .filter((node) => visibleIds.includes(node.id))
+      .slice(0, 6)
+      .forEach((node) => current.add(node.id));
+  }
+  return current;
 }
 
 function previewNodeNavigation(nodeId, workflow = activeWorkflow()) {
@@ -2760,6 +2818,9 @@ async function runWorkflowOperation() {
   const workflow = activeWorkflow();
   if (!activeProject || !workflow?.operation_node_id) return;
   setStatus(canvasStatus, "running");
+  whatIfGenerationInFlight = true;
+  renderInteraction();
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   try {
     await requestJson(`/api/projects/${activeProject.id}/nodes/${workflow.operation_node_id}/run`, {
       method: "POST",
@@ -2770,6 +2831,9 @@ async function runWorkflowOperation() {
   } catch (error) {
     setStatus(canvasStatus, "error");
     canvasOutput.textContent = error.message;
+  } finally {
+    whatIfGenerationInFlight = false;
+    renderInteraction();
   }
 }
 
@@ -4228,9 +4292,9 @@ function exportCurrentCanvasPdf() {
   const cardsMarkup = stagePresentation?.innerHTML?.trim()
     ? stagePresentation.innerHTML
     : `<p class="report-empty">${escapeHtml(t("workflowStrip.empty"))}</p>`;
-  const nodeMarkup = printableNodeReport();
+  const graphMarkup = printableCanvasGraphReport();
   const chatMarkup = printableChatReport(session);
-  const stylesheet = `/static/styles.css?v=20260804-flow-return-fit`;
+  const stylesheet = `/static/styles.css?v=20260804-overview-export-tools`;
   reportWindow.document.open();
   reportWindow.document.write(`<!doctype html>
 <html lang="${locale === "zh" ? "zh-CN" : "en"}">
@@ -4249,16 +4313,21 @@ function exportCurrentCanvasPdf() {
     .report-section h2 { margin: 0 0 12px; color: #f02a0c; font-size: 15px; font-weight: 900; text-transform: uppercase; }
     .report-print-hint { color: #596168; font-size: 11px; }
     .stage-presentation, .stage-deck, .foundation-start-deck { max-height: none !important; overflow: visible !important; }
-    .stage-deck, .foundation-start-deck, .report-node-grid { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 12px !important; }
-    .stage-deck-card, .foundation-start-card, .report-node, .report-message { break-inside: avoid; border: 1px solid rgba(20, 24, 28, 0.16) !important; border-radius: 8px !important; background: #fff !important; color: #15191d !important; box-shadow: none !important; }
+    .stage-deck, .foundation-start-deck { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 12px !important; }
+    .stage-deck-card, .foundation-start-card, .report-message { break-inside: avoid; border: 1px solid rgba(20, 24, 28, 0.16) !important; border-radius: 8px !important; background: #fff !important; color: #15191d !important; box-shadow: none !important; }
     .stage-deck-card, .foundation-start-card { min-height: 0 !important; padding: 10px !important; }
     .stage-deck-header { pointer-events: none; }
     button { color: inherit; }
-    .report-node { padding: 12px; }
-    .report-node header { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 8px; color: #f02a0c; font-size: 11px; font-weight: 900; }
-    .report-node h3 { margin: 0 0 8px; font-size: 14px; }
-    .report-node p, .report-message p { margin: 0; white-space: pre-wrap; font-size: 11.5px; line-height: 1.5; }
-    .report-node img { display: block; width: 100%; max-height: 170px; object-fit: cover; border-radius: 6px; margin: 8px 0; }
+    .report-canvas-figure { margin: 0; break-inside: avoid; border: 1px solid rgba(20, 24, 28, 0.18); border-radius: 10px; padding: 12px; background: #f6f7f7; }
+    .report-canvas-graph { display: block; width: 100%; height: auto; max-height: 720px; background: #ffffff; border-radius: 8px; }
+    .report-canvas-graph .report-edge { fill: none; stroke: #a8afb6; stroke-width: 2.2; }
+    .report-canvas-graph .report-node-box { fill: #ffffff; stroke: #15191d; stroke-width: 1.4; }
+    .report-canvas-graph .report-node-box.current { fill: #fff4ef; stroke: #f02a0c; stroke-width: 2.2; }
+    .report-canvas-graph .report-node-type { fill: #f02a0c; font-size: 10px; font-weight: 900; text-transform: uppercase; }
+    .report-canvas-graph .report-node-title { fill: #15191d; font-size: 13px; font-weight: 900; }
+    .report-canvas-graph .report-node-text { fill: #596168; font-size: 10.5px; }
+    .report-canvas-graph .report-node-status { fill: #737980; font-size: 9.5px; }
+    .report-message p { margin: 0; white-space: pre-wrap; font-size: 11.5px; line-height: 1.5; }
     .report-chat { display: grid; gap: 8px; }
     .report-message { padding: 10px 12px; }
     .report-message strong { display: block; margin-bottom: 5px; color: #f02a0c; font-size: 11px; }
@@ -4291,7 +4360,7 @@ function exportCurrentCanvasPdf() {
     </section>
     <section class="report-section">
       <h2>${escapeHtml(t("export.canvasNodes"))}</h2>
-      ${nodeMarkup}
+      ${graphMarkup}
     </section>
     <section class="report-section">
       <h2>${escapeHtml(t("export.chat"))}</h2>
@@ -4308,19 +4377,70 @@ function exportCurrentCanvasPdf() {
   reportWindow.document.close();
 }
 
-function printableNodeReport() {
+function printableCanvasGraphReport() {
   const nodes = activeCanvas?.nodes || [];
   if (!nodes.length) return `<p class="report-empty">${escapeHtml(t("navigator.none"))}</p>`;
-  return `<div class="report-node-grid">${nodes.map((node) => {
-    const text = plainTextForNode(node) || node.payload?.semantic_summary || node.payload?.filename || "";
-    const imageUrl = node.payload?.image_url || "";
-    return `<article class="report-node">
-      <header><span>${escapeHtml(nodeTypeLabel(node.type))}</span><span>${escapeHtml(statusLabel(node.status || "draft"))}</span></header>
-      <h3>${escapeHtml(localizedReferenceTitle(node.title || node.id))}</h3>
-      ${imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(localizedReferenceTitle(node.title || ""))}" />` : ""}
-      <p>${escapeHtml(stripTextArtifacts(text || node.payload?.text || ""))}</p>
-    </article>`;
-  }).join("")}</div>`;
+  const bounds = graphNodeBounds(nodes);
+  const padding = 80;
+  const minX = Math.max(0, (bounds?.minX || 0) - padding);
+  const minY = Math.max(0, (bounds?.minY || 0) - padding);
+  const maxX = (bounds?.maxX || 1000) + padding;
+  const maxY = (bounds?.maxY || 700) + padding;
+  const nodeRects = new Map(nodes.map((node) => {
+    const width = Number(node.size?.width || 240);
+    const height = Math.max(118, Math.min(190, Number(node.size?.height || 150)));
+    return [node.id, {
+      x: Number(node.position?.x || 0),
+      y: Number(node.position?.y || 0),
+      width,
+      height,
+    }];
+  }));
+  const currentIds = currentPreviewNodeIds(activeWorkflow(), nodes.map((node) => node.id));
+  const edgeMarkup = (activeCanvas?.edges || []).map((edge) => {
+    const startRect = nodeRects.get(edge.source_node_id);
+    const endRect = nodeRects.get(edge.target_node_id);
+    if (!startRect || !endRect) return "";
+    const start = { x: startRect.x + startRect.width, y: startRect.y + startRect.height / 2 };
+    const end = { x: endRect.x, y: endRect.y + endRect.height / 2 };
+    return `<path class="report-edge" d="${escapeHtml(edgePath(start, end))}" marker-end="url(#report-arrow)" />`;
+  }).join("");
+  const nodeMarkup = nodes.map((node) => {
+    const rect = nodeRects.get(node.id);
+    const titleLines = svgTextLines(localizedReferenceTitle(node.title || node.id), 2, 24);
+    const body = stripTextArtifacts(plainTextForNode(node) || node.payload?.semantic_summary || node.payload?.filename || node.payload?.text || "");
+    const bodyLines = svgTextLines(body, 4, 32);
+    const titleY = rect.y + 40;
+    const bodyY = rect.y + 76;
+    return `<g class="report-node-item" transform="translate(${rect.x} ${rect.y})">
+      <rect class="report-node-box ${currentIds.has(node.id) ? "current" : ""}" width="${rect.width}" height="${rect.height}" rx="10" />
+      <text class="report-node-type" x="14" y="20">${escapeHtml(nodeTypeLabel(node.type))}</text>
+      <text class="report-node-status" x="${rect.width - 14}" y="20" text-anchor="end">${escapeHtml(statusLabel(node.status || "draft"))}</text>
+      <text class="report-node-title" x="14" y="${titleY - rect.y}">${titleLines.map((line, index) => `<tspan x="14" dy="${index ? 15 : 0}">${escapeHtml(line)}</tspan>`).join("")}</text>
+      <text class="report-node-text" x="14" y="${bodyY - rect.y}">${bodyLines.map((line, index) => `<tspan x="14" dy="${index ? 14 : 0}">${escapeHtml(line)}</tspan>`).join("")}</text>
+    </g>`;
+  }).join("");
+  return `<figure class="report-canvas-figure">
+    <svg class="report-canvas-graph" viewBox="${minX} ${minY} ${Math.max(320, maxX - minX)} ${Math.max(240, maxY - minY)}" role="img" aria-label="${escapeHtml(t("export.canvasNodes"))}">
+      <defs>
+        <marker id="report-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth">
+          <path d="M 0 0 L 8 4 L 0 8 z" fill="#a8afb6" />
+        </marker>
+      </defs>
+      ${edgeMarkup}
+      ${nodeMarkup}
+    </svg>
+  </figure>`;
+}
+
+function svgTextLines(value, maxLines = 4, charsPerLine = 28) {
+  const text = compactConversationText(String(value || "").replace(/\s+/g, " "), maxLines * charsPerLine).trim();
+  if (!text) return [];
+  const lines = [];
+  for (let index = 0; index < text.length && lines.length < maxLines; index += charsPerLine) {
+    lines.push(text.slice(index, index + charsPerLine));
+  }
+  return lines;
 }
 
 function printableChatReport(session) {

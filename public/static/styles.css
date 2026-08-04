@@ -7804,3 +7804,51 @@ body {
   font-size: 10px;
   font-weight: 900;
 }
+
+.canvas-shell.active .workflow-tree-preview-node .preview-visible-dot.current,
+.canvas-shell.active .workflow-tree-preview-node:hover .preview-visible-dot.current,
+.canvas-shell.active .workflow-tree-preview-node:focus-visible .preview-visible-dot.current {
+  fill: #f02a0c;
+  stroke: #15191d;
+  stroke-width: 1.05;
+}
+
+.canvas-shell.active .workflow-tree-preview-node .preview-visible-dot.current {
+  r: 4.9px;
+}
+
+.canvas-shell.active .conversation-workbench .tool-sidebar-row {
+  display: grid;
+  place-items: stretch;
+  padding: 0;
+}
+
+.canvas-shell.active .conversation-workbench .tool-sidebar-row .tool-sidebar-asset {
+  position: absolute;
+  inset: -12%;
+  display: block;
+  width: 124%;
+  height: 124%;
+  max-width: none;
+  max-height: none;
+  object-fit: cover;
+  object-position: center;
+}
+
+.canvas-shell.active .conversation-workbench .tool-sidebar-row .tool-card-mark {
+  align-self: center;
+  justify-self: center;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  transform: scale(1.12);
+}
+
+.canvas-shell.active .stage-branch-pending .stage-card-track {
+  min-height: 150px;
+}
+
+.canvas-shell.active .stage-branch-card.is-loading {
+  pointer-events: none;
+}
