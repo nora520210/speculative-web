@@ -937,10 +937,84 @@ def advance_conversation_guide(project_id: str, session_id: str, payload: dict, 
     if not workflow:
         raise ValueError("Begin with a topic before answering the guided questions.")
     runtime = workflow_runtime_contract(workflow.get("definition_snapshot"))
-    if action not in {"answer", "skip", "confirm_keywords"}:
+    if action not in {"answer", "skip", "confirm_keywords", "begin_scenario", "scenario_answer"}:
         raise ValueError("Unsupported guided conversation action.")
     if workflow.get("status") == "stale":
         raise ValueError("This workflow is stale. Reframe the inquiry before continuing.")
+
+    if action == "begin_scenario":
+        if guide.get("stage_id") != "tools":
+            raise ValueError("Scenario probing can only begin after choosing tools.")
+        discussion = next((item for item in canvas.get("nodes", []) if item.get("id") == workflow.get("discussion_node_id")), None)
+        selected_tools = [
+            tool
+            for tool in (discussion or {}).get("config", {}).get("tools", [])
+            if tool.get("selected")
+        ]
+        if not selected_tools:
+            raise ValueError("Choose at least one discussion tool before generating a scenario.")
+        scope_id = session.get("active_scope_id") or workflow.get("branch_scope_ids", {}).get(workflow.get("selected_branch_node_id")) or "scope-global"
+        set_session_guide(session, "scenario_probe", workflow_instance_id=workflow_id, pending_field="")
+        append_conversation_message(
+            canvas,
+            session_id,
+            {
+                "role": "assistant",
+                "kind": "guide",
+                "scope_id": scope_id,
+                "related_node_ids": [workflow.get("selected_branch_node_id", ""), workflow.get("discussion_node_id", "")],
+                "body": "Before generating one scenario, choose the concrete scene, actor, or threshold moment this future should focus on.",
+            },
+        )
+        record_graph_event(canvas, "conversation.guide.scenario_probe_started", {"session_id": session_id, "workflow_id": workflow_id})
+        write_canvas(project_id, canvas)
+        return {"workflow": workflow, "conversation": session}
+
+    if action == "scenario_answer":
+        current_stage = str(guide.get("stage_id") or "")
+        if current_stage not in {"scenario_probe", "scenario_refine"}:
+            raise ValueError("Scenario answers belong to the scenario probing stages.")
+        body = str(payload.get("body") or "").strip()
+        if not body:
+            raise ValueError("Write an answer before continuing scenario generation.")
+        scope_id = session.get("active_scope_id") or "scope-global"
+        input_perspective = guide_input_perspective(payload.get("input_perspective"), guide.get("start_mode") or "research")
+        append_conversation_message(
+            canvas,
+            session_id,
+            {
+                "role": "user",
+                "kind": "guide",
+                "scope_id": scope_id,
+                "related_node_ids": [workflow.get("selected_branch_node_id", ""), workflow.get("discussion_node_id", "")],
+                "body": body,
+                "input_perspective": input_perspective,
+            },
+        )
+        if current_stage == "scenario_probe":
+            set_session_guide(session, "scenario_refine", workflow_instance_id=workflow_id, pending_field="")
+            assistant_body = "Good. Now choose which conflict, evidence, or visual detail from the tool result must stay visible in the final scenario."
+        else:
+            set_session_guide(session, "scenario_ready", workflow_instance_id=workflow_id, pending_field="")
+            assistant_body = "The scenario material is stable. Generate one text-image scenario now, or return to the tools if you need another method."
+        append_conversation_message(
+            canvas,
+            session_id,
+            {
+                "role": "assistant",
+                "kind": "guide",
+                "scope_id": scope_id,
+                "related_node_ids": [workflow.get("selected_branch_node_id", ""), workflow.get("discussion_node_id", "")],
+                "body": assistant_body,
+            },
+        )
+        record_graph_event(
+            canvas,
+            "conversation.guide.scenario_probe_answered",
+            {"session_id": session_id, "workflow_id": workflow_id, "stage": current_stage},
+        )
+        write_canvas(project_id, canvas)
+        return {"workflow": workflow, "conversation": session}
 
     if action == "confirm_keywords":
         if guide.get("stage_id") == "four_futures":
@@ -1729,6 +1803,11 @@ def run_modify(project_id: str, node_id: str, api_key: str | None = None, expect
         output_type,
         recommendation,
         api_key,
+        conversation_context=conversation_context_for_session(
+            canvas,
+            session_id or (workflow or {}).get("session_id", ""),
+            scope_id=(_activity_session(canvas, requested_session_id=session_id, workflow=workflow) or {}).get("active_scope_id", ""),
+        ),
     )
     run = {
         "id": run_id,
@@ -2048,6 +2127,7 @@ def generate_or_placeholder_output(
     output_type: str,
     recommendation: dict,
     api_key: str | None = None,
+    conversation_context: list[dict] | None = None,
 ) -> dict:
     if not openai_runs_enabled():
         return placeholder_model_payload(output_type, recommendation)
@@ -2061,6 +2141,7 @@ def generate_or_placeholder_output(
                 output_type,
                 recommendation,
                 visual_references=visual_context["references"],
+                conversation_context=conversation_context,
             ),
             api_key=api_key,
             image_inputs=visual_context["inputs"],
@@ -2429,6 +2510,7 @@ def build_modify_prompt(
     output_type: str,
     recommendation: dict,
     visual_references: list[dict] | None = None,
+    conversation_context: list[dict] | None = None,
 ) -> str:
     context = upstream_context(canvas, upstream_ids)
     response_language = infer_response_language(context)
@@ -2500,6 +2582,7 @@ def build_modify_prompt(
         "requested_output_type": output_type,
         "output_recommendation": recommendation,
         "direct_inputs": context,
+        "recent_conversation_context": conversation_context or [],
         "real_reference_images": visual_references or [],
         "selected_tools": snapshot,
         "required_response_shape": {
@@ -2522,6 +2605,36 @@ def build_modify_prompt(
         "input/output contract, and model constraints.\n\n"
         f"{json.dumps(payload, ensure_ascii=False, indent=2)}"
     )
+
+
+def conversation_context_for_session(canvas: dict, session_id: str, *, scope_id: str = "") -> list[dict]:
+    if not session_id:
+        return []
+    session = next((item for item in canvas.get("conversation_sessions", []) if item.get("id") == session_id), None)
+    if not session:
+        return []
+    active_scope = scope_id or session.get("active_scope_id") or ""
+    messages = []
+    for message in session.get("messages", []):
+        if not isinstance(message, dict) or message.get("state", "active") != "active":
+            continue
+        if message.get("kind") == "activity":
+            continue
+        message_scope = str(message.get("scope_id") or "")
+        if active_scope and message_scope and message_scope not in {active_scope, "scope-global"}:
+            continue
+        body = str(message.get("body") or "").strip()
+        if not body:
+            continue
+        messages.append(
+            {
+                "role": str(message.get("role") or ""),
+                "kind": str(message.get("kind") or "message"),
+                "input_perspective": str(message.get("input_perspective") or ""),
+                "body": body[:520],
+            }
+        )
+    return messages[-8:]
 
 
 def infer_response_language(context: list[dict]) -> str:

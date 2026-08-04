@@ -327,6 +327,8 @@ const translations = {
     "conversation.quickConfirmHint": "Select one or more options, then press Send.",
     "conversation.quickLoading": "Loading options...",
     "conversation.generateScenario": "Generate text-image scenario",
+    "conversation.prepareScenario": "Prepare scenario generation",
+    "conversation.continueTools": "Continue choosing tools",
     "conversation.agentIntro": "AI host: describe a research condition or design proposition. I will keep asking who uses it, who is affected, and where uncertainty appears.",
     "conversation.agentPrompt": "AI host",
     "conversation.runWhatIf": "Generate four What-if lines",
@@ -606,6 +608,8 @@ const translations = {
     "conversation.quickConfirmHint": "可多选快捷输入，最后点击发送确认。",
     "conversation.quickLoading": "快捷输入加载中...",
     "conversation.generateScenario": "生成图文情境",
+    "conversation.prepareScenario": "进入情境生成追问",
+    "conversation.continueTools": "继续选择工具",
     "conversation.agentIntro": "AI 主持人：请描述一个研究条件或设计设想。我会继续追问谁在使用、谁受影响，以及哪里出现不确定。",
     "conversation.agentPrompt": "AI 主持人",
     "conversation.runWhatIf": "生成四条 What-if 线路",
@@ -1631,25 +1635,33 @@ function renderStageBranchChoices(workflow, activeStage) {
       const node = findNode(nodeId);
       const branch = node?.payload?.scenario_branch || {};
       const selected = nodeId === workflow.selected_branch_node_id;
-      const tag = "article";
-      const action = "";
       const premise = branch.future_premise || branch.what_if || "";
       const actors = Array.isArray(branch.key_actors) ? branch.key_actors.slice(0, 3).join(" · ") : "";
       const imageUrl = branch.image_url || node?.payload?.image_url || "";
       const imageStatus = branch.image_status || node?.payload?.image_status || "";
       const imageError = branch.image_error || node?.payload?.image_error || "";
-      return `<${tag} class="stage-branch-card ${selected ? "is-selected" : ""}" data-branch-strategy="${escapeHtml(branch.strategy || "")}"${action}>
-        ${imageUrl
-    ? `<img class="stage-branch-image" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(branch.visual_brief || branch.what_if || "")}" loading="lazy" />`
-    : `<span class="stage-branch-visual ${imageStatus === "failed" ? "is-failed" : "is-generating"}" aria-hidden="true"><i></i><b></b><em></em><strong>${escapeHtml(imageStatus === "failed" || imageError ? t("workflow.imageFailed") : t("workflow.imageGenerating"))}</strong></span>`}
-        <strong>${escapeHtml(localizedReferenceTitle(branch.strategy_label || node?.title || t("workflow.choose")))}</strong>
-        <details class="stage-branch-copy">
-          <summary>${escapeHtml(localizedReferenceTitle(branch.what_if || ""))}<span>${escapeHtml(t("workflow.expandText"))}</span></summary>
-          <small>${escapeHtml(premise)}</small>
-          <span class="stage-branch-meta">${escapeHtml(actors || branch.core_tension || "")}</span>
-          <span class="stage-branch-visual-brief">${escapeHtml(branch.visual_brief || "")}</span>
-        </details>
-      </${tag}>`;
+      const title = localizedReferenceTitle(branch.strategy_label || node?.title || t("workflow.choose"));
+      const fullRows = [
+        [locale === "zh" ? "What-if 问题" : "What-if question", localizedReferenceTitle(branch.what_if || "")],
+        [locale === "zh" ? "未来前提" : "Future premise", premise],
+        [locale === "zh" ? "核心张力" : "Core tension", branch.core_tension],
+        [locale === "zh" ? "关键角色" : "Key actors", actors],
+        [locale === "zh" ? "视觉线索" : "Visual brief", branch.visual_brief],
+        [locale === "zh" ? "引导追问" : "Facilitation prompt", (branch.facilitation || {}).opening_question],
+      ].filter(([, value]) => String(value || "").trim());
+      const visualMarkup = imageUrl
+        ? `<img class="stage-branch-image" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(branch.visual_brief || branch.what_if || "")}" loading="lazy" />`
+        : `<span class="stage-branch-visual ${imageStatus === "failed" ? "is-failed" : "is-generating"}" aria-hidden="true"><i></i><b></b><em></em><strong>${escapeHtml(imageStatus === "failed" || imageError ? t("workflow.imageFailed") : t("workflow.imageGenerating"))}</strong></span>`;
+      return `<details class="stage-branch-card ${selected ? "is-selected" : ""}" data-branch-strategy="${escapeHtml(branch.strategy || "")}">
+        <summary class="stage-branch-overview">
+          ${visualMarkup}
+          <strong>${escapeHtml(title)}</strong>
+          <span>${escapeHtml(t("workflow.expandText"))}</span>
+        </summary>
+        <dl class="stage-branch-full">
+          ${fullRows.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("")}
+        </dl>
+      </details>`;
     }).join("")}</div>
   </section>`;
 }
@@ -1714,7 +1726,7 @@ function toggleQuickInputSelection(option) {
   if (selected.has(id)) {
     selected.delete(id);
   } else {
-    if (option.action === "select_branch" || option.action === "run_four_futures" || option.action === "run_scenario" || option.action === "confirm_keywords") {
+    if (option.action === "select_branch" || option.action === "run_four_futures" || option.action === "run_scenario" || option.action === "confirm_keywords" || option.action === "begin_scenario" || option.action === "continue_tools") {
       selected.clear();
     }
     selected.set(id, option);
@@ -1802,8 +1814,32 @@ function localizedQuickOptions(stage, guide, workflow) {
       })
       .sort((a, b) => Number(Boolean(b.recommended)) - Number(Boolean(a.recommended)));
     return selectedCount
-      ? [...toolOptions, quickButton(t("conversation.generateScenario"), "", "run_scenario")]
+      ? [
+        quickButton(t("conversation.prepareScenario"), "", "begin_scenario"),
+        quickButton(t("conversation.continueTools"), "", "continue_tools"),
+        ...toolOptions,
+      ]
       : toolOptions;
+  }
+  if (stage === "scenario_probe") {
+    return [
+      quickButton(zh ? `${topic} 落在一个真实使用现场` : `${topic} lands in a real use scene`, zh ? `${topic} 落在一个真实使用现场，关键角色必须当场判断是否接受、拒绝或修正系统。` : `${topic} lands in a real use scene where a key actor must accept, refuse, or revise the system.`),
+      quickButton(zh ? "从被影响但少发声的人开始" : "Start from a quieter affected actor", zh ? `从一个被 ${topic} 影响、但通常没有解释权的人开始。` : `Start from someone affected by ${topic} but rarely given interpretive agency.`),
+      quickButton(zh ? "从一次中止或人工复核开始" : "Start from a stop or manual review", zh ? "情境从一次临时中止、人工复核或拒绝默认流程的瞬间开始。" : "The scenario begins with a temporary stop, manual review, or refusal of the default flow."),
+    ];
+  }
+  if (stage === "scenario_refine") {
+    return [
+      quickButton(zh ? "保留工具揭示的连锁影响" : "Keep the tool's chain of impacts", zh ? "保留工具结果中最具体的一阶影响，并让它变成现场里的可见后果。" : "Keep the most concrete first-order impact from the tool result and make it visible in the scene."),
+      quickButton(zh ? "保留拒绝权与解释权冲突" : "Keep refusal versus explanation", zh ? "保留角色是否能拒绝系统、谁需要解释判断的冲突。" : "Keep the conflict around whether a person can refuse the system and who must explain the judgment."),
+      quickButton(zh ? "保留证据和修改痕迹" : "Keep evidence and revision traces", zh ? "保留可复盘的证据、修改痕迹、责任标记和被暂存的分歧。" : "Keep reviewable evidence, revision traces, responsibility markers, and unresolved disagreement."),
+    ];
+  }
+  if (stage === "scenario_ready") {
+    return [
+      quickButton(t("conversation.generateScenario"), "", "run_scenario"),
+      quickButton(t("conversation.continueTools"), "", "continue_tools"),
+    ];
   }
   return [
     quickButton(zh ? "换个角度追问" : "Ask from another angle", zh ? `围绕 ${topic} 重新追问角色、依据和不确定性。` : `Revisit roles, evidence, and uncertainty around ${topic}.`, "answer"),
@@ -1870,6 +1906,7 @@ function agentGuidePayload(session, stage, workflow) {
     has_branches: Boolean(workflow?.branch_node_ids?.length),
     branch_titles: branchTitles.slice(0, 4),
     selected_branch: compactConversationText(localizedReferenceTitle(findNode(workflow?.selected_branch_node_id)?.title || ""), 160),
+    selected_tools: activeStageTools().map((tool) => compactConversationText(localizedToolCopy(tool, "label"), 120)).filter(Boolean),
     history: (session?.messages || [])
       .filter((message) => message.kind !== "activity")
       .slice(-4)
@@ -1886,6 +1923,10 @@ function agentOptionAction(stage, option) {
   const text = String(option || "");
   if (stage === "start") return "begin";
   if (["frame_focus", "frame_assumptions", "frame_stakeholders", "frame_tensions"].includes(stage)) return "answer";
+  if (["scenario_probe", "scenario_refine"].includes(stage)) return "scenario_answer";
+  if (stage === "scenario_ready") {
+    return text.includes("继续") || text.toLowerCase().includes("continue") ? "continue_tools" : "run_scenario";
+  }
   if (stage === "keywords") {
     return "confirm_keywords";
   }
@@ -1896,7 +1937,7 @@ function agentOptionAction(stage, option) {
 }
 
 function agentQuickOptions(stage, fallbackOptions, agentGuide, workflow) {
-  if ((stage === "four_futures" && workflow?.branch_node_ids?.length) || stage === "tools") {
+  if ((stage === "four_futures" && workflow?.branch_node_ids?.length) || stage === "tools" || stage === "scenario_ready") {
     return fallbackOptions;
   }
   const options = Array.isArray(agentGuide?.options) ? agentGuide.options.filter(Boolean).slice(0, 5) : [];
@@ -1979,7 +2020,19 @@ function renderConversationGuide(session) {
     `;
   } else if (stage === "tools") {
     conversationGuideActions.innerHTML = `
-      <span>${escapeHtml(liveQuestion || (localized ? "选择一个或多个工具介入当前情境线，再按发送确认。" : "Choose one or more tools for the current scenario line, then press Send."))}</span>
+      <span>${escapeHtml(liveQuestion || (localized ? "先选择工具；选中后可以进入情境生成追问，也可以继续补充工具。" : "Choose tools first; after one is selected, continue to scenario probing or choose more tools."))}</span>
+      ${liveHint || loadingHint ? `<small class="agent-guide-hint">${escapeHtml(liveHint || loadingHint)}</small>` : ""}
+      ${quickMarkup}
+    `;
+  } else if (["scenario_probe", "scenario_refine"].includes(stage)) {
+    conversationGuideActions.innerHTML = `
+      <span>${escapeHtml(liveQuestion || (stage === "scenario_probe" ? (localized ? "先锁定最终情境的具体现场、角色或临界动作。" : "First lock the final scenario's concrete scene, actor, or threshold moment.") : (localized ? "再选择一个必须保留到最终情境里的冲突、证据或视觉细节。" : "Now choose one conflict, evidence trace, or visual detail that must stay in the final scenario.")))}</span>
+      ${liveHint || loadingHint ? `<small class="agent-guide-hint">${escapeHtml(liveHint || loadingHint)}</small>` : ""}
+      ${quickMarkup}
+    `;
+  } else if (stage === "scenario_ready") {
+    conversationGuideActions.innerHTML = `
+      <span>${escapeHtml(liveQuestion || (localized ? "追问材料已稳定。现在生成一个图文情境，或继续选择工具补充分析。" : "The probing material is stable. Generate one text-image scenario, or continue choosing tools."))}</span>
       ${liveHint || loadingHint ? `<small class="agent-guide-hint">${escapeHtml(liveHint || loadingHint)}</small>` : ""}
       ${quickMarkup}
     `;
@@ -2350,7 +2403,16 @@ async function submitConversationMessage(event) {
     const toolIds = selectedOptions.filter((option) => option.action === "tool_select").map((option) => option.body).filter(Boolean);
     clearQuickInputs(session);
     await applySelectedDiscussionTools(toolIds);
-    await runSelectedDiscussionNode();
+    return;
+  }
+  if (selectedActions.has("begin_scenario")) {
+    clearQuickInputs(session);
+    await advanceConversationGuide({ action: "begin_scenario" });
+    return;
+  }
+  if (selectedActions.has("continue_tools")) {
+    clearQuickInputs(session);
+    await loadCanvas({ preserveView: true });
     return;
   }
   if (selectedActions.has("run_scenario")) {
@@ -2362,9 +2424,9 @@ async function submitConversationMessage(event) {
   const body = (typedBody || selectedBody).trim();
   if (!body) return;
   const stage = session.guide?.stage_id || "";
-  const isGuidedEntry = stage === "start" || ["frame_focus", "frame_assumptions", "frame_stakeholders", "frame_tensions"].includes(stage);
+  const isGuidedEntry = stage === "start" || ["frame_focus", "frame_assumptions", "frame_stakeholders", "frame_tensions", "scenario_probe", "scenario_refine"].includes(stage);
   const payload = isGuidedEntry
-    ? { action: stage === "start" ? "begin" : "answer", body, input_perspective: conversationPerspective }
+    ? { action: stage === "start" ? "begin" : (stage.startsWith("scenario_") ? "scenario_answer" : "answer"), body, input_perspective: conversationPerspective }
     : { body, scope_id: activeScopeId, input_perspective: conversationPerspective };
   await requestJson(`/api/projects/${activeProject.id}/conversations/${session.id}/${isGuidedEntry ? "guide-actions" : "messages"}`, {
     method: "POST",
@@ -3863,7 +3925,7 @@ function exportCurrentCanvasPdf() {
     : `<p class="report-empty">${escapeHtml(t("workflowStrip.empty"))}</p>`;
   const nodeMarkup = printableNodeReport();
   const chatMarkup = printableChatReport(session);
-  const stylesheet = `/static/styles.css?v=20260804-read-merge-preview`;
+  const stylesheet = `/static/styles.css?v=20260804-scenario-probe-cards`;
   reportWindow.document.open();
   reportWindow.document.write(`<!doctype html>
 <html lang="${locale === "zh" ? "zh-CN" : "en"}">

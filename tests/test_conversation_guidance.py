@@ -216,6 +216,23 @@ def test_selected_branch_adds_required_discussion_tool_node_without_preselecting
             message.get("activity", {}).get("type") == "workflow.discussion_tools_changed"
             for message in session["messages"]
         )
+
+        started_probe = advance_conversation_guide("project-a", session_id, {"action": "begin_scenario"})
+        assert started_probe["conversation"]["guide"]["stage_id"] == "scenario_probe"
+
+        refined = advance_conversation_guide(
+            "project-a",
+            session_id,
+            {"action": "scenario_answer", "body": "从一次人工复核中止开始"},
+        )
+        assert refined["conversation"]["guide"]["stage_id"] == "scenario_refine"
+
+        ready = advance_conversation_guide(
+            "project-a",
+            session_id,
+            {"action": "scenario_answer", "body": "保留拒绝权与解释权冲突"},
+        )
+        assert ready["conversation"]["guide"]["stage_id"] == "scenario_ready"
     finally:
         if original_runs is None:
             os.environ.pop("SPEC_WEB_ENABLE_OPENAI_RUNS", None)

@@ -7379,6 +7379,101 @@ body {
   stroke-width: 1;
 }
 
+.canvas-shell.active .stage-card-track > .stage-branch-card {
+  flex-basis: min(236px, 90%);
+  min-height: 0;
+}
+
+.canvas-shell.active .stage-branch-card {
+  display: block;
+  padding: 0;
+  overflow: hidden;
+}
+
+.canvas-shell.active .stage-branch-overview {
+  display: grid;
+  grid-template-rows: 118px auto auto;
+  gap: 8px;
+  min-height: 0;
+  padding: 10px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.canvas-shell.active .stage-branch-overview::-webkit-details-marker {
+  display: none;
+}
+
+.canvas-shell.active .stage-branch-overview .stage-branch-image,
+.canvas-shell.active .stage-branch-overview .stage-branch-visual {
+  width: 100%;
+  height: 118px;
+}
+
+.canvas-shell.active .stage-branch-overview > strong {
+  display: block;
+  min-width: 0;
+  color: #15191d;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.canvas-shell.active .stage-branch-overview > span {
+  justify-self: start;
+  border: 1px solid rgba(240, 42, 12, 0.32);
+  border-radius: 999px;
+  padding: 3px 8px;
+  color: #e12a11;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.canvas-shell.active .stage-branch-card[open] .stage-branch-overview > span {
+  background: rgba(240, 42, 12, 0.1);
+}
+
+.canvas-shell.active .stage-branch-full {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  border-top: 1px solid rgba(20, 24, 28, 0.1);
+  padding: 0 10px 12px;
+}
+
+.canvas-shell.active .stage-branch-full div {
+  display: grid;
+  gap: 2px;
+}
+
+.canvas-shell.active .stage-branch-full dt {
+  color: #e12a11;
+  font-size: 9.5px;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.canvas-shell.active .stage-branch-full dd {
+  margin: 0;
+  color: #394047;
+  font-size: 10.5px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.canvas-shell.active .conversation-workbench .tool-sidebar-row .tool-sidebar-asset {
+  width: 128%;
+  height: 128%;
+  object-fit: contain;
+  transform: scale(1.18);
+}
+
+.canvas-shell.active .conversation-workbench .tool-sidebar-row .tool-card-mark {
+  width: 96%;
+  height: 96%;
+}
+
 .canvas-shell.active .progress-step.is-focused,
 .canvas-shell.active .progress-step.is-focused:hover,
 .canvas-shell.active .progress-step.is-focused:focus-visible {
